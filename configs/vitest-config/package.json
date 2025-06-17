@@ -1,6 +1,7 @@
 {
   "name": "@monguard/vitest-config",
   "type": "module",
+  "private": true,
   "exports": {
     "./base": "./dist/configs/base-config.js",
     "./ui": "./dist/configs/ui-config.js"
