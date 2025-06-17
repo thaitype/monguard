@@ -1,0 +1,28 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist"]
+    },
+    "test": {
+      "dependsOn": ["@monguard/vitest-config#build", "^test"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint:check": {
+      "dependsOn": ["@monguard/vitest-config#build", "^lint:check"]
+    },
+    "lint:fix": {},
+    "check-types": {
+      "dependsOn": ["@monguard/vitest-config#build", "^check-types"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

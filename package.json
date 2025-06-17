@@ -1,0 +1,36 @@
+{
+  "name": "@monguard/root",
+  "private": true,
+  "scripts": {
+    "prepare": "turbo build @monguard/vitest-config#build",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo lint:check check-types && npm run format",
+    "lint:fix": "turbo lint:fix && npm run format:fix",
+    "format": "prettier --check ./**/*.{ts,js}",
+    "format:fix": "prettier --write ./**/*.{ts,js}",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "test:coverage-report": "turbo run view-report",
+    "upgrade-deps": "npx taze -r --interactive",
+    "check-deps": "npx taze -r"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.3",
+    "typescript": "5.8.2"
+  },
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "prettier": {
+    "trailingComma": "es5",
+    "tabWidth": 2,
+    "useTabs": false,
+    "semi": true,
+    "singleQuote": true,
+    "printWidth": 120,
+    "arrowParens": "avoid"
+  }
+}
