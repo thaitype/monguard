@@ -13,7 +13,9 @@
     "test:watch": "turbo run test:watch",
     "test:coverage-report": "turbo run view-report",
     "upgrade-deps": "npx taze -r --interactive",
-    "check-deps": "npx taze -r"
+    "check-deps": "npx taze -r",
+    "release": "run-s all && changeset version && changeset publish",
+    "changeset": "changeset"
   },
   "devDependencies": {
     "prettier": "^3.5.3",
