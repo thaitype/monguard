@@ -1,13 +1,13 @@
-import { 
-  Collection, 
-  Db, 
+import {
+  Collection,
+  Db,
   ObjectId
 } from 'mongodb';
 import type {
-  Filter, 
-  UpdateFilter, 
-  InsertOneResult, 
-  UpdateResult, 
+  Filter,
+  UpdateFilter,
+  InsertOneResult,
+  UpdateResult,
   DeleteResult,
   FindOptions as MongoFindOptions,
   WithoutId
@@ -52,7 +52,7 @@ export class MonguardCollection<T extends BaseDocument> {
     options?: Partial<MonguardCollectionOptions>,
   ) {
     this.options = merge({}, defaultOptions, options);
-    this.collection =  db.collection<T>(collectionName);
+    this.collection = db.collection<T>(collectionName);
     this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName);
     this.collectionName = collectionName;
   }
@@ -65,7 +65,7 @@ export class MonguardCollection<T extends BaseDocument> {
   ): Promise<void> {
     try {
       const auditLog: WithoutId<AuditLogDocument> = {
-        ref: { 
+        ref: {
           collection: this.collectionName,
           id: documentId
         },
@@ -84,8 +84,8 @@ export class MonguardCollection<T extends BaseDocument> {
   }
 
   private addTimestamps<D extends Record<string, any>>(
-    document: D, 
-    isUpdate: boolean = false, 
+    document: D,
+    isUpdate: boolean = false,
     userContext?: UserContext
   ): D {
     const now = new Date();
@@ -118,7 +118,7 @@ export class MonguardCollection<T extends BaseDocument> {
   }
 
   async create(
-    document: CreateDocument<T>, 
+    document: CreateDocument<T>,
     options: CreateOptions = {}
   ): Promise<WrapperResult<T & { _id: ObjectId }>> {
     try {
@@ -147,16 +147,16 @@ export class MonguardCollection<T extends BaseDocument> {
   }
 
   async findById(
-    id: ObjectId, 
+    id: ObjectId,
     options: FindOptions = {}
   ): Promise<WrapperResult<T | null>> {
     try {
-      const filter = options.includeSoftDeleted 
+      const filter = options.includeSoftDeleted
         ? { _id: id } as Filter<T>
         : this.mergeSoftDeleteFilter({ _id: id } as Filter<T>);
 
       const document = await this.collection.findOne(filter);
-      
+
       return {
         success: true,
         data: document as T | null
@@ -174,8 +174,8 @@ export class MonguardCollection<T extends BaseDocument> {
     options: FindOptions = {}
   ): Promise<WrapperResult<T[]>> {
     try {
-      const finalFilter = options.includeSoftDeleted 
-        ? filter 
+      const finalFilter = options.includeSoftDeleted
+        ? filter
         : this.mergeSoftDeleteFilter(filter);
 
       const mongoOptions: MongoFindOptions = {};
@@ -200,16 +200,16 @@ export class MonguardCollection<T extends BaseDocument> {
   }
 
   async findOne(
-    filter: Filter<T>, 
+    filter: Filter<T>,
     options: FindOptions = {}
   ): Promise<WrapperResult<T | null>> {
     try {
-      const finalFilter = options.includeSoftDeleted 
-        ? filter 
+      const finalFilter = options.includeSoftDeleted
+        ? filter
         : this.mergeSoftDeleteFilter(filter);
 
       const document = await this.collection.findOne(finalFilter);
-      
+
       return {
         success: true,
         data: document as T | null
@@ -229,7 +229,7 @@ export class MonguardCollection<T extends BaseDocument> {
   ): Promise<WrapperResult<UpdateResult>> {
     try {
       let beforeDoc: T | null = null;
-      
+
       if (!options.skipAudit) {
         const beforeResult = await this.findOne(filter, { includeSoftDeleted: true });
         beforeDoc = beforeResult.data || null;
@@ -246,8 +246,8 @@ export class MonguardCollection<T extends BaseDocument> {
 
       const finalFilter = this.mergeSoftDeleteFilter(filter);
       const result = await this.collection.updateOne(
-        finalFilter, 
-        timestampedUpdate, 
+        finalFilter,
+        timestampedUpdate,
         { upsert: options.upsert }
       );
 
@@ -296,18 +296,28 @@ export class MonguardCollection<T extends BaseDocument> {
   ): Promise<WrapperResult<UpdateResult | DeleteResult>> {
     try {
       if (options.hardDelete) {
-        const result = await this.collection.deleteMany(filter);
-        
-        if (!options.skipAudit) {
-          // Note: Hard delete makes it impossible to get the document for audit
-          await this.createAuditLog(
-            'delete',
-            new ObjectId(), // Placeholder since we can't get the actual ID
-            options.userContext,
-            { hardDelete: true }
-          );
-        }
+        // 1. Get documents to delete
+        const docsToDelete = !options.skipAudit
+          ? await this.collection.find(filter).toArray()
+          : [];
 
+        // 2. Actually delete the documents
+        const result = await this.collection.deleteMany(filter);
+
+        // 3. Create audit logs for hard delete
+        if (!options.skipAudit) {
+          for (const doc of docsToDelete) {
+            await this.createAuditLog(
+              'delete',
+              doc._id,
+              options.userContext,
+              {
+                hardDelete: true,
+                before: doc
+              }
+            );
+          }
+        }
         return {
           success: true,
           data: result
@@ -374,7 +384,7 @@ export class MonguardCollection<T extends BaseDocument> {
       } as any;
 
       const result = await this.collection.updateMany(
-        { ...filter, deletedAt: { $exists: true } } as Filter<T>, 
+        { ...filter, deletedAt: { $exists: true } } as Filter<T>,
         restoreUpdate
       );
 
@@ -395,12 +405,12 @@ export class MonguardCollection<T extends BaseDocument> {
     includeSoftDeleted: boolean = false
   ): Promise<WrapperResult<number>> {
     try {
-      const finalFilter = includeSoftDeleted 
-        ? filter 
+      const finalFilter = includeSoftDeleted
+        ? filter
         : this.mergeSoftDeleteFilter(filter);
 
       const count = await this.collection.countDocuments(finalFilter);
-      
+
       return {
         success: true,
         data: count
@@ -419,10 +429,10 @@ export class MonguardCollection<T extends BaseDocument> {
 
     for (const key of allKeys) {
       if (key === 'updatedAt' || key === 'updatedBy') continue;
-      
+
       const beforeValue = before[key];
       const afterValue = after[key];
-      
+
       if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
         changes.push(key);
       }
