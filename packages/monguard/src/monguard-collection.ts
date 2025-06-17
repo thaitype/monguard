@@ -35,10 +35,17 @@ export interface MonguardCollectionOptions {
    * If not provided, defaults to 'audit_logs'.
    */
   auditCollectionName: string;
+  /**
+   * Globally disable audit logging for this collection.
+   * When true, no audit logs will be created regardless of skipAudit options.
+   * If not provided, defaults to false.
+   */
+  disableAudit?: boolean;
 }
 
 const defaultOptions: MonguardCollectionOptions = {
-  auditCollectionName: 'audit_logs'
+  auditCollectionName: 'audit_logs',
+  disableAudit: false
 };
 
 export class MonguardCollection<T extends BaseDocument> {
@@ -64,6 +71,11 @@ export class MonguardCollection<T extends BaseDocument> {
     userContext?: UserContext,
     metadata?: Record<string, any>
   ): Promise<void> {
+    // Return early if audit logging is globally disabled
+    if (this.options.disableAudit) {
+      return;
+    }
+
     try {
       const auditLog: WithoutId<AuditLogDocument> = {
         ref: {
@@ -126,7 +138,7 @@ export class MonguardCollection<T extends BaseDocument> {
       const timestampedDoc = this.addTimestamps(document, false, options.userContext);
       const result: InsertOneResult<T> = await this.collection.insertOne(timestampedDoc as any);
 
-      if (!options.skipAudit) {
+      if (!options.skipAudit && !this.options.disableAudit) {
         await this.createAuditLog(
           'create',
           result.insertedId,
@@ -231,7 +243,7 @@ export class MonguardCollection<T extends BaseDocument> {
     try {
       let beforeDoc: T | null = null;
 
-      if (!options.skipAudit) {
+      if (!options.skipAudit && !this.options.disableAudit) {
         const beforeResult = await this.findOne(filter, { includeSoftDeleted: true });
         beforeDoc = beforeResult.data || null;
       }
@@ -252,7 +264,7 @@ export class MonguardCollection<T extends BaseDocument> {
         { upsert: options.upsert }
       );
 
-      if (!options.skipAudit && result.modifiedCount > 0) {
+      if (!options.skipAudit && !this.options.disableAudit && result.modifiedCount > 0) {
         const afterResult = await this.findOne(filter, { includeSoftDeleted: true });
         const afterDoc = afterResult.data;
 
@@ -298,7 +310,7 @@ export class MonguardCollection<T extends BaseDocument> {
     try {
       if (options.hardDelete) {
         // 1. Get documents to delete
-        const docsToDelete = !options.skipAudit
+        const docsToDelete = (!options.skipAudit && !this.options.disableAudit)
           ? await this.collection.find(filter).toArray()
           : [];
 
@@ -306,7 +318,7 @@ export class MonguardCollection<T extends BaseDocument> {
         const result = await this.collection.deleteMany(filter);
 
         // 3. Create audit logs for hard delete
-        if (!options.skipAudit) {
+        if (!options.skipAudit && !this.options.disableAudit) {
           for (const doc of docsToDelete) {
             await this.createAuditLog(
               'delete',
@@ -335,14 +347,14 @@ export class MonguardCollection<T extends BaseDocument> {
         };
 
         let beforeDoc: T | null = null;
-        if (!options.skipAudit) {
+        if (!options.skipAudit && !this.options.disableAudit) {
           const beforeResult = await this.findOne(filter);
           beforeDoc = beforeResult.data || null;
         }
 
         const result = await this.collection.updateMany(finalFilter, softDeleteUpdate);
 
-        if (!options.skipAudit && beforeDoc) {
+        if (!options.skipAudit && !this.options.disableAudit && beforeDoc) {
           await this.createAuditLog(
             'delete',
             beforeDoc._id,
