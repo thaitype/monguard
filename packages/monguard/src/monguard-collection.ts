@@ -27,6 +27,7 @@ import type {
   UserContext,
   CreateDocument
 } from './types';
+import { toObjectId } from './types';
 
 export interface MonguardCollectionOptions {
   /**
@@ -70,7 +71,7 @@ export class MonguardCollection<T extends BaseDocument> {
           id: documentId
         },
         action,
-        userId: userContext?.userId,
+        userId: userContext?.userId ? toObjectId(userContext.userId) : undefined,
         timestamp: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -94,13 +95,13 @@ export class MonguardCollection<T extends BaseDocument> {
     if (!isUpdate) {
       (timestamped as any).createdAt = now;
       if (userContext && 'createdBy' in timestamped) {
-        (timestamped as any).createdBy = userContext.userId;
+        (timestamped as any).createdBy = toObjectId(userContext.userId);
       }
     }
 
     (timestamped as any).updatedAt = now;
     if (userContext && 'updatedBy' in timestamped) {
-      (timestamped as any).updatedBy = userContext.userId;
+      (timestamped as any).updatedBy = toObjectId(userContext.userId);
     }
 
     return timestamped;
@@ -240,7 +241,7 @@ export class MonguardCollection<T extends BaseDocument> {
         $set: {
           ...((update as any).$set || {}),
           updatedAt: new Date(),
-          ...(options.userContext && { updatedBy: options.userContext.userId })
+          ...(options.userContext && { updatedBy: toObjectId(options.userContext.userId) })
         }
       };
 
@@ -329,7 +330,7 @@ export class MonguardCollection<T extends BaseDocument> {
           $set: {
             deletedAt: new Date(),
             updatedAt: new Date(),
-            ...(options.userContext && { deletedBy: options.userContext.userId })
+            ...(options.userContext && { deletedBy: toObjectId(options.userContext.userId) })
           } as any
         };
 
@@ -379,7 +380,7 @@ export class MonguardCollection<T extends BaseDocument> {
         $unset: { deletedAt: "", deletedBy: "" },
         $set: {
           updatedAt: new Date(),
-          ...(userContext && { updatedBy: userContext.userId })
+          ...(userContext && { updatedBy: toObjectId(userContext.userId) })
         }
       } as any;
 

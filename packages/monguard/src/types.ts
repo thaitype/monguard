@@ -1,5 +1,9 @@
 import { ObjectId } from 'mongodb';
 
+export function toObjectId(id: ObjectId | string): ObjectId {
+  return typeof id === 'string' ? new ObjectId(id) : id;
+}
+
 export interface BaseDocument {
   _id: ObjectId;
   createdAt: Date;
@@ -31,7 +35,7 @@ export interface AuditLogDocument extends BaseDocument {
 }
 
 export interface UserContext {
-  userId: ObjectId;
+  userId: ObjectId | string;
 }
 
 export interface CreateOptions {
