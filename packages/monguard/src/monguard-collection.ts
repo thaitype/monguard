@@ -61,11 +61,11 @@ export class MonguardCollection<T extends BaseDocument> {
     action: AuditAction,
     documentId: ObjectId,
     userContext?: UserContext,
-    metadata?: any
+    metadata?: Record<string, any>
   ): Promise<void> {
     try {
       const auditLog: WithoutId<AuditLogDocument> = {
-        ref: {
+        ref: { 
           collection: this.collectionName,
           id: documentId
         },

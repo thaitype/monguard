@@ -21,7 +21,7 @@ export interface AuditLogDocument extends BaseDocument {
     id: ObjectId;
   };
   action: AuditAction;
-  userId: ObjectId;
+  userId?: ObjectId;
   timestamp: Date;
   metadata?: {
     before?: any;
