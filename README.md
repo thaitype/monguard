@@ -22,20 +22,6 @@ In real-world apps, deleting data is rarely the end of the story. Whether it's r
 
 With just a single call, you can guard your collections against accidental data loss while keeping every change accountable.
 
-### 🚀 Example
-
-```ts
-import { applyMonguard } from 'monguard'
-import { Schema } from 'mongoose'
-
-const userSchema = new Schema({ name: String })
-
-applyMonguard(userSchema, {
-  audit: true,     // Enable audit logging
-  softDelete: true // Enable soft delete
-})
-```
-
 ### 📦 Installation
 
 ```bash

@@ -2,7 +2,7 @@
   "name": "@monguard/root",
   "private": true,
   "scripts": {
-    "prepare": "turbo build @monguard/vitest-config#build",
+    "prepare": "turbo run @monguard/vitest-config#build",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "all": "run-s build",

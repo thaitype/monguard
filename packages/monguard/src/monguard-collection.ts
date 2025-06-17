@@ -12,6 +12,7 @@ import type {
   FindOptions as MongoFindOptions,
   WithoutId
 } from 'mongodb';
+import { merge } from 'lodash-es';
 
 import type {
   BaseDocument,
@@ -27,17 +28,32 @@ import type {
   CreateDocument
 } from './types';
 
+export interface MonguardCollectionOptions {
+  /**
+   * Audit collection name.
+   * If not provided, defaults to 'audit_logs'.
+   */
+  auditCollectionName: string;
+}
+
+const defaultOptions: MonguardCollectionOptions = {
+  auditCollectionName: 'audit_logs'
+};
+
 export class MonguardCollection<T extends BaseDocument> {
   private collection: Collection<T>;
   private auditCollection: Collection<AuditLogDocument>;
   private collectionName: string;
+  private options: MonguardCollectionOptions;
 
   constructor(
     db: Db,
     collectionName: string,
+    options?: Partial<MonguardCollectionOptions>,
   ) {
+    this.options = merge({}, defaultOptions, options);
     this.collection =  db.collection<T>(collectionName);
-    this.auditCollection = db.collection<AuditLogDocument>('audit_logs');
+    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName);
     this.collectionName = collectionName;
   }
 
@@ -54,7 +70,7 @@ export class MonguardCollection<T extends BaseDocument> {
           id: documentId
         },
         action,
-        userId: userContext?.userId || new ObjectId(),
+        userId: userContext?.userId,
         timestamp: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
