@@ -3,7 +3,9 @@
     "allow": [
       "Bash(pnpm --filter=monguard test:ci src/test/unit)",
       "Bash(pnpm --filter=monguard test:ci)",
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm check-types:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

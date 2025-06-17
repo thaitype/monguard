@@ -32,7 +32,10 @@ describe('MonguardCollection Internal Methods', () => {
   beforeEach(async () => {
     testDb = new TestDatabase();
     db = await testDb.start();
-    collection = new TestableMonguardCollection<TestUser>(db, 'test_users');
+    collection = new TestableMonguardCollection<TestUser>(db, 'test_users', {
+      auditCollectionName: 'audit_logs',
+      config: { transactionsEnabled: false }
+    });
   });
 
   afterEach(async () => {

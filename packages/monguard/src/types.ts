@@ -38,6 +38,8 @@ export interface AuditLogDocument extends BaseDocument {
     before?: any;
     after?: any;
     changes?: string[];
+    softDelete?: boolean;
+    hardDelete?: boolean;
   };
 }
 

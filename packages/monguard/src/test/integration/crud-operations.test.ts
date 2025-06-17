@@ -13,7 +13,10 @@ describe('CRUD Operations Integration Tests', () => {
   beforeEach(async () => {
     testDb = new TestDatabase();
     db = await testDb.start();
-    collection = new MonguardCollection<TestUser>(db, 'test_users');
+    collection = new MonguardCollection<TestUser>(db, 'test_users', {
+      auditCollectionName: 'audit_logs',
+      config: { transactionsEnabled: false }
+    });
   });
 
   afterEach(async () => {

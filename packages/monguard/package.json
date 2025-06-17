@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --coverage",
     "test": "vitest",
     "test:ci": "vitest run",
+    "check-types": "tsc --noEmit",
     "build": "tsup src/main.ts --dts --format esm,cjs",
     "format": "prettier -w src",
     "lint": "tsc --noEmit && eslint ./src && prettier -c src",

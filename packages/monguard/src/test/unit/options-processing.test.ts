@@ -291,7 +291,9 @@ describe('Options Processing and Edge Cases', () => {
   describe('Global Audit Disable', () => {
     it('should not create audit logs when globally disabled', async () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        config: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -313,7 +315,9 @@ describe('Options Processing and Edge Cases', () => {
 
     it('should ignore skipAudit when globally disabled', async () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        config: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
