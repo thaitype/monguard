@@ -446,7 +446,7 @@ describe('CRUD Operations Integration Tests', () => {
     });
 
     it('should count with filter', async () => {
-      const result = await collection.count({ name: 'User 1' });
+      const result = await collection.count({ name: 'User 5' }); // User 5 should not be deleted (only first 3 are deleted)
       
       TestAssertions.expectSuccess(result);
       expect(result.data).toBe(1);

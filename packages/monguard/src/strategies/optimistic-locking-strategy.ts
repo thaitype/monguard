@@ -245,57 +245,68 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
           
           return deleteResult;
         } else {
-          // Soft delete with version control
-          const beforeDoc = await this.context.collection.findOne(
+          // Soft delete with version control - handle multiple documents
+          const beforeDocs = await this.context.collection.find(
             this.context.mergeSoftDeleteFilter(filter)
-          );
+          ).toArray();
           
-          if (!beforeDoc) {
+          if (beforeDocs.length === 0) {
             return { acknowledged: true, modifiedCount: 0, upsertedCount: 0, upsertedId: null, matchedCount: 0 };
           }
           
-          const currentVersion = beforeDoc.version || 1;
+          let totalModified = 0;
           
-          const softDeleteUpdate = {
-            $set: {
-              deletedAt: new Date(),
-              updatedAt: new Date(),
-              ...(options.userContext && { deletedBy: toObjectId(options.userContext.userId) })
-            },
-            $inc: { version: 1 }
-          };
-          
-          // Use version in filter for optimistic locking
-          const versionedFilter = {
-            ...this.context.mergeSoftDeleteFilter(filter),
-            version: currentVersion
-          };
-          
-          const updateResult = await this.context.collection.updateMany(
-            versionedFilter,
-            softDeleteUpdate
-          );
-          
-          // Check for version conflict
-          if (updateResult.modifiedCount === 0 && beforeDoc) {
-            throw new Error('Version conflict: Document was modified by another operation');
-          }
-          
-          // Create audit log after successful soft delete
-          if (!options.skipAudit && !this.context.disableAudit && updateResult.modifiedCount > 0) {
-            try {
-              await this.context.createAuditLog(
-                'delete',
-                beforeDoc._id,
-                options.userContext,
-                { softDelete: true, before: beforeDoc }
-              );
-            } catch (auditError) {
-              console.error('Failed to create audit log for soft delete operation:', auditError);
+          // Process each document individually for version control
+          for (const beforeDoc of beforeDocs) {
+            const currentVersion = beforeDoc.version || 1;
+            
+            const softDeleteUpdate = {
+              $set: {
+                deletedAt: new Date(),
+                updatedAt: new Date(),
+                ...(options.userContext && { deletedBy: toObjectId(options.userContext.userId) })
+              },
+              $inc: { version: 1 }
+            };
+            
+            // Use version in filter for optimistic locking
+            const versionedFilter = {
+              _id: beforeDoc._id,
+              version: currentVersion,
+              deletedAt: { $exists: false }
+            };
+            
+            const updateResult = await this.context.collection.updateOne(
+              versionedFilter,
+              softDeleteUpdate
+            );
+            
+            if (updateResult.modifiedCount > 0) {
+              totalModified += updateResult.modifiedCount;
+              
+              // Create audit log after successful soft delete
+              if (!options.skipAudit && !this.context.disableAudit) {
+                try {
+                  await this.context.createAuditLog(
+                    'delete',
+                    beforeDoc._id,
+                    options.userContext,
+                    { softDelete: true, before: beforeDoc }
+                  );
+                } catch (auditError) {
+                  console.error('Failed to create audit log for soft delete operation:', auditError);
+                }
+              }
             }
           }
           
-          return updateResult;
+          return { 
+            acknowledged: true, 
+            modifiedCount: totalModified, 
+            upsertedCount: 0, 
+            upsertedId: null, 
+            matchedCount: beforeDocs.length 
+          };
         }
       });
       
