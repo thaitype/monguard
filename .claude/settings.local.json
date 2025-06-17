@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter=monguard test:ci src/test/unit)",
+      "Bash(pnpm --filter=monguard test:ci)"
+    ],
+    "deny": []
+  }
+}
