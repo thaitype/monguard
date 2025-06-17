@@ -18,15 +18,19 @@ describe('Options Processing and Edge Cases', () => {
   });
 
   describe('MonguardCollectionOptions', () => {
-    it('should use default options when none provided', () => {
-      const collection = new MonguardCollection<TestUser>(db, 'test_users');
+    it('should use default options with explicit config', () => {
+      const collection = new MonguardCollection<TestUser>(db, 'test_users', {
+        auditCollectionName: 'audit_logs',
+        config: { transactionsEnabled: false }
+      });
       
       expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
     });
 
     it('should use custom audit collection name', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'custom_audit'
+        auditCollectionName: 'custom_audit',
+        config: { transactionsEnabled: false }
       });
       
       expect(collection.getAuditCollection().collectionName).toBe('custom_audit');
@@ -34,7 +38,9 @@ describe('Options Processing and Edge Cases', () => {
 
     it('should handle disableAudit option', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        config: { transactionsEnabled: false }
       });
       
       // We can't directly test the private options, but we can test the behavior
@@ -43,17 +49,49 @@ describe('Options Processing and Edge Cases', () => {
 
     it('should merge partial options with defaults', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'my_audit'
+        auditCollectionName: 'my_audit',
+        config: { transactionsEnabled: false }
         // disableAudit should default to false
       });
       
       expect(collection.getAuditCollection().collectionName).toBe('my_audit');
     });
 
-    it('should handle empty options object', () => {
-      const collection = new MonguardCollection<TestUser>(db, 'test_users', {});
-      
-      expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
+    it('should require config in options', () => {
+      expect(() => {
+        // @ts-expect-error Testing missing config
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs'
+        });
+      }).toThrow('MonguardCollectionOptions.config is required');
+    });
+
+    it('should validate transactionsEnabled is explicitly set', () => {
+      expect(() => {
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs',
+          // @ts-expect-error Testing invalid config
+          config: {}
+        });
+      }).toThrow('transactionsEnabled must be explicitly set to true or false');
+    });
+
+    it('should accept transaction-enabled config', () => {
+      expect(() => {
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs',
+          config: { transactionsEnabled: true }
+        });
+      }).not.toThrow();
+    });
+
+    it('should accept transaction-disabled config', () => {
+      expect(() => {
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs',
+          config: { transactionsEnabled: false }
+        });
+      }).not.toThrow();
     });
   });
 
@@ -61,7 +99,10 @@ describe('Options Processing and Edge Cases', () => {
     let collection: MonguardCollection<TestUser>;
 
     beforeEach(() => {
-      collection = new MonguardCollection<TestUser>(db, 'test_users');
+      collection = new MonguardCollection<TestUser>(db, 'test_users', {
+        auditCollectionName: 'audit_logs',
+        config: { transactionsEnabled: false }
+      });
     });
 
     describe('CreateOptions', () => {
@@ -292,7 +333,10 @@ describe('Options Processing and Edge Cases', () => {
     let collection: MonguardCollection<TestUser>;
 
     beforeEach(() => {
-      collection = new MonguardCollection<TestUser>(db, 'test_users');
+      collection = new MonguardCollection<TestUser>(db, 'test_users', {
+        auditCollectionName: 'audit_logs',
+        config: { transactionsEnabled: false }
+      });
     });
 
     it('should handle invalid ObjectId strings gracefully', async () => {

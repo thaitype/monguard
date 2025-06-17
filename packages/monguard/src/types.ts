@@ -4,11 +4,18 @@ export function toObjectId(id: ObjectId | string): ObjectId {
   return typeof id === 'string' ? new ObjectId(id) : id;
 }
 
+export interface MonguardConfig {
+  transactionsEnabled: boolean;
+  retryAttempts?: number;
+  retryDelayMs?: number;
+}
+
 export interface BaseDocument {
   _id: ObjectId;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
+  version?: number;
 }
 
 export interface AuditableDocument extends BaseDocument {
