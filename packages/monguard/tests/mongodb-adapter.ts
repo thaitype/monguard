@@ -14,7 +14,20 @@ import type { Db, ObjectId } from '../src/mongodb-types';
  * Adapt MongoDB Db to our custom Db type
  */
 export function adaptDb(mongoDb: MongoDb): Db {
-  return mongoDb as any as Db;
+  // Ensure client is properly exposed for transaction strategy
+  const adaptedDb = mongoDb as any as Db;
+  (adaptedDb as any).client = mongoDb.client;
+  
+  // Override collection method to ensure proper db reference
+  const originalCollection = adaptedDb.collection.bind(adaptedDb);
+  adaptedDb.collection = function<T = any>(name: string) {
+    const collection = originalCollection(name);
+    // Ensure collection.db points to the adapted database
+    (collection as any).db = adaptedDb;
+    return collection;
+  };
+  
+  return adaptedDb;
 }
 
 /**

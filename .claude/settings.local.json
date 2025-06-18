@@ -6,7 +6,8 @@
       "Bash(pnpm lint:*)",
       "Bash(pnpm check-types:*)",
       "Bash(grep:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

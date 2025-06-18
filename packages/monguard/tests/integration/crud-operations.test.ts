@@ -463,4 +463,114 @@ describe('CRUD Operations Integration Tests', () => {
       expect(result.data).toBe(3);
     });
   });
+
+  describe('Transaction Strategy Variants', () => {
+    let transactionCollection: MonguardCollection<TestUser>;
+
+    beforeEach(async () => {
+      // Create a collection using transaction strategy
+      transactionCollection = new MonguardCollection<TestUser>(db, 'transaction_test_users', {
+        auditCollectionName: 'transaction_audit_logs',
+        concurrency: { transactionsEnabled: true }
+      });
+    });
+
+    it('should perform basic CRUD operations with transactions', async () => {
+      const userData = TestDataFactory.createUser();
+      const userContext = TestDataFactory.createUserContext();
+
+      // Create
+      const createResult = await transactionCollection.create(userData, { userContext });
+      TestAssertions.expectSuccess(createResult);
+      TestAssertions.expectTimestamps(createResult.data);
+      TestAssertions.expectUserTracking(createResult.data, userContext.userId as any);
+
+      // Read
+      const findResult = await transactionCollection.findById(createResult.data._id);
+      TestAssertions.expectSuccess(findResult);
+      expect(findResult.data!.name).toBe(userData.name);
+
+      // Update
+      const updateResult = await transactionCollection.updateById(
+        createResult.data._id,
+        { $set: { name: 'Updated via Transaction' } },
+        { userContext }
+      );
+      TestAssertions.expectSuccess(updateResult);
+
+      // Verify update
+      const updatedDoc = await transactionCollection.findById(createResult.data._id);
+      TestAssertions.expectSuccess(updatedDoc);
+      expect(updatedDoc.data!.name).toBe('Updated via Transaction');
+
+      // Delete
+      const deleteResult = await transactionCollection.deleteById(createResult.data._id, { userContext });
+      TestAssertions.expectSuccess(deleteResult);
+
+      // Verify soft delete
+      const deletedDoc = await transactionCollection.findById(createResult.data._id);
+      TestAssertions.expectSuccess(deletedDoc);
+      expect(deletedDoc.data).toBeNull();
+    });
+
+    it('should handle batch operations within transactions', async () => {
+      const users = TestDataFactory.createMultipleUsers(5);
+      const userContext = TestDataFactory.createUserContext();
+
+      // Create multiple users
+      const createPromises = users.map(userData => 
+        transactionCollection.create(userData, { userContext })
+      );
+      const createResults = await Promise.all(createPromises);
+
+      createResults.forEach(result => TestAssertions.expectSuccess(result));
+
+      // Verify all were created
+      const allUsers = await transactionCollection.find({});
+      TestAssertions.expectSuccess(allUsers);
+      expect(allUsers.data).toHaveLength(5);
+
+      // Update all users
+      const updatePromises = createResults.map(result => 
+        transactionCollection.updateById(
+          result.data._id,
+          { $set: { age: 25 } },
+          { userContext }
+        )
+      );
+      const updateResults = await Promise.all(updatePromises);
+
+      updateResults.forEach(result => TestAssertions.expectSuccess(result));
+
+      // Verify all updates
+      const updatedUsers = await transactionCollection.find({});
+      TestAssertions.expectSuccess(updatedUsers);
+      updatedUsers.data.forEach(user => expect(user.age).toBe(25));
+    });
+
+    it('should maintain audit log consistency in transactions', async () => {
+      const userData = TestDataFactory.createUser();
+      const userContext = TestDataFactory.createUserContext();
+
+      const result = await transactionCollection.create(userData, { userContext });
+      TestAssertions.expectSuccess(result);
+
+      // Verify audit log was created
+      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      expect(auditLogs).toHaveLength(1);
+      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0].ref.id.toString()).toBe(result.data._id.toString());
+
+      // Update and check audit consistency
+      await transactionCollection.updateById(
+        result.data._id,
+        { $set: { name: 'Updated' } },
+        { userContext }
+      );
+
+      const updatedAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      expect(updatedAuditLogs).toHaveLength(2);
+      expect(updatedAuditLogs.map(log => log.action).sort()).toEqual(['create', 'update']);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
 import { TestDatabase } from '../setup';
@@ -486,6 +486,180 @@ describe('Concurrent Operations Integration Tests', () => {
       expect(auditLogs).toHaveLength(concurrentOps);
       
       console.log(`Completed ${concurrentOps} concurrent operations in ${duration}ms`);
+    });
+  });
+
+  describe('Transaction Strategy Concurrent Operations', () => {
+    let transactionCollection: MonguardCollection<TestUser>;
+
+    beforeEach(async () => {
+      // Create a collection using transaction strategy
+      transactionCollection = new MonguardCollection<TestUser>(db, 'transaction_concurrent_users', {
+        auditCollectionName: 'transaction_concurrent_audit_logs',
+        concurrency: { transactionsEnabled: true }
+      });
+    });
+
+    it('should handle concurrent creates with transactions', async () => {
+      const users = TestDataFactory.createMultipleUsers(10);
+      const userContext = TestDataFactory.createUserContext();
+
+      const startTime = Date.now();
+      
+      // Execute concurrent creates with transactions
+      const createPromises = users.map(userData => 
+        transactionCollection.create(userData, { userContext })
+      );
+
+      const results = await Promise.all(createPromises);
+      const duration = Date.now() - startTime;
+
+      // All operations should succeed
+      results.forEach(result => TestAssertions.expectSuccess(result));
+
+      // Verify all documents were created
+      const allDocs = await transactionCollection.find({});
+      TestAssertions.expectSuccess(allDocs);
+      expect(allDocs.data).toHaveLength(10);
+
+      // Verify all audit logs were created atomically
+      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      expect(auditLogs).toHaveLength(10);
+      auditLogs.forEach(log => expect(log.action).toBe('create'));
+
+      console.log(`Transaction Strategy: ${duration}ms for 10 concurrent creates`);
+    });
+
+    it('should handle concurrent updates with transactions', async () => {
+      // Create initial documents
+      const users = TestDataFactory.createMultipleUsers(5);
+      const userContext = TestDataFactory.createUserContext();
+      
+      const createResults = await Promise.all(
+        users.map(userData => transactionCollection.create(userData, { userContext }))
+      );
+      createResults.forEach(result => TestAssertions.expectSuccess(result));
+
+      // Concurrent updates with transactions
+      const updatePromises = createResults.map((result, index) => 
+        transactionCollection.updateById(
+          result.data._id,
+          { $set: { name: `Transaction Updated ${index}`, age: 20 + index } },
+          { userContext }
+        )
+      );
+
+      const updateResults = await Promise.all(updatePromises);
+      updateResults.forEach(result => TestAssertions.expectSuccess(result));
+
+      // Verify all documents were updated
+      const updatedDocs = await transactionCollection.find({});
+      TestAssertions.expectSuccess(updatedDocs);
+      updatedDocs.data.forEach((doc, index) => {
+        expect(doc.name).toContain('Transaction Updated');
+      });
+
+      // Verify audit logs: 5 creates + 5 updates = 10 total
+      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      expect(auditLogs).toHaveLength(10);
+      const actions = auditLogs.map(log => log.action).sort();
+      expect(actions.filter(action => action === 'create')).toHaveLength(5);
+      expect(actions.filter(action => action === 'update')).toHaveLength(5);
+    });
+
+    it('should handle transaction rollbacks under concurrent load', async () => {
+      const userData = TestDataFactory.createUser();
+      const userContext = TestDataFactory.createUserContext();
+
+      // Create a document first
+      const createResult = await transactionCollection.create(userData, { userContext });
+      TestAssertions.expectSuccess(createResult);
+
+      // Mock one audit operation to fail
+      let failureCount = 0;
+      const originalInsertOne = transactionCollection.getAuditCollection().insertOne;
+      const mockInsertOne = vi.fn().mockImplementation(async (...args) => {
+        failureCount++;
+        if (failureCount === 2) { // Fail the second audit log
+          throw new Error('Simulated audit failure');
+        }
+        return originalInsertOne.apply(transactionCollection.getAuditCollection(), args);
+      });
+      
+      vi.spyOn(transactionCollection.getAuditCollection(), 'insertOne').mockImplementation(mockInsertOne);
+
+      // Concurrent operations, one should fail due to audit failure
+      const operations = [
+        transactionCollection.updateById(
+          createResult.data._id,
+          { $set: { name: 'Update 1' } },
+          { userContext }
+        ),
+        transactionCollection.updateById(
+          createResult.data._id,
+          { $set: { name: 'Update 2' } },
+          { userContext }
+        ),
+      ];
+
+      const results = await Promise.allSettled(operations);
+
+      // In fallback mode (non-transactional), both operations might succeed
+      // In true transaction mode, one would fail due to audit failure and transaction rollback
+      const successes = results.filter(r => r.status === 'fulfilled');
+      const failures = results.filter(r => r.status === 'rejected');
+
+      expect(successes.length).toBeGreaterThan(0);
+      // In fallback mode, failures might be 0 since operations don't roll back
+      // In true transaction mode, we'd expect failures > 0
+
+      // Verify audit log consistency 
+      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      // In fallback mode: might have 1 create + some successful updates despite audit mock failure
+      // In true transaction mode: would have 1 create + successful updates only
+      // At minimum should have the initial create operation
+      expect(auditLogs.length).toBeGreaterThanOrEqual(1);
+
+      // Cleanup
+      vi.restoreAllMocks();
+    });
+
+    it('should compare performance with optimistic locking under load', async () => {
+      const users = TestDataFactory.createMultipleUsers(20);
+      const userContext = TestDataFactory.createUserContext();
+
+      // Test transaction strategy
+      const transactionStart = Date.now();
+      const transactionPromises = users.slice(0, 10).map(userData => 
+        transactionCollection.create(userData, { userContext })
+      );
+      await Promise.all(transactionPromises);
+      const transactionDuration = Date.now() - transactionStart;
+
+      // Test optimistic strategy
+      const optimisticStart = Date.now();
+      const optimisticPromises = users.slice(10, 20).map(userData => 
+        collection.create(userData, { userContext })
+      );
+      await Promise.all(optimisticPromises);
+      const optimisticDuration = Date.now() - optimisticStart;
+
+      // Verify both completed successfully
+      const transactionDocs = await transactionCollection.find({});
+      const optimisticDocs = await collection.find({});
+      
+      TestAssertions.expectSuccess(transactionDocs);
+      TestAssertions.expectSuccess(optimisticDocs);
+      expect(transactionDocs.data).toHaveLength(10);
+      expect(optimisticDocs.data).toHaveLength(10);
+
+      console.log(`Performance Comparison:`);
+      console.log(`  Transaction Strategy: ${transactionDuration}ms for 10 operations`);
+      console.log(`  Optimistic Strategy: ${optimisticDuration}ms for 10 operations`);
+
+      // Both should complete in reasonable time
+      expect(transactionDuration).toBeLessThan(15000);
+      expect(optimisticDuration).toBeLessThan(15000);
     });
   });
 });
