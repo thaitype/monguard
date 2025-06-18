@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
-import { MonguardCollection } from '../../monguard-collection';
+import { MonguardCollection } from '../../src/monguard-collection';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestHelpers } from '../test-utils';
 import { adaptDb, adaptObjectId } from '../mongodb-adapter';
-import type { Db, ObjectId } from '../../mongodb-types';
+import type { Db, ObjectId } from '../../src/mongodb-types';
 
 // Test class to access private methods
 class TestableMonguardCollection<T extends { _id: ObjectId; createdAt: Date; updatedAt: Date; deletedAt?: Date }> extends MonguardCollection<T> {

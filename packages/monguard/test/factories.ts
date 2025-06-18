@@ -1,5 +1,5 @@
 import { ObjectId as MongoObjectId } from 'mongodb';
-import { BaseDocument, AuditableDocument, UserContext } from '../types';
+import { BaseDocument, AuditableDocument, UserContext } from '../src/types';
 import { adaptObjectId } from './mongodb-adapter';
 
 export interface TestUser extends AuditableDocument {

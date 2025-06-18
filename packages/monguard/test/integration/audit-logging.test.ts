@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
-import { MonguardCollection } from '../../monguard-collection';
-import { AuditLogDocument } from '../../types';
+import { MonguardCollection } from '../../src/monguard-collection';
+import { AuditLogDocument } from '../../src/types';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
 import { adaptDb, adaptObjectId } from '../mongodb-adapter';
-import type { Db, ObjectId } from '../../mongodb-types';
+import type { Db, ObjectId } from '../../src/mongodb-types';
 
 describe('Audit Logging Integration Tests', () => {
   let testDb: TestDatabase;

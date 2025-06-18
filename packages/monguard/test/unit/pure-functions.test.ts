@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ObjectId as MongoObjectId } from 'mongodb';
-import { toObjectId } from '../../types';
+import { toObjectId } from '../../src/types';
 import { adaptObjectId } from '../mongodb-adapter';
 
 describe('Pure Functions', () => {

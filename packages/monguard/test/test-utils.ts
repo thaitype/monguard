@@ -1,7 +1,7 @@
 import { expect } from 'vitest';
 import { ObjectId as MongoObjectId } from 'mongodb';
-import { WrapperResult, AuditLogDocument } from '../types';
-import type { ObjectId } from '../mongodb-types';
+import { WrapperResult, AuditLogDocument } from '../src/types';
+import type { ObjectId } from '../src/mongodb-types';
 
 export class TestAssertions {
   static expectSuccess<T>(result: WrapperResult<T>): asserts result is WrapperResult<T> & { success: true; data: T } {
