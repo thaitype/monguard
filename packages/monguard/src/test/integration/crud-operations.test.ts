@@ -89,14 +89,14 @@ describe('CRUD Operations Integration Tests', () => {
     });
 
     it('should find document by ID', async () => {
-      const targetUser = createdUsers[0];
+      const targetUser = createdUsers[0]!;
       
       const result = await collection.findById(targetUser._id);
       
       TestAssertions.expectSuccess(result);
       expect(result.data).not.toBeNull();
-      expect(result.data!._id).toEqual(targetUser._id);
-      expect(result.data!.name).toBe(targetUser.name);
+      expect(result.data!._id).toEqual(targetUser!._id);
+      expect(result.data!.name).toBe(targetUser!.name);
     });
 
     it('should return null for non-existent ID', async () => {
@@ -120,7 +120,7 @@ describe('CRUD Operations Integration Tests', () => {
       
       TestAssertions.expectSuccess(result);
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].name).toBe('User 1');
+      expect(result.data![0]!.name).toBe('User 1');
     });
 
     it('should find one document with filter', async () => {
@@ -148,30 +148,30 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.find({}, { sort: { name: -1 } });
       
       TestAssertions.expectSuccess(result);
-      expect(result.data[0].name).toBe('User 5');
-      expect(result.data[4].name).toBe('User 1');
+      expect(result.data![0]!.name).toBe('User 5');
+      expect(result.data![4]!.name).toBe('User 1');
     });
 
     it('should exclude soft deleted documents by default', async () => {
-      const targetUser = createdUsers[0];
+      const targetUser = createdUsers[0]!;
       await collection.deleteById(targetUser._id); // Soft delete
       
       const result = await collection.find();
       
       TestAssertions.expectSuccess(result);
       expect(result.data).toHaveLength(4);
-      expect(result.data.find(u => u._id.equals(targetUser._id))).toBeUndefined();
+      expect(result.data!.find(u => u._id.equals(targetUser!._id))).toBeUndefined();
     });
 
     it('should include soft deleted documents when requested', async () => {
-      const targetUser = createdUsers[0];
+      const targetUser = createdUsers[0]!;
       await collection.deleteById(targetUser._id); // Soft delete
       
       const result = await collection.find({}, { includeSoftDeleted: true });
       
       TestAssertions.expectSuccess(result);
       expect(result.data).toHaveLength(5);
-      const deletedUser = result.data.find(u => u._id.equals(targetUser._id));
+      const deletedUser = result.data!.find(u => u._id.equals(targetUser!._id));
       expect(deletedUser).toBeDefined();
       expect(deletedUser!.deletedAt).toBeInstanceOf(Date);
     });
@@ -282,7 +282,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.deleteById(testUser._id);
       
       TestAssertions.expectSuccess(result);
-      expect(result.data.modifiedCount).toBe(1);
+      expect((result.data as any).modifiedCount).toBe(1);
       
       // Document should not be found in normal queries
       const findResult = await collection.findById(testUser._id);
@@ -313,7 +313,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.deleteById(testUser._id, { hardDelete: true });
       
       TestAssertions.expectSuccess(result);
-      expect(result.data.deletedCount).toBe(1);
+      expect((result.data as any).deletedCount).toBe(1);
       
       // Document should not exist at all
       const findResult = await collection.findById(testUser._id, { includeSoftDeleted: true });
@@ -328,7 +328,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.delete({ name: 'Batch Delete' });
       
       TestAssertions.expectSuccess(result);
-      expect(result.data.modifiedCount).toBe(2);
+      expect((result.data as any).modifiedCount).toBe(2);
       
       const remainingUsers = await collection.find({ name: 'Batch Delete' });
       TestAssertions.expectSuccess(remainingUsers);
@@ -341,7 +341,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.deleteById(testUser._id); // Second soft delete attempt
       
       TestAssertions.expectSuccess(result);
-      expect(result.data.modifiedCount).toBe(0);
+      expect((result.data as any).modifiedCount).toBe(0);
     });
   });
 
@@ -427,7 +427,7 @@ describe('CRUD Operations Integration Tests', () => {
       const allUsers = await collection.find();
       TestAssertions.expectSuccess(allUsers);
       for (let i = 0; i < 3; i++) {
-        await collection.deleteById(allUsers.data[i]._id);
+        await collection.deleteById(allUsers.data![i]!._id);
       }
     });
 

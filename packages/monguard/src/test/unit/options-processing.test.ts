@@ -142,7 +142,7 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.createdBy).toEqual(expect.any(Object));
+          expect(result.data!.createdBy).toEqual(expect.any(Object));
         }
       });
 
@@ -154,7 +154,7 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.createdBy).toEqual(expect.any(Object));
+          expect(result.data!.createdBy).toEqual(expect.any(Object));
         }
       });
     });
@@ -172,7 +172,7 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.upsertedCount).toBe(1);
+          expect((result.data as any).upsertedCount).toBe(1);
         }
       });
 
@@ -183,7 +183,7 @@ describe('Options Processing and Edge Cases', () => {
         if (createResult.success) {
           const userContext = TestDataFactory.createUserContext();
           const result = await collection.updateById(
-            createResult.data._id,
+            createResult.data!._id,
             { $set: { name: 'Updated' } },
             { skipAudit: true, userContext }
           );
@@ -193,7 +193,7 @@ describe('Options Processing and Edge Cases', () => {
           // Verify only create audit log exists (not update)
           const auditLogs = await collection.getAuditCollection().find({}).toArray();
           expect(auditLogs).toHaveLength(1);
-          expect(auditLogs[0].action).toBe('create');
+          expect(auditLogs[0]!.action).toBe('create');
         }
       });
     });
@@ -205,14 +205,14 @@ describe('Options Processing and Edge Cases', () => {
         
         if (createResult.success) {
           const deleteResult = await collection.deleteById(
-            createResult.data._id,
+            createResult.data!._id,
             { hardDelete: true }
           );
           
           expect(deleteResult.success).toBe(true);
           
           // Verify document is completely removed
-          const findResult = await collection.findById(createResult.data._id, { includeSoftDeleted: true });
+          const findResult = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
           expect(findResult.success).toBe(true);
           expect(findResult.data).toBeNull();
         }
@@ -224,7 +224,7 @@ describe('Options Processing and Edge Cases', () => {
         
         if (createResult.success) {
           const deleteResult = await collection.deleteById(
-            createResult.data._id,
+            createResult.data!._id,
             { hardDelete: true, skipAudit: true }
           );
           
@@ -233,7 +233,7 @@ describe('Options Processing and Edge Cases', () => {
           // Verify only create audit log exists (not delete)
           const auditLogs = await collection.getAuditCollection().find({}).toArray();
           expect(auditLogs).toHaveLength(1);
-          expect(auditLogs[0].action).toBe('create');
+          expect(auditLogs[0]!.action).toBe('create');
         }
       });
     });
@@ -244,10 +244,10 @@ describe('Options Processing and Edge Cases', () => {
         expect(createResult.success).toBe(true);
         
         if (createResult.success) {
-          await collection.deleteById(createResult.data._id); // Soft delete
+          await collection.deleteById(createResult.data!._id); // Soft delete
           
           const findResult = await collection.findById(
-            createResult.data._id,
+            createResult.data!._id,
             { includeSoftDeleted: true }
           );
           
@@ -280,9 +280,9 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data[0].name).toBe('Charlie');
-          expect(result.data[1].name).toBe('Alice');
-          expect(result.data[2].name).toBe('Bob');
+          expect(result.data![0]!.name).toBe('Charlie');
+          expect(result.data![1]!.name).toBe('Alice');
+          expect(result.data![2]!.name).toBe('Bob');
         }
       });
     });
@@ -304,8 +304,8 @@ describe('Options Processing and Edge Cases', () => {
       expect(createResult.success).toBe(true);
       
       if (createResult.success) {
-        await collection.updateById(createResult.data._id, { $set: { name: 'Updated' } }, { userContext });
-        await collection.deleteById(createResult.data._id, { userContext });
+        await collection.updateById(createResult.data!._id, { $set: { name: 'Updated' } }, { userContext });
+        await collection.deleteById(createResult.data!._id, { userContext });
       }
       
       // Verify no audit logs were created
@@ -361,7 +361,7 @@ describe('Options Processing and Edge Cases', () => {
       
       // MongoDB allows empty documents, so this should succeed
       expect(result.success).toBe(true);
-      expect(result.data._id).toBeDefined();
+      expect(result.data!._id).toBeDefined();
     });
 
     it('should handle null document gracefully', async () => {
@@ -370,7 +370,7 @@ describe('Options Processing and Edge Cases', () => {
       
       // MongoDB driver converts null to empty object and succeeds
       expect(result.success).toBe(true);
-      expect(result.data._id).toBeDefined();
+      expect(result.data!._id).toBeDefined();
     });
   });
 });
