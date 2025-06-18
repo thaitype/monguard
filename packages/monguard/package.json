@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --coverage",
     "test": "vitest",
     "test:ci": "vitest run",
+    "check-types": "tsc --noEmit",
     "build": "tsup src/main.ts --dts --format esm,cjs",
     "format": "prettier -w src",
     "lint": "tsc --noEmit && eslint ./src && prettier -c src",
@@ -28,16 +29,22 @@
     "all": "run-s lint build"
   },
   "peerDependencies": {
-    "esbuild": ">=0.25.0 <1.0.0"
+    "mongodb": "^6.0.0"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.4",
     "@monguard/eslint-config": "workspace:*",
     "@monguard/typescript-config": "workspace:*",
-    "@changesets/cli": "^2.29.4",
+    "@monguard/vitest-config": "workspace:*",
+    "@types/lodash-es": "^4.17.12",
+    "@types/mongodb-memory-server": "^2.3.0",
     "@types/node": "^22.15.21",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@vitest/coverage-istanbul": "^3.1.4",
     "@vitest/coverage-v8": "^3.1.4",
     "eslint": "^9.27.0",
+    "mongodb": "^6.17.0",
+    "mongodb-memory-server": "^10.1.4",
     "npm-run-all2": "^8.0.4",
     "prettier": "^3.5.3",
     "tsup": "^8.5.0",
@@ -63,12 +70,6 @@
   },
   "homepage": "https://github.com/thaitype/monguard",
   "dependencies": {
-    "@thaitype/core-utils": "^1.1.1",
-    "chokidar": "^4.0.3",
-    "execa": "^8.0.1",
-    "zod": "^3.25.30",
-    "lodash-es": "^4.17.21",
-    "unconfig": "^7.3.1",
-    "yargs": "^17.7.2"
+    "lodash-es": "^4.17.21"
   }
 }
