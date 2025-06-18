@@ -6,6 +6,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "all": "run-s build",
+    "check-types": "turbo check-types",
     "lint": "turbo lint:check check-types && npm run format",
     "lint:fix": "turbo lint:fix && npm run format:fix",
     "format": "prettier --check ./**/*.{ts,js}",

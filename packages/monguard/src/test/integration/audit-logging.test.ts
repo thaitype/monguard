@@ -14,7 +14,10 @@ describe('Audit Logging Integration Tests', () => {
   beforeEach(async () => {
     testDb = new TestDatabase();
     db = await testDb.start();
-    collection = new MonguardCollection<TestUser>(db, 'test_users');
+    collection = new MonguardCollection<TestUser>(db, 'test_users', {
+      auditCollectionName: 'audit_logs',
+      concurrency: { transactionsEnabled: false }
+    });
   });
 
   afterEach(async () => {
@@ -34,12 +37,13 @@ describe('Audit Logging Integration Tests', () => {
       expect(auditLogs).toHaveLength(1);
       
       const auditLog = auditLogs[0];
-      TestAssertions.expectAuditLog(auditLog, 'create', result.data._id);
-      expect(auditLog.userId).toEqual(userContext.userId);
-      expect(auditLog.ref.collection).toBe('test_users');
-      expect(auditLog.metadata?.after).toBeDefined();
-      expect(auditLog.metadata?.after.name).toBe(userData.name);
-      TestHelpers.expectDateInRange(auditLog.timestamp, timeRange);
+      expect(auditLog).toBeDefined();
+      TestAssertions.expectAuditLog(auditLog!, 'create', result.data!._id);
+      expect(auditLog!.userId).toEqual(userContext.userId);
+      expect(auditLog!.ref.collection).toBe('test_users');
+      expect(auditLog!.metadata?.after).toBeDefined();
+      expect(auditLog!.metadata?.after.name).toBe(userData.name);
+      TestHelpers.expectDateInRange(auditLog!.timestamp, timeRange);
     });
 
     it('should create audit log for update operation', async () => {
@@ -60,13 +64,14 @@ describe('Audit Logging Integration Tests', () => {
       expect(auditLogs).toHaveLength(1);
       
       const auditLog = auditLogs[0];
-      TestAssertions.expectAuditLog(auditLog, 'update', createResult.data._id);
-      expect(auditLog.userId).toEqual(userContext.userId);
-      expect(auditLog.metadata?.before.name).toBe('Original Name');
-      expect(auditLog.metadata?.after.name).toBe('Updated Name');
-      expect(auditLog.metadata?.changes).toContain('name');
-      expect(auditLog.metadata?.changes).toContain('age');
-      TestHelpers.expectDateInRange(auditLog.timestamp, timeRange);
+      expect(auditLog).toBeDefined();
+      TestAssertions.expectAuditLog(auditLog!, 'update', createResult.data!._id);
+      expect(auditLog!.userId).toEqual(userContext.userId);
+      expect(auditLog!.metadata?.before.name).toBe('Original Name');
+      expect(auditLog!.metadata?.after.name).toBe('Updated Name');
+      expect(auditLog!.metadata?.changes).toContain('name');
+      expect(auditLog!.metadata?.changes).toContain('age');
+      TestHelpers.expectDateInRange(auditLog!.timestamp, timeRange);
     });
 
     it('should create audit log for soft delete operation', async () => {
@@ -83,11 +88,12 @@ describe('Audit Logging Integration Tests', () => {
       expect(auditLogs).toHaveLength(1);
       
       const auditLog = auditLogs[0];
-      TestAssertions.expectAuditLog(auditLog, 'delete', createResult.data._id);
-      expect(auditLog.userId).toEqual(userContext.userId);
-      expect(auditLog.metadata?.softDelete).toBe(true);
-      expect(auditLog.metadata?.before).toBeDefined();
-      TestHelpers.expectDateInRange(auditLog.timestamp, timeRange);
+      expect(auditLog).toBeDefined();
+      TestAssertions.expectAuditLog(auditLog!, 'delete', createResult.data!._id);
+      expect(auditLog!.userId).toEqual(userContext.userId);
+      expect(auditLog!.metadata?.softDelete).toBe(true);
+      expect(auditLog!.metadata?.before).toBeDefined();
+      TestHelpers.expectDateInRange(auditLog!.timestamp, timeRange);
     });
 
     it('should create audit log for hard delete operation', async () => {
@@ -104,11 +110,12 @@ describe('Audit Logging Integration Tests', () => {
       expect(auditLogs).toHaveLength(1);
       
       const auditLog = auditLogs[0];
-      TestAssertions.expectAuditLog(auditLog, 'delete', createResult.data._id);
-      expect(auditLog.userId).toEqual(userContext.userId);
-      expect(auditLog.metadata?.hardDelete).toBe(true);
-      expect(auditLog.metadata?.before).toBeDefined();
-      TestHelpers.expectDateInRange(auditLog.timestamp, timeRange);
+      expect(auditLog).toBeDefined();
+      TestAssertions.expectAuditLog(auditLog!, 'delete', createResult.data!._id);
+      expect(auditLog!.userId).toEqual(userContext.userId);
+      expect(auditLog!.metadata?.hardDelete).toBe(true);
+      expect(auditLog!.metadata?.before).toBeDefined();
+      TestHelpers.expectDateInRange(auditLog!.timestamp, timeRange);
     });
 
     it('should not create audit log when skipAudit is true', async () => {
@@ -123,7 +130,9 @@ describe('Audit Logging Integration Tests', () => {
 
     it('should not create audit logs when globally disabled', async () => {
       const disabledCollection = new MonguardCollection<TestUser>(db, 'test_users_disabled', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -275,15 +284,15 @@ describe('Audit Logging Integration Tests', () => {
         .toArray();
       
       expect(auditLogs).toHaveLength(4);
-      expect(auditLogs[0].action).toBe('create');
-      expect(auditLogs[1].action).toBe('update');
-      expect(auditLogs[2].action).toBe('delete');
-      expect(auditLogs[3].action).toBe('delete');
+      expect(auditLogs[0]!.action).toBe('create');
+      expect(auditLogs[1]!.action).toBe('update');
+      expect(auditLogs[2]!.action).toBe('delete');
+      expect(auditLogs[3]!.action).toBe('delete');
       
       // Verify timestamps are in order
       for (let i = 1; i < auditLogs.length; i++) {
-        expect(auditLogs[i].timestamp.getTime()).toBeGreaterThanOrEqual(
-          auditLogs[i - 1].timestamp.getTime()
+        expect(auditLogs[i]!.timestamp.getTime()).toBeGreaterThanOrEqual(
+          auditLogs[i - 1]!.timestamp.getTime()
         );
       }
     });
@@ -322,7 +331,7 @@ describe('Audit Logging Integration Tests', () => {
       // Verify each user has corresponding audit logs
       for (const createResult of createResults) {
         const userAuditLogs = auditLogs.filter(log => 
-          log.ref.id.equals(createResult.data._id)
+          log.ref.id.equals(createResult.data!._id)
         );
         expect(userAuditLogs).toHaveLength(2); // 1 create + 1 update
       }
@@ -363,7 +372,8 @@ describe('Audit Logging Integration Tests', () => {
   describe('Custom Audit Collection', () => {
     it('should use custom audit collection name', async () => {
       const customCollection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'custom_audit_logs'
+        auditCollectionName: 'custom_audit_logs',
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -381,10 +391,12 @@ describe('Audit Logging Integration Tests', () => {
 
     it('should isolate audit logs between different collection instances', async () => {
       const collection1 = new MonguardCollection<TestUser>(db, 'users1', {
-        auditCollectionName: 'audit1'
+        auditCollectionName: 'audit1',
+        concurrency: { transactionsEnabled: false }
       });
       const collection2 = new MonguardCollection<TestUser>(db, 'users2', {
-        auditCollectionName: 'audit2'
+        auditCollectionName: 'audit2',
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData1 = TestDataFactory.createUser({ name: 'User 1' });
@@ -398,8 +410,8 @@ describe('Audit Logging Integration Tests', () => {
       
       expect(audit1Logs).toHaveLength(1);
       expect(audit2Logs).toHaveLength(1);
-      expect(audit1Logs[0].ref.collection).toBe('users1');
-      expect(audit2Logs[0].ref.collection).toBe('users2');
+      expect(audit1Logs[0]!.ref.collection).toBe('users1');
+      expect(audit2Logs[0]!.ref.collection).toBe('users2');
     });
   });
 

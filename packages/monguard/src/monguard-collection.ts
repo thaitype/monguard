@@ -25,9 +25,12 @@ import type {
   FindOptions,
   WrapperResult,
   UserContext,
-  CreateDocument
+  CreateDocument,
+  MonguardConcurrencyConfig
 } from './types';
 import { toObjectId } from './types';
+import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
+import { StrategyFactory } from './strategies/strategy-factory';
 
 export interface MonguardCollectionOptions {
   /**
@@ -41,9 +44,14 @@ export interface MonguardCollectionOptions {
    * If not provided, defaults to false.
    */
   disableAudit?: boolean;
+  /**
+   * Monguard configuration for concurrency handling.
+   * Required - must explicitly set transactionsEnabled to true or false.
+   */
+  concurrency: MonguardConcurrencyConfig;
 }
 
-const defaultOptions: MonguardCollectionOptions = {
+const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditCollectionName: 'audit_logs',
   disableAudit: false
 };
@@ -53,16 +61,44 @@ export class MonguardCollection<T extends BaseDocument> {
   private auditCollection: Collection<AuditLogDocument>;
   private collectionName: string;
   private options: MonguardCollectionOptions;
+  private strategy: OperationStrategy<T>;
 
   constructor(
     db: Db,
     collectionName: string,
-    options?: Partial<MonguardCollectionOptions>,
+    options: MonguardCollectionOptions
   ) {
+    // Validate that config is provided
+    if (!options.concurrency) {
+      throw new Error(
+        'MonguardCollectionOptions.config is required. ' +
+        'Must specify { transactionsEnabled: true } for MongoDB or { transactionsEnabled: false } for Cosmos DB.'
+      );
+    }
+
+    // Validate configuration
+    StrategyFactory.validateConfig(options.concurrency);
+
     this.options = merge({}, defaultOptions, options);
     this.collection = db.collection<T>(collectionName);
     this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName);
     this.collectionName = collectionName;
+
+    // Create strategy context
+    const strategyContext: OperationStrategyContext<T> = {
+      collection: this.collection,
+      auditCollection: this.auditCollection,
+      collectionName: this.collectionName,
+      config: this.options.concurrency,
+      disableAudit: this.options.disableAudit || false,
+      createAuditLog: this.createAuditLog.bind(this),
+      addTimestamps: this.addTimestamps.bind(this),
+      mergeSoftDeleteFilter: this.mergeSoftDeleteFilter.bind(this),
+      getChangedFields: this.getChangedFields.bind(this)
+    };
+
+    // Create strategy based on configuration
+    this.strategy = StrategyFactory.create(strategyContext);
   }
 
   private async createAuditLog(
@@ -134,29 +170,7 @@ export class MonguardCollection<T extends BaseDocument> {
     document: CreateDocument<T>,
     options: CreateOptions = {}
   ): Promise<WrapperResult<T & { _id: ObjectId }>> {
-    try {
-      const timestampedDoc = this.addTimestamps(document, false, options.userContext);
-      const result: InsertOneResult<T> = await this.collection.insertOne(timestampedDoc as any);
-
-      if (!options.skipAudit && !this.options.disableAudit) {
-        await this.createAuditLog(
-          'create',
-          result.insertedId,
-          options.userContext,
-          { after: timestampedDoc }
-        );
-      }
-
-      return {
-        success: true,
-        data: { ...timestampedDoc, _id: result.insertedId } as any
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Create operation failed'
-      };
-    }
+    return this.strategy.create(document, options);
   }
 
   async findById(
@@ -240,59 +254,7 @@ export class MonguardCollection<T extends BaseDocument> {
     update: UpdateFilter<T>,
     options: UpdateOptions = {}
   ): Promise<WrapperResult<UpdateResult>> {
-    try {
-      let beforeDoc: T | null = null;
-
-      if (!options.skipAudit && !this.options.disableAudit) {
-        const beforeResult = await this.findOne(filter, { includeSoftDeleted: true });
-        beforeDoc = beforeResult.data || null;
-      }
-
-      const timestampedUpdate = {
-        ...update,
-        $set: {
-          ...((update as any).$set || {}),
-          updatedAt: new Date(),
-          ...(options.userContext && { updatedBy: toObjectId(options.userContext.userId) })
-        }
-      };
-
-      const finalFilter = this.mergeSoftDeleteFilter(filter);
-      const result = await this.collection.updateOne(
-        finalFilter,
-        timestampedUpdate,
-        { upsert: options.upsert }
-      );
-
-      if (!options.skipAudit && !this.options.disableAudit && result.modifiedCount > 0) {
-        const afterResult = await this.findOne(filter, { includeSoftDeleted: true });
-        const afterDoc = afterResult.data;
-
-        if (beforeDoc && afterDoc) {
-          const changes = this.getChangedFields(beforeDoc, afterDoc);
-          await this.createAuditLog(
-            'update',
-            beforeDoc._id,
-            options.userContext,
-            {
-              before: beforeDoc,
-              after: afterDoc,
-              changes
-            }
-          );
-        }
-      }
-
-      return {
-        success: true,
-        data: result
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Update operation failed'
-      };
-    }
+    return this.strategy.update(filter, update, options);
   }
 
   async updateById(
@@ -300,117 +262,28 @@ export class MonguardCollection<T extends BaseDocument> {
     update: UpdateFilter<T>,
     options: UpdateOptions = {}
   ): Promise<WrapperResult<UpdateResult>> {
-    return this.update({ _id: id } as Filter<T>, update, options);
+    return this.strategy.updateById(id, update, options);
   }
 
   async delete(
     filter: Filter<T>,
     options: DeleteOptions = {}
   ): Promise<WrapperResult<UpdateResult | DeleteResult>> {
-    try {
-      if (options.hardDelete) {
-        // 1. Get documents to delete
-        const docsToDelete = (!options.skipAudit && !this.options.disableAudit)
-          ? await this.collection.find(filter).toArray()
-          : [];
-
-        // 2. Actually delete the documents
-        const result = await this.collection.deleteMany(filter);
-
-        // 3. Create audit logs for hard delete
-        if (!options.skipAudit && !this.options.disableAudit) {
-          for (const doc of docsToDelete) {
-            await this.createAuditLog(
-              'delete',
-              doc._id,
-              options.userContext,
-              {
-                hardDelete: true,
-                before: doc
-              }
-            );
-          }
-        }
-        return {
-          success: true,
-          data: result
-        };
-      } else {
-        // Soft delete
-        const finalFilter = this.mergeSoftDeleteFilter(filter);
-        const softDeleteUpdate: UpdateFilter<T> = {
-          $set: {
-            deletedAt: new Date(),
-            updatedAt: new Date(),
-            ...(options.userContext && { deletedBy: toObjectId(options.userContext.userId) })
-          } as any
-        };
-
-        let beforeDoc: T | null = null;
-        if (!options.skipAudit && !this.options.disableAudit) {
-          const beforeResult = await this.findOne(filter);
-          beforeDoc = beforeResult.data || null;
-        }
-
-        const result = await this.collection.updateMany(finalFilter, softDeleteUpdate);
-
-        if (!options.skipAudit && !this.options.disableAudit && beforeDoc) {
-          await this.createAuditLog(
-            'delete',
-            beforeDoc._id,
-            options.userContext,
-            { softDelete: true, before: beforeDoc }
-          );
-        }
-
-        return {
-          success: true,
-          data: result
-        };
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Delete operation failed'
-      };
-    }
+    return this.strategy.delete(filter, options);
   }
 
   async deleteById(
     id: ObjectId,
     options: DeleteOptions = {}
   ): Promise<WrapperResult<UpdateResult | DeleteResult>> {
-    return this.delete({ _id: id } as Filter<T>, options);
+    return this.strategy.deleteById(id, options);
   }
 
   async restore(
     filter: Filter<T>,
     userContext?: UserContext
   ): Promise<WrapperResult<UpdateResult>> {
-    try {
-      const restoreUpdate: UpdateFilter<T> = {
-        $unset: { deletedAt: "", deletedBy: "" },
-        $set: {
-          updatedAt: new Date(),
-          ...(userContext && { updatedBy: toObjectId(userContext.userId) })
-        }
-      } as any;
-
-      const result = await this.collection.updateMany(
-        { ...filter, deletedAt: { $exists: true } } as Filter<T>,
-        restoreUpdate
-      );
-
-      return {
-        success: true,
-        data: result
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Restore operation failed'
-      };
-    }
+    return this.strategy.restore(filter, userContext);
   }
 
   async count(

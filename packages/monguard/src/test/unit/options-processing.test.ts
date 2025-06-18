@@ -18,15 +18,19 @@ describe('Options Processing and Edge Cases', () => {
   });
 
   describe('MonguardCollectionOptions', () => {
-    it('should use default options when none provided', () => {
-      const collection = new MonguardCollection<TestUser>(db, 'test_users');
+    it('should use default options with explicit config', () => {
+      const collection = new MonguardCollection<TestUser>(db, 'test_users', {
+        auditCollectionName: 'audit_logs',
+        concurrency: { transactionsEnabled: false }
+      });
       
       expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
     });
 
     it('should use custom audit collection name', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'custom_audit'
+        auditCollectionName: 'custom_audit',
+        concurrency: { transactionsEnabled: false }
       });
       
       expect(collection.getAuditCollection().collectionName).toBe('custom_audit');
@@ -34,7 +38,9 @@ describe('Options Processing and Edge Cases', () => {
 
     it('should handle disableAudit option', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        concurrency: { transactionsEnabled: false }
       });
       
       // We can't directly test the private options, but we can test the behavior
@@ -43,17 +49,49 @@ describe('Options Processing and Edge Cases', () => {
 
     it('should merge partial options with defaults', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'my_audit'
+        auditCollectionName: 'my_audit',
+        concurrency: { transactionsEnabled: false }
         // disableAudit should default to false
       });
       
       expect(collection.getAuditCollection().collectionName).toBe('my_audit');
     });
 
-    it('should handle empty options object', () => {
-      const collection = new MonguardCollection<TestUser>(db, 'test_users', {});
-      
-      expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
+    it('should require config in options', () => {
+      expect(() => {
+        // @ts-expect-error Testing missing config
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs'
+        });
+      }).toThrow('MonguardCollectionOptions.config is required');
+    });
+
+    it('should validate transactionsEnabled is explicitly set', () => {
+      expect(() => {
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs',
+          // @ts-expect-error Testing invalid config
+          concurrency: {}
+        });
+      }).toThrow('transactionsEnabled must be explicitly set to true or false');
+    });
+
+    it('should accept transaction-enabled config', () => {
+      expect(() => {
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs',
+          concurrency: { transactionsEnabled: true }
+        });
+      }).not.toThrow();
+    });
+
+    it('should accept transaction-disabled config', () => {
+      expect(() => {
+        new MonguardCollection<TestUser>(db, 'test_users', {
+          auditCollectionName: 'audit_logs',
+          concurrency: { transactionsEnabled: false }
+        });
+      }).not.toThrow();
     });
   });
 
@@ -61,7 +99,10 @@ describe('Options Processing and Edge Cases', () => {
     let collection: MonguardCollection<TestUser>;
 
     beforeEach(() => {
-      collection = new MonguardCollection<TestUser>(db, 'test_users');
+      collection = new MonguardCollection<TestUser>(db, 'test_users', {
+        auditCollectionName: 'audit_logs',
+        concurrency: { transactionsEnabled: false }
+      });
     });
 
     describe('CreateOptions', () => {
@@ -101,7 +142,7 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.createdBy).toEqual(expect.any(Object));
+          expect(result.data!.createdBy).toEqual(expect.any(Object));
         }
       });
 
@@ -113,7 +154,7 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.createdBy).toEqual(expect.any(Object));
+          expect(result.data!.createdBy).toEqual(expect.any(Object));
         }
       });
     });
@@ -131,7 +172,7 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data.upsertedCount).toBe(1);
+          expect((result.data as any).upsertedCount).toBe(1);
         }
       });
 
@@ -142,7 +183,7 @@ describe('Options Processing and Edge Cases', () => {
         if (createResult.success) {
           const userContext = TestDataFactory.createUserContext();
           const result = await collection.updateById(
-            createResult.data._id,
+            createResult.data!._id,
             { $set: { name: 'Updated' } },
             { skipAudit: true, userContext }
           );
@@ -152,7 +193,7 @@ describe('Options Processing and Edge Cases', () => {
           // Verify only create audit log exists (not update)
           const auditLogs = await collection.getAuditCollection().find({}).toArray();
           expect(auditLogs).toHaveLength(1);
-          expect(auditLogs[0].action).toBe('create');
+          expect(auditLogs[0]!.action).toBe('create');
         }
       });
     });
@@ -164,14 +205,14 @@ describe('Options Processing and Edge Cases', () => {
         
         if (createResult.success) {
           const deleteResult = await collection.deleteById(
-            createResult.data._id,
+            createResult.data!._id,
             { hardDelete: true }
           );
           
           expect(deleteResult.success).toBe(true);
           
           // Verify document is completely removed
-          const findResult = await collection.findById(createResult.data._id, { includeSoftDeleted: true });
+          const findResult = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
           expect(findResult.success).toBe(true);
           expect(findResult.data).toBeNull();
         }
@@ -183,7 +224,7 @@ describe('Options Processing and Edge Cases', () => {
         
         if (createResult.success) {
           const deleteResult = await collection.deleteById(
-            createResult.data._id,
+            createResult.data!._id,
             { hardDelete: true, skipAudit: true }
           );
           
@@ -192,7 +233,7 @@ describe('Options Processing and Edge Cases', () => {
           // Verify only create audit log exists (not delete)
           const auditLogs = await collection.getAuditCollection().find({}).toArray();
           expect(auditLogs).toHaveLength(1);
-          expect(auditLogs[0].action).toBe('create');
+          expect(auditLogs[0]!.action).toBe('create');
         }
       });
     });
@@ -203,10 +244,10 @@ describe('Options Processing and Edge Cases', () => {
         expect(createResult.success).toBe(true);
         
         if (createResult.success) {
-          await collection.deleteById(createResult.data._id); // Soft delete
+          await collection.deleteById(createResult.data!._id); // Soft delete
           
           const findResult = await collection.findById(
-            createResult.data._id,
+            createResult.data!._id,
             { includeSoftDeleted: true }
           );
           
@@ -239,9 +280,9 @@ describe('Options Processing and Edge Cases', () => {
         
         expect(result.success).toBe(true);
         if (result.success) {
-          expect(result.data[0].name).toBe('Charlie');
-          expect(result.data[1].name).toBe('Alice');
-          expect(result.data[2].name).toBe('Bob');
+          expect(result.data![0]!.name).toBe('Charlie');
+          expect(result.data![1]!.name).toBe('Alice');
+          expect(result.data![2]!.name).toBe('Bob');
         }
       });
     });
@@ -250,7 +291,9 @@ describe('Options Processing and Edge Cases', () => {
   describe('Global Audit Disable', () => {
     it('should not create audit logs when globally disabled', async () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -261,8 +304,8 @@ describe('Options Processing and Edge Cases', () => {
       expect(createResult.success).toBe(true);
       
       if (createResult.success) {
-        await collection.updateById(createResult.data._id, { $set: { name: 'Updated' } }, { userContext });
-        await collection.deleteById(createResult.data._id, { userContext });
+        await collection.updateById(createResult.data!._id, { $set: { name: 'Updated' } }, { userContext });
+        await collection.deleteById(createResult.data!._id, { userContext });
       }
       
       // Verify no audit logs were created
@@ -272,7 +315,9 @@ describe('Options Processing and Edge Cases', () => {
 
     it('should ignore skipAudit when globally disabled', async () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        disableAudit: true
+        auditCollectionName: 'audit_logs',
+        disableAudit: true,
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -292,7 +337,10 @@ describe('Options Processing and Edge Cases', () => {
     let collection: MonguardCollection<TestUser>;
 
     beforeEach(() => {
-      collection = new MonguardCollection<TestUser>(db, 'test_users');
+      collection = new MonguardCollection<TestUser>(db, 'test_users', {
+        auditCollectionName: 'audit_logs',
+        concurrency: { transactionsEnabled: false }
+      });
     });
 
     it('should handle invalid ObjectId strings gracefully', async () => {
@@ -313,7 +361,7 @@ describe('Options Processing and Edge Cases', () => {
       
       // MongoDB allows empty documents, so this should succeed
       expect(result.success).toBe(true);
-      expect(result.data._id).toBeDefined();
+      expect(result.data!._id).toBeDefined();
     });
 
     it('should handle null document gracefully', async () => {
@@ -322,7 +370,7 @@ describe('Options Processing and Edge Cases', () => {
       
       // MongoDB driver converts null to empty object and succeeds
       expect(result.success).toBe(true);
-      expect(result.data._id).toBeDefined();
+      expect(result.data!._id).toBeDefined();
     });
   });
 });
