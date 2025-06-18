@@ -4,11 +4,11 @@
 
 > 🛡️ Soft delete, auto fields, and full audit logging – all in one TypeScript-friendly MongoDB toolkit.
 
-lightweight, zero-boilerplate toolkit designed to enhance MongoDB or Mongoose models with production-ready features
+lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features
 
 ### ✅ Overview
 
-**`monguard`** is a lightweight, zero-boilerplate toolkit designed to enhance MongoDB or Mongoose models with production-ready features:
+**`monguard`** is a lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features:
 
 * 🗑️ **Soft Delete** — Mark records as deleted without removing them from the database
 * ⏱️ **Auto Timestamps** — Automatically manage `createdAt` and `updatedAt` fields
