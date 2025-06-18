@@ -4,7 +4,7 @@ export function toObjectId(id: ObjectId | string): ObjectId {
   return typeof id === 'string' ? new ObjectId(id) : id;
 }
 
-export interface MonguardConfig {
+export interface MonguardConcurrencyConfig {
   transactionsEnabled: boolean;
   retryAttempts?: number;
   retryDelayMs?: number;

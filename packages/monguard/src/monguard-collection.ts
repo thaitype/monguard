@@ -26,7 +26,7 @@ import type {
   WrapperResult,
   UserContext,
   CreateDocument,
-  MonguardConfig
+  MonguardConcurrencyConfig
 } from './types';
 import { toObjectId } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
@@ -48,7 +48,7 @@ export interface MonguardCollectionOptions {
    * Monguard configuration for concurrency handling.
    * Required - must explicitly set transactionsEnabled to true or false.
    */
-  config: MonguardConfig;
+  concurrency: MonguardConcurrencyConfig;
 }
 
 const defaultOptions: Partial<MonguardCollectionOptions> = {
@@ -69,7 +69,7 @@ export class MonguardCollection<T extends BaseDocument> {
     options: MonguardCollectionOptions
   ) {
     // Validate that config is provided
-    if (!options.config) {
+    if (!options.concurrency) {
       throw new Error(
         'MonguardCollectionOptions.config is required. ' +
         'Must specify { transactionsEnabled: true } for MongoDB or { transactionsEnabled: false } for Cosmos DB.'
@@ -77,7 +77,7 @@ export class MonguardCollection<T extends BaseDocument> {
     }
 
     // Validate configuration
-    StrategyFactory.validateConfig(options.config);
+    StrategyFactory.validateConfig(options.concurrency);
 
     this.options = merge({}, defaultOptions, options);
     this.collection = db.collection<T>(collectionName);
@@ -89,7 +89,7 @@ export class MonguardCollection<T extends BaseDocument> {
       collection: this.collection,
       auditCollection: this.auditCollection,
       collectionName: this.collectionName,
-      config: this.options.config,
+      config: this.options.concurrency,
       disableAudit: this.options.disableAudit || false,
       createAuditLog: this.createAuditLog.bind(this),
       addTimestamps: this.addTimestamps.bind(this),

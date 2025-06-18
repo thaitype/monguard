@@ -16,7 +16,7 @@ describe('Audit Logging Integration Tests', () => {
     db = await testDb.start();
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
-      config: { transactionsEnabled: false }
+      concurrency: { transactionsEnabled: false }
     });
   });
 
@@ -132,7 +132,7 @@ describe('Audit Logging Integration Tests', () => {
       const disabledCollection = new MonguardCollection<TestUser>(db, 'test_users_disabled', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -373,7 +373,7 @@ describe('Audit Logging Integration Tests', () => {
     it('should use custom audit collection name', async () => {
       const customCollection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'custom_audit_logs',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -392,11 +392,11 @@ describe('Audit Logging Integration Tests', () => {
     it('should isolate audit logs between different collection instances', async () => {
       const collection1 = new MonguardCollection<TestUser>(db, 'users1', {
         auditCollectionName: 'audit1',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       const collection2 = new MonguardCollection<TestUser>(db, 'users2', {
         auditCollectionName: 'audit2',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData1 = TestDataFactory.createUser({ name: 'User 1' });

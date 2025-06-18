@@ -15,7 +15,7 @@ describe('Concurrent Operations Integration Tests', () => {
     db = await testDb.start();
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
-      config: { transactionsEnabled: false }
+      concurrency: { transactionsEnabled: false }
     });
   });
 

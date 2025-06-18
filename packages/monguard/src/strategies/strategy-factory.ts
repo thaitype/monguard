@@ -1,4 +1,4 @@
-import { BaseDocument, MonguardConfig } from '../types';
+import { BaseDocument, MonguardConcurrencyConfig } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import { TransactionStrategy } from './transaction-strategy';
 import { OptimisticLockingStrategy } from './optimistic-locking-strategy';
@@ -14,7 +14,7 @@ export class StrategyFactory {
     }
   }
   
-  static validateConfig(config: MonguardConfig): void {
+  static validateConfig(config: MonguardConcurrencyConfig): void {
     if (config.transactionsEnabled === undefined) {
       throw new Error(
         'transactionsEnabled must be explicitly set to true or false. ' +

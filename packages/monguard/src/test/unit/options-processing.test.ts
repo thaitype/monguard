@@ -21,7 +21,7 @@ describe('Options Processing and Edge Cases', () => {
     it('should use default options with explicit config', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
@@ -30,7 +30,7 @@ describe('Options Processing and Edge Cases', () => {
     it('should use custom audit collection name', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'custom_audit',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       expect(collection.getAuditCollection().collectionName).toBe('custom_audit');
@@ -40,7 +40,7 @@ describe('Options Processing and Edge Cases', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       // We can't directly test the private options, but we can test the behavior
@@ -50,7 +50,7 @@ describe('Options Processing and Edge Cases', () => {
     it('should merge partial options with defaults', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'my_audit',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
         // disableAudit should default to false
       });
       
@@ -71,7 +71,7 @@ describe('Options Processing and Edge Cases', () => {
         new MonguardCollection<TestUser>(db, 'test_users', {
           auditCollectionName: 'audit_logs',
           // @ts-expect-error Testing invalid config
-          config: {}
+          concurrency: {}
         });
       }).toThrow('transactionsEnabled must be explicitly set to true or false');
     });
@@ -80,7 +80,7 @@ describe('Options Processing and Edge Cases', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
           auditCollectionName: 'audit_logs',
-          config: { transactionsEnabled: true }
+          concurrency: { transactionsEnabled: true }
         });
       }).not.toThrow();
     });
@@ -89,7 +89,7 @@ describe('Options Processing and Edge Cases', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
           auditCollectionName: 'audit_logs',
-          config: { transactionsEnabled: false }
+          concurrency: { transactionsEnabled: false }
         });
       }).not.toThrow();
     });
@@ -101,7 +101,7 @@ describe('Options Processing and Edge Cases', () => {
     beforeEach(() => {
       collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
     });
 
@@ -293,7 +293,7 @@ describe('Options Processing and Edge Cases', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -317,7 +317,7 @@ describe('Options Processing and Edge Cases', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
       
       const userData = TestDataFactory.createUser();
@@ -339,7 +339,7 @@ describe('Options Processing and Edge Cases', () => {
     beforeEach(() => {
       collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
-        config: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false }
       });
     });
 

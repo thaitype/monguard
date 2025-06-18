@@ -5,7 +5,7 @@ import {
   UpdateOptions, 
   DeleteOptions, 
   WrapperResult,
-  MonguardConfig
+  MonguardConcurrencyConfig
 } from '../types';
 
 export interface OperationStrategy<T extends BaseDocument> {
@@ -26,7 +26,7 @@ export interface OperationStrategyContext<T extends BaseDocument> {
   collection: any; // MongoDB Collection
   auditCollection: any; // MongoDB Collection  
   collectionName: string;
-  config: MonguardConfig;
+  config: MonguardConcurrencyConfig;
   disableAudit: boolean;
   createAuditLog: (action: any, documentId: ObjectId, userContext?: any, metadata?: any) => Promise<void>;
   addTimestamps: (document: any, isUpdate?: boolean, userContext?: any) => any;

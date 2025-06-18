@@ -34,7 +34,7 @@ describe('MonguardCollection Internal Methods', () => {
     db = await testDb.start();
     collection = new TestableMonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
-      config: { transactionsEnabled: false }
+      concurrency: { transactionsEnabled: false }
     });
   });
 
