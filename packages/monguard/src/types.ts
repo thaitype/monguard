@@ -5,7 +5,7 @@ export interface MonguardConcurrencyConfig {
 }
 
 export interface BaseDocument {
-  _id: any;  // Can be string, ObjectId, or any other ID type
+  _id: any; // Can be string, ObjectId, or any other ID type
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -13,20 +13,20 @@ export interface BaseDocument {
 }
 
 export interface AuditableDocument extends BaseDocument {
-  createdBy?: any;  // Can be string, ObjectId, or any other ID type
+  createdBy?: any; // Can be string, ObjectId, or any other ID type
   updatedBy?: any;
   deletedBy?: any;
 }
 
-export type AuditAction = "create" | "update" | "delete";
+export type AuditAction = 'create' | 'update' | 'delete';
 
 export interface AuditLogDocument extends BaseDocument {
   ref: {
     collection: string;
-    id: any;  // Can be string, ObjectId, or any other ID type
+    id: any; // Can be string, ObjectId, or any other ID type
   };
   action: AuditAction;
-  userId?: any;  // Can be string, ObjectId, or any other ID type
+  userId?: any; // Can be string, ObjectId, or any other ID type
   timestamp: Date;
   metadata?: {
     before?: any;
@@ -38,7 +38,7 @@ export interface AuditLogDocument extends BaseDocument {
 }
 
 export interface UserContext {
-  userId: any;  // Can be string, ObjectId, or any other ID type - user's choice
+  userId: any; // Can be string, ObjectId, or any other ID type - user's choice
 }
 
 export interface CreateOptions {
@@ -46,7 +46,10 @@ export interface CreateOptions {
   userContext?: UserContext;
 }
 
-export type CreateDocument<T extends BaseDocument> = Omit<T, '_id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'createdBy' | 'updatedBy' | 'deletedBy'>;
+export type CreateDocument<T extends BaseDocument> = Omit<
+  T,
+  '_id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'createdBy' | 'updatedBy' | 'deletedBy'
+>;
 
 export interface UpdateOptions {
   skipAudit?: boolean;

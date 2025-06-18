@@ -16,16 +16,16 @@ export function adaptDb(mongoDb: MongoDb): Db {
   // Ensure client is properly exposed for transaction strategy
   const adaptedDb = mongoDb as any as Db;
   (adaptedDb as any).client = (mongoDb as any).client;
-  
+
   // Override collection method to ensure proper db reference
   const originalCollection = adaptedDb.collection.bind(adaptedDb);
-  adaptedDb.collection = function<T = any>(name: string) {
+  adaptedDb.collection = function <T = any>(name: string) {
     const collection = originalCollection(name);
     // Ensure collection.db points to the adapted database
     (collection as any).db = adaptedDb;
     return collection;
   };
-  
+
   return adaptedDb;
 }
 

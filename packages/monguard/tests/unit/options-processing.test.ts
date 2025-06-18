@@ -25,7 +25,7 @@ describe('Options Processing and Edge Cases', () => {
     it('should use default options with explicit config', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
 
       expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
@@ -34,7 +34,7 @@ describe('Options Processing and Edge Cases', () => {
     it('should use custom audit collection name', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'custom_audit',
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
 
       expect(collection.getAuditCollection().collectionName).toBe('custom_audit');
@@ -44,7 +44,7 @@ describe('Options Processing and Edge Cases', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
 
       // We can't directly test the private options, but we can test the behavior
@@ -54,7 +54,7 @@ describe('Options Processing and Edge Cases', () => {
     it('should merge partial options with defaults', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'my_audit',
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
         // disableAudit should default to false
       });
 
@@ -65,7 +65,7 @@ describe('Options Processing and Edge Cases', () => {
       expect(() => {
         // @ts-expect-error Testing invalid config
         new MonguardCollection<TestUser>(db, 'test_users', {
-          auditCollectionName: 'audit_logs'
+          auditCollectionName: 'audit_logs',
         });
       }).toThrow('MonguardCollectionOptions.config is required');
     });
@@ -75,7 +75,7 @@ describe('Options Processing and Edge Cases', () => {
         new MonguardCollection<TestUser>(db, 'test_users', {
           auditCollectionName: 'audit_logs',
           // @ts-expect-error Testing invalid config
-          concurrency: {}
+          concurrency: {},
         });
       }).toThrow('transactionsEnabled must be explicitly set to true or false');
     });
@@ -84,7 +84,7 @@ describe('Options Processing and Edge Cases', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
           auditCollectionName: 'audit_logs',
-          concurrency: { transactionsEnabled: true }
+          concurrency: { transactionsEnabled: true },
         });
       }).not.toThrow();
     });
@@ -93,7 +93,7 @@ describe('Options Processing and Edge Cases', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
           auditCollectionName: 'audit_logs',
-          concurrency: { transactionsEnabled: false }
+          concurrency: { transactionsEnabled: false },
         });
       }).not.toThrow();
     });
@@ -105,7 +105,7 @@ describe('Options Processing and Edge Cases', () => {
     beforeEach(() => {
       collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
     });
 
@@ -168,11 +168,7 @@ describe('Options Processing and Edge Cases', () => {
         const userData = TestDataFactory.createUser();
         const nonExistentId = TestDataFactory.createObjectId();
 
-        const result = await collection.updateById(
-          nonExistentId,
-          { $set: { name: 'Updated Name' } },
-          { upsert: true }
-        );
+        const result = await collection.updateById(nonExistentId, { $set: { name: 'Updated Name' } }, { upsert: true });
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -208,10 +204,7 @@ describe('Options Processing and Edge Cases', () => {
         expect(createResult.success).toBe(true);
 
         if (createResult.success) {
-          const deleteResult = await collection.deleteById(
-            createResult.data!._id,
-            { hardDelete: true }
-          );
+          const deleteResult = await collection.deleteById(createResult.data!._id, { hardDelete: true });
 
           expect(deleteResult.success).toBe(true);
 
@@ -227,10 +220,10 @@ describe('Options Processing and Edge Cases', () => {
         expect(createResult.success).toBe(true);
 
         if (createResult.success) {
-          const deleteResult = await collection.deleteById(
-            createResult.data!._id,
-            { hardDelete: true, skipAudit: true }
-          );
+          const deleteResult = await collection.deleteById(createResult.data!._id, {
+            hardDelete: true,
+            skipAudit: true,
+          });
 
           expect(deleteResult.success).toBe(true);
 
@@ -250,10 +243,7 @@ describe('Options Processing and Edge Cases', () => {
         if (createResult.success) {
           await collection.deleteById(createResult.data!._id); // Soft delete
 
-          const findResult = await collection.findById(
-            createResult.data!._id,
-            { includeSoftDeleted: true }
-          );
+          const findResult = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
 
           expect(findResult.success).toBe(true);
           expect(findResult.data).not.toBeNull();
@@ -297,7 +287,7 @@ describe('Options Processing and Edge Cases', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
 
       const userData = TestDataFactory.createUser();
@@ -321,7 +311,7 @@ describe('Options Processing and Edge Cases', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
         disableAudit: true,
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
 
       const userData = TestDataFactory.createUser();
@@ -343,7 +333,7 @@ describe('Options Processing and Edge Cases', () => {
     beforeEach(() => {
       collection = new MonguardCollection<TestUser>(db, 'test_users', {
         auditCollectionName: 'audit_logs',
-        concurrency: { transactionsEnabled: false }
+        concurrency: { transactionsEnabled: false },
       });
     });
 
@@ -357,7 +347,7 @@ describe('Options Processing and Edge Cases', () => {
     });
 
     it('should handle null document gracefully', async () => {
-      // @ts-expect-error Testing invalid input  
+      // @ts-expect-error Testing invalid input
       const result = await collection.create(null);
 
       // MongoDB driver converts null to empty object and succeeds
