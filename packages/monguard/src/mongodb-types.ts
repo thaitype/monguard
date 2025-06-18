@@ -82,15 +82,17 @@ export interface RootFilterOperators<TSchema> {
 export type Filter<TSchema> = {
   [P in keyof TSchema]?: TSchema[P] | FilterOperators<TSchema[P]>;
 } & RootFilterOperators<TSchema> & {
-  [key: string]: any;
-};
+    [key: string]: any;
+  };
 
 /**
  * MongoDB update operators - identical to mongodb package
  */
 export interface UpdateFilter<TSchema> {
   /** Update operators */
-  $currentDate?: { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } } | { [key: string]: true | { $type: 'date' | 'timestamp' } };
+  $currentDate?:
+    | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
+    | { [key: string]: true | { $type: 'date' | 'timestamp' } };
   $inc?: { [P in keyof TSchema]?: number } | { [key: string]: number };
   $min?: Partial<TSchema>;
   $max?: Partial<TSchema>;
@@ -228,60 +230,42 @@ export interface CollectionOperationOptions {
 export interface Collection<TSchema = any> {
   /** Collection name */
   collectionName: string;
-  
+
   /** Database reference */
   db: Db;
-  
+
   /** Insert a single document */
-  insertOne(
-    document: TSchema,
-    options?: CollectionOperationOptions
-  ): Promise<InsertOneResult>;
-  
+  insertOne(document: TSchema, options?: CollectionOperationOptions): Promise<InsertOneResult>;
+
   /** Find a single document */
-  findOne(
-    filter: Filter<TSchema>,
-    options?: FindOptions & CollectionOperationOptions
-  ): Promise<TSchema | null>;
-  
+  findOne(filter: Filter<TSchema>, options?: FindOptions & CollectionOperationOptions): Promise<TSchema | null>;
+
   /** Find multiple documents */
-  find(
-    filter: Filter<TSchema>,
-    options?: FindOptions & CollectionOperationOptions
-  ): FindCursor<TSchema>;
-  
+  find(filter: Filter<TSchema>, options?: FindOptions & CollectionOperationOptions): FindCursor<TSchema>;
+
   /** Update multiple documents */
   updateMany(
     filter: Filter<TSchema>,
     update: UpdateFilter<TSchema>,
     options?: CollectionOperationOptions
   ): Promise<UpdateResult>;
-  
+
   /** Update a single document */
   updateOne(
     filter: Filter<TSchema>,
     update: UpdateFilter<TSchema>,
     options?: CollectionOperationOptions
   ): Promise<UpdateResult>;
-  
+
   /** Delete multiple documents */
-  deleteMany(
-    filter: Filter<TSchema>,
-    options?: CollectionOperationOptions
-  ): Promise<DeleteResult>;
-  
+  deleteMany(filter: Filter<TSchema>, options?: CollectionOperationOptions): Promise<DeleteResult>;
+
   /** Delete a single document */
-  deleteOne(
-    filter: Filter<TSchema>,
-    options?: CollectionOperationOptions
-  ): Promise<DeleteResult>;
-  
+  deleteOne(filter: Filter<TSchema>, options?: CollectionOperationOptions): Promise<DeleteResult>;
+
   /** Count documents matching filter */
-  countDocuments(
-    filter: Filter<TSchema>,
-    options?: CollectionOperationOptions
-  ): Promise<number>;
-  
+  countDocuments(filter: Filter<TSchema>, options?: CollectionOperationOptions): Promise<number>;
+
   /** Replace a single document */
   replaceOne(
     filter: Filter<TSchema>,
@@ -308,19 +292,19 @@ export interface MongoClient {
 export interface Db {
   /** Database name */
   databaseName: string;
-  
+
   /** MongoDB client instance */
   client: MongoClient;
-  
+
   /** Get a collection */
   collection<TSchema = any>(name: string): Collection<TSchema>;
-  
+
   /** Create a collection */
   createCollection<TSchema = any>(name: string, options?: any): Promise<Collection<TSchema>>;
-  
+
   /** Drop a collection */
   dropCollection(name: string): Promise<boolean>;
-  
+
   /** List collections */
   listCollections(filter?: any, options?: any): any;
 }

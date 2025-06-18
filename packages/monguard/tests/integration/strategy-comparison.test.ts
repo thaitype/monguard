@@ -18,16 +18,16 @@ describe('Strategy Comparison Tests', () => {
     testDb = new TestDatabase();
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
-    
+
     // Create collections with different strategies
     transactionCollection = new MonguardCollection<TestUser>(db, 'transaction_users', {
       auditCollectionName: 'transaction_audit_logs',
-      concurrency: { transactionsEnabled: true }
+      concurrency: { transactionsEnabled: true },
     });
-    
+
     optimisticCollection = new MonguardCollection<TestUser>(db, 'optimistic_users', {
       auditCollectionName: 'optimistic_audit_logs',
-      concurrency: { transactionsEnabled: false }
+      concurrency: { transactionsEnabled: false },
     });
   });
 
@@ -52,20 +52,20 @@ describe('Strategy Comparison Tests', () => {
       // Both should have similar structure (excluding _id)
       expect(transactionResult.data.name).toBe(userData1.name);
       expect(optimisticResult.data.name).toBe(userData2.name);
-      
+
       TestAssertions.expectTimestamps(transactionResult.data);
       TestAssertions.expectTimestamps(optimisticResult.data);
-      
+
       TestAssertions.expectUserTracking(transactionResult.data, userContext.userId as any);
       TestAssertions.expectUserTracking(optimisticResult.data, userContext.userId as any);
 
       // Both should create audit logs
       const transactionAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
       const optimisticAuditLogs = await optimisticCollection.getAuditCollection().find({}).toArray();
-      
+
       expect(transactionAuditLogs).toHaveLength(1);
       expect(optimisticAuditLogs).toHaveLength(1);
-      
+
       expect(transactionAuditLogs[0]!.action).toBe('create');
       expect(optimisticAuditLogs[0]!.action).toBe('create');
     });
@@ -77,39 +77,35 @@ describe('Strategy Comparison Tests', () => {
       // Create documents in both collections
       const transactionCreate = await transactionCollection.create(userData, { userContext });
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
-      
+
       TestAssertions.expectSuccess(transactionCreate);
       TestAssertions.expectSuccess(optimisticCreate);
 
       // Update both documents
       const updateData = { $set: { name: 'Updated Name', age: 30 } };
-      
-      const transactionUpdate = await transactionCollection.updateById(
-        transactionCreate.data!._id,
-        updateData,
-        { userContext }
-      );
-      
-      const optimisticUpdate = await optimisticCollection.updateById(
-        optimisticCreate.data!._id,
-        updateData,
-        { userContext }
-      );
+
+      const transactionUpdate = await transactionCollection.updateById(transactionCreate.data!._id, updateData, {
+        userContext,
+      });
+
+      const optimisticUpdate = await optimisticCollection.updateById(optimisticCreate.data!._id, updateData, {
+        userContext,
+      });
 
       // Both updates should succeed
       TestAssertions.expectSuccess(transactionUpdate);
       TestAssertions.expectSuccess(optimisticUpdate);
-      
+
       expect(transactionUpdate.data.modifiedCount).toBe(1);
       expect(optimisticUpdate.data.modifiedCount).toBe(1);
 
       // Verify updated documents
       const transactionDoc = await transactionCollection.findById(transactionCreate.data!._id);
       const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data!._id);
-      
+
       TestAssertions.expectSuccess(transactionDoc);
       TestAssertions.expectSuccess(optimisticDoc);
-      
+
       expect(transactionDoc.data!.name).toBe('Updated Name');
       expect(optimisticDoc.data!.name).toBe('Updated Name');
       expect(transactionDoc.data!.age).toBe(30);
@@ -118,7 +114,7 @@ describe('Strategy Comparison Tests', () => {
       // Both should have create + update audit logs
       const transactionAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
       const optimisticAuditLogs = await optimisticCollection.getAuditCollection().find({}).toArray();
-      
+
       expect(transactionAuditLogs).toHaveLength(2);
       expect(optimisticAuditLogs).toHaveLength(2);
     });
@@ -132,15 +128,9 @@ describe('Strategy Comparison Tests', () => {
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
       // Soft delete both documents
-      const transactionDelete = await transactionCollection.deleteById(
-        transactionCreate.data!._id,
-        { userContext }
-      );
-      
-      const optimisticDelete = await optimisticCollection.deleteById(
-        optimisticCreate.data!._id,
-        { userContext }
-      );
+      const transactionDelete = await transactionCollection.deleteById(transactionCreate.data!._id, { userContext });
+
+      const optimisticDelete = await optimisticCollection.deleteById(optimisticCreate.data!._id, { userContext });
 
       // Both deletes should succeed
       TestAssertions.expectSuccess(transactionDelete);
@@ -149,25 +139,23 @@ describe('Strategy Comparison Tests', () => {
       // Both documents should not be found in normal search
       const transactionFind = await transactionCollection.findById(transactionCreate.data!._id);
       const optimisticFind = await optimisticCollection.findById(optimisticCreate.data!._id);
-      
+
       TestAssertions.expectSuccess(transactionFind);
       TestAssertions.expectSuccess(optimisticFind);
       expect(transactionFind.data).toBeNull();
       expect(optimisticFind.data).toBeNull();
 
       // Both should be found with includeSoftDeleted
-      const transactionDeleted = await transactionCollection.findById(
-        transactionCreate.data!._id,
-        { includeSoftDeleted: true }
-      );
-      const optimisticDeleted = await optimisticCollection.findById(
-        optimisticCreate.data!._id,
-        { includeSoftDeleted: true }
-      );
-      
+      const transactionDeleted = await transactionCollection.findById(transactionCreate.data!._id, {
+        includeSoftDeleted: true,
+      });
+      const optimisticDeleted = await optimisticCollection.findById(optimisticCreate.data!._id, {
+        includeSoftDeleted: true,
+      });
+
       TestAssertions.expectSuccess(transactionDeleted);
       TestAssertions.expectSuccess(optimisticDeleted);
-      
+
       expect(transactionDeleted.data!.deletedAt).toBeInstanceOf(Date);
       expect(optimisticDeleted.data!.deletedAt).toBeInstanceOf(Date);
     });
@@ -181,30 +169,28 @@ describe('Strategy Comparison Tests', () => {
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
       // Hard delete both documents
-      const transactionDelete = await transactionCollection.deleteById(
-        transactionCreate.data!._id,
-        { userContext, hardDelete: true }
-      );
-      
-      const optimisticDelete = await optimisticCollection.deleteById(
-        optimisticCreate.data!._id,
-        { userContext, hardDelete: true }
-      );
+      const transactionDelete = await transactionCollection.deleteById(transactionCreate.data!._id, {
+        userContext,
+        hardDelete: true,
+      });
+
+      const optimisticDelete = await optimisticCollection.deleteById(optimisticCreate.data!._id, {
+        userContext,
+        hardDelete: true,
+      });
 
       // Both deletes should succeed
       TestAssertions.expectSuccess(transactionDelete);
       TestAssertions.expectSuccess(optimisticDelete);
 
       // Both documents should be completely gone
-      const transactionFind = await transactionCollection.findById(
-        transactionCreate.data!._id,
-        { includeSoftDeleted: true }
-      );
-      const optimisticFind = await optimisticCollection.findById(
-        optimisticCreate.data!._id,
-        { includeSoftDeleted: true }
-      );
-      
+      const transactionFind = await transactionCollection.findById(transactionCreate.data!._id, {
+        includeSoftDeleted: true,
+      });
+      const optimisticFind = await optimisticCollection.findById(optimisticCreate.data!._id, {
+        includeSoftDeleted: true,
+      });
+
       TestAssertions.expectSuccess(transactionFind);
       TestAssertions.expectSuccess(optimisticFind);
       expect(transactionFind.data).toBeNull();
@@ -226,7 +212,7 @@ describe('Strategy Comparison Tests', () => {
 
       // Transaction strategy doesn't use version field
       expect(transactionCreate.data.version).toBeUndefined();
-      
+
       // Optimistic strategy should add version field
       expect(optimisticCreate.data.version).toBe(1);
 
@@ -236,7 +222,7 @@ describe('Strategy Comparison Tests', () => {
         { $set: { name: 'Updated' } },
         { userContext }
       );
-      
+
       const optimisticUpdate = await optimisticCollection.updateById(
         optimisticCreate.data!._id,
         { $set: { name: 'Updated' } },
@@ -255,7 +241,7 @@ describe('Strategy Comparison Tests', () => {
 
       // Transaction strategy still doesn't use version
       expect(transactionDoc.data!.version).toBeUndefined();
-      
+
       // Optimistic strategy should increment version
       expect(optimisticDoc.data!.version).toBe(2);
     });
@@ -285,7 +271,7 @@ describe('Strategy Comparison Tests', () => {
       // Verify both completed
       const transactionCount = await transactionCollection.count({});
       const optimisticCount = await optimisticCollection.count({});
-      
+
       TestAssertions.expectSuccess(transactionCount);
       TestAssertions.expectSuccess(optimisticCount);
       expect(transactionCount.data).toBe(10);
@@ -306,18 +292,14 @@ describe('Strategy Comparison Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       // Concurrent creates with transaction strategy
-      const transactionPromises = users.map(userData => 
-        transactionCollection.create(userData, { userContext })
-      );
+      const transactionPromises = users.map(userData => transactionCollection.create(userData, { userContext }));
 
-      // Concurrent creates with optimistic strategy  
-      const optimisticPromises = users.map(userData => 
-        optimisticCollection.create(userData, { userContext })
-      );
+      // Concurrent creates with optimistic strategy
+      const optimisticPromises = users.map(userData => optimisticCollection.create(userData, { userContext }));
 
       const [transactionResults, optimisticResults] = await Promise.all([
         Promise.all(transactionPromises),
-        Promise.all(optimisticPromises)
+        Promise.all(optimisticPromises),
       ]);
 
       // All operations should succeed in both strategies
@@ -327,7 +309,7 @@ describe('Strategy Comparison Tests', () => {
       // Verify final counts
       const transactionCount = await transactionCollection.count({});
       const optimisticCount = await optimisticCollection.count({});
-      
+
       TestAssertions.expectSuccess(transactionCount);
       TestAssertions.expectSuccess(optimisticCount);
       expect(transactionCount.data).toBe(5);
@@ -347,34 +329,18 @@ describe('Strategy Comparison Tests', () => {
 
       // Concurrent updates to the same document
       const transactionPromises = [
-        transactionCollection.updateById(
-          transactionCreate.data!._id,
-          { $set: { name: 'Update 1' } },
-          { userContext }
-        ),
-        transactionCollection.updateById(
-          transactionCreate.data!._id,
-          { $set: { name: 'Update 2' } },
-          { userContext }
-        ),
+        transactionCollection.updateById(transactionCreate.data!._id, { $set: { name: 'Update 1' } }, { userContext }),
+        transactionCollection.updateById(transactionCreate.data!._id, { $set: { name: 'Update 2' } }, { userContext }),
       ];
 
       const optimisticPromises = [
-        optimisticCollection.updateById(
-          optimisticCreate.data!._id,
-          { $set: { name: 'Update 1' } },
-          { userContext }
-        ),
-        optimisticCollection.updateById(
-          optimisticCreate.data!._id,
-          { $set: { name: 'Update 2' } },
-          { userContext }
-        ),
+        optimisticCollection.updateById(optimisticCreate.data!._id, { $set: { name: 'Update 1' } }, { userContext }),
+        optimisticCollection.updateById(optimisticCreate.data!._id, { $set: { name: 'Update 2' } }, { userContext }),
       ];
 
       const [transactionResults, optimisticResults] = await Promise.all([
         Promise.allSettled(transactionPromises),
-        Promise.allSettled(optimisticPromises)
+        Promise.allSettled(optimisticPromises),
       ]);
 
       // At least one update should succeed in both strategies
@@ -403,10 +369,12 @@ describe('Strategy Comparison Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       // Mock audit failures for both strategies
-      const transactionAuditSpy = vi.spyOn(transactionCollection.getAuditCollection(), 'insertOne')
+      const transactionAuditSpy = vi
+        .spyOn(transactionCollection.getAuditCollection(), 'insertOne')
         .mockRejectedValue(new Error('Transaction audit failed'));
-      
-      const optimisticAuditSpy = vi.spyOn(optimisticCollection.getAuditCollection(), 'insertOne')
+
+      const optimisticAuditSpy = vi
+        .spyOn(optimisticCollection.getAuditCollection(), 'insertOne')
         .mockRejectedValue(new Error('Optimistic audit failed'));
 
       const transactionResult = await transactionCollection.create(userData, { userContext });
@@ -415,7 +383,7 @@ describe('Strategy Comparison Tests', () => {
       // Both should handle the error (transaction rolls back, optimistic continues)
       // In fallback mode, transaction strategy might succeed like optimistic strategy
       // In true transaction mode, transaction strategy would fail completely due to rollback
-      
+
       // This test documents the behavioral difference between strategies and fallback mode
       if (transactionResult.success) {
         // Fallback mode: document created despite audit failure
@@ -424,7 +392,7 @@ describe('Strategy Comparison Tests', () => {
         // True transaction mode: complete rollback
         TestAssertions.expectError(transactionResult);
       }
-      
+
       // Optimistic strategy might succeed despite audit failure (implementation dependent)
       // This test documents the behavioral difference
 

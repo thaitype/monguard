@@ -8,7 +8,7 @@ import type {
   UpdateResult,
   DeleteResult,
   FindOptions,
-  WithoutId
+  WithoutId,
 } from './mongodb-types';
 import { merge } from 'lodash-es';
 
@@ -24,7 +24,7 @@ import type {
   WrapperResult,
   UserContext,
   CreateDocument,
-  MonguardConcurrencyConfig
+  MonguardConcurrencyConfig,
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
@@ -34,14 +34,7 @@ export interface MonguardCollectionOptions {
    * Audit collection name.
    * If not provided, defaults to 'audit_logs'.
    */
-  auditCollectionName: string;
-  /**
-   * Document ID type used for user tracking and audit logs.
-   * - 'objectId': Use ObjectId for user IDs (default, backward compatible)
-   * - 'string': Use string for user IDs
-   * All collections sharing the same audit collection should use the same documentIdType.
-   */
-  documentIdType?: 'string' | 'objectId';
+  auditCollectionName?: string;
   /**
    * Globally disable audit logging for this collection.
    * When true, no audit logs will be created regardless of skipAudit options.
@@ -57,8 +50,7 @@ export interface MonguardCollectionOptions {
 
 const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditCollectionName: 'audit_logs',
-  documentIdType: 'objectId',
-  disableAudit: false
+  disableAudit: false,
 };
 
 export class MonguardCollection<T extends BaseDocument> {
@@ -67,28 +59,22 @@ export class MonguardCollection<T extends BaseDocument> {
   private collectionName: string;
   private options: MonguardCollectionOptions;
   private strategy: OperationStrategy<T>;
-  private documentIdType: 'string' | 'objectId';
 
-  constructor(
-    db: Db,
-    collectionName: string,
-    options: MonguardCollectionOptions
-  ) {
+  constructor(db: Db, collectionName: string, options: MonguardCollectionOptions) {
     // Validate that config is provided
     if (!options.concurrency) {
       throw new Error(
         'MonguardCollectionOptions.config is required. ' +
-        'Must specify { transactionsEnabled: true } for MongoDB or { transactionsEnabled: false } for Cosmos DB.'
+          'Must specify { transactionsEnabled: true } for MongoDB or { transactionsEnabled: false } for Cosmos DB.'
       );
     }
 
     // Validate configuration
     StrategyFactory.validateConfig(options.concurrency);
 
-    this.options = merge({}, defaultOptions, options);
-    this.documentIdType = this.options.documentIdType!; // Will be set by defaultOptions merge
+    this.options = merge({}, defaultOptions, options) as MonguardCollectionOptions;
     this.collection = db.collection<T>(collectionName);
-    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName);
+    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName!); // Set by default value
     this.collectionName = collectionName;
 
     // Create strategy context
@@ -101,7 +87,7 @@ export class MonguardCollection<T extends BaseDocument> {
       createAuditLog: this.createAuditLog.bind(this),
       addTimestamps: this.addTimestamps.bind(this),
       mergeSoftDeleteFilter: this.mergeSoftDeleteFilter.bind(this),
-      getChangedFields: this.getChangedFields.bind(this)
+      getChangedFields: this.getChangedFields.bind(this),
     };
 
     // Create strategy based on configuration
@@ -123,14 +109,14 @@ export class MonguardCollection<T extends BaseDocument> {
       const auditLog: WithoutId<AuditLogDocument> = {
         ref: {
           collection: this.collectionName,
-          id: documentId
+          id: documentId,
         },
         action,
         userId: userContext?.userId,
         timestamp: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-        metadata
+        metadata,
       };
 
       await this.auditCollection.insertOne(auditLog as any);
@@ -169,7 +155,7 @@ export class MonguardCollection<T extends BaseDocument> {
   private mergeSoftDeleteFilter(filter: Filter<T> = {}): Filter<T> {
     return {
       ...filter,
-      ...this.getSoftDeleteFilter()
+      ...this.getSoftDeleteFilter(),
     };
   }
 
@@ -180,78 +166,63 @@ export class MonguardCollection<T extends BaseDocument> {
     return this.strategy.create(document, options);
   }
 
-  async findById(
-    id: ObjectId,
-    options: MonguardFindOptions = {}
-  ): Promise<WrapperResult<T | null>> {
+  async findById(id: ObjectId, options: MonguardFindOptions = {}): Promise<WrapperResult<T | null>> {
     try {
       const filter = options.includeSoftDeleted
-        ? { _id: id } as Filter<T>
+        ? ({ _id: id } as Filter<T>)
         : this.mergeSoftDeleteFilter({ _id: id } as Filter<T>);
 
       const document = await this.collection.findOne(filter);
 
       return {
         success: true,
-        data: document as T | null
+        data: document as T | null,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Find operation failed'
+        error: error instanceof Error ? error.message : 'Find operation failed',
       };
     }
   }
 
-  async find(
-    filter: Filter<T> = {},
-    options: MonguardFindOptions = {}
-  ): Promise<WrapperResult<T[]>> {
+  async find(filter: Filter<T> = {}, options: MonguardFindOptions = {}): Promise<WrapperResult<T[]>> {
     try {
-      const finalFilter = options.includeSoftDeleted
-        ? filter
-        : this.mergeSoftDeleteFilter(filter);
+      const finalFilter = options.includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
       const mongoOptions: FindOptions = {};
       if (options.limit) mongoOptions.limit = options.limit;
       if (options.skip) mongoOptions.skip = options.skip;
       if (options.sort) mongoOptions.sort = options.sort;
 
-      const documents = await this.collection
-        .find(finalFilter, mongoOptions)
-        .toArray();
+      const documents = await this.collection.find(finalFilter, mongoOptions).toArray();
 
       return {
         success: true,
-        data: documents as T[]
+        data: documents as T[],
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Find operation failed'
+        error: error instanceof Error ? error.message : 'Find operation failed',
       };
     }
   }
 
-  async findOne(
-    filter: Filter<T>,
-    options: MonguardFindOptions = {}
-  ): Promise<WrapperResult<T | null>> {
+  async findOne(filter: Filter<T>, options: MonguardFindOptions = {}): Promise<WrapperResult<T | null>> {
     try {
-      const finalFilter = options.includeSoftDeleted
-        ? filter
-        : this.mergeSoftDeleteFilter(filter);
+      const finalFilter = options.includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
       const document = await this.collection.findOne(finalFilter);
 
       return {
         success: true,
-        data: document as T | null
+        data: document as T | null,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Find operation failed'
+        error: error instanceof Error ? error.message : 'Find operation failed',
       };
     }
   }
@@ -272,46 +243,32 @@ export class MonguardCollection<T extends BaseDocument> {
     return this.strategy.updateById(id, update, options);
   }
 
-  async delete(
-    filter: Filter<T>,
-    options: DeleteOptions = {}
-  ): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
     return this.strategy.delete(filter, options);
   }
 
-  async deleteById(
-    id: ObjectId,
-    options: DeleteOptions = {}
-  ): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
     return this.strategy.deleteById(id, options);
   }
 
-  async restore(
-    filter: Filter<T>,
-    userContext?: UserContext
-  ): Promise<WrapperResult<UpdateResult>> {
+  async restore(filter: Filter<T>, userContext?: UserContext): Promise<WrapperResult<UpdateResult>> {
     return this.strategy.restore(filter, userContext);
   }
 
-  async count(
-    filter: Filter<T> = {},
-    includeSoftDeleted: boolean = false
-  ): Promise<WrapperResult<number>> {
+  async count(filter: Filter<T> = {}, includeSoftDeleted: boolean = false): Promise<WrapperResult<number>> {
     try {
-      const finalFilter = includeSoftDeleted
-        ? filter
-        : this.mergeSoftDeleteFilter(filter);
+      const finalFilter = includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
       const count = await this.collection.countDocuments(finalFilter);
 
       return {
         success: true,
-        data: count
+        data: count,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Count operation failed'
+        error: error instanceof Error ? error.message : 'Count operation failed',
       };
     }
   }

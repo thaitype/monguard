@@ -19,7 +19,7 @@ describe('Transaction Strategy Integration Tests', () => {
     db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
-      concurrency: { transactionsEnabled: true } // Test transaction strategy
+      concurrency: { transactionsEnabled: true }, // Test transaction strategy
     });
   });
 
@@ -31,9 +31,9 @@ describe('Transaction Strategy Integration Tests', () => {
     it('should create document within a transaction', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
-      
+
       const result = await collection.create(userData, { userContext });
-      
+
       TestAssertions.expectSuccess(result);
       expect(result.data!._id).toBeDefined();
       expect(result.data!.name).toBe(userData.name);
@@ -61,11 +61,7 @@ describe('Transaction Strategy Integration Tests', () => {
 
       // Update the document
       const updateData = { name: 'Updated Name' };
-      const updateResult = await collection.updateById(
-        createResult.data!._id,
-        { $set: updateData },
-        { userContext }
-      );
+      const updateResult = await collection.updateById(createResult.data!._id, { $set: updateData }, { userContext });
 
       TestAssertions.expectSuccess(updateResult);
       expect(updateResult.data.modifiedCount).toBe(1);
@@ -116,10 +112,7 @@ describe('Transaction Strategy Integration Tests', () => {
       TestAssertions.expectSuccess(createResult);
 
       // Hard delete the document
-      const deleteResult = await collection.deleteById(
-        createResult.data!._id, 
-        { userContext, hardDelete: true }
-      );
+      const deleteResult = await collection.deleteById(createResult.data!._id, { userContext, hardDelete: true });
       TestAssertions.expectSuccess(deleteResult);
 
       // Verify document is completely removed
@@ -144,10 +137,7 @@ describe('Transaction Strategy Integration Tests', () => {
       await collection.deleteById(createResult.data!._id, { userContext });
 
       // Restore the document
-      const restoreResult = await collection.restore(
-        { _id: createResult.data!._id },
-        userContext
-      );
+      const restoreResult = await collection.restore({ _id: createResult.data!._id }, userContext);
       TestAssertions.expectSuccess(restoreResult);
 
       // Verify document is restored
@@ -169,12 +159,10 @@ describe('Transaction Strategy Integration Tests', () => {
 
       // Mock audit collection to fail
       const originalInsertOne = collection.getAuditCollection().insertOne;
-      vi.spyOn(collection.getAuditCollection(), 'insertOne').mockRejectedValue(
-        new Error('Audit insert failed')
-      );
+      vi.spyOn(collection.getAuditCollection(), 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
 
       const result = await collection.create(userData, { userContext });
-      
+
       // In fallback mode (non-transactional), the operation might succeed despite audit failure
       // In true transaction mode, it would fail and roll back
       // This test documents the behavior difference
@@ -211,12 +199,10 @@ describe('Transaction Strategy Integration Tests', () => {
 
       // Mock main collection to fail after audit log attempt
       const originalInsertOne = collection.getCollection().insertOne;
-      vi.spyOn(collection.getCollection(), 'insertOne').mockRejectedValue(
-        new Error('Main insert failed')
-      );
+      vi.spyOn(collection.getCollection(), 'insertOne').mockRejectedValue(new Error('Main insert failed'));
 
       const result = await collection.create(userData, { userContext });
-      
+
       // Operation should fail
       TestAssertions.expectError(result);
 
@@ -239,11 +225,9 @@ describe('Transaction Strategy Integration Tests', () => {
 
       // Create a spy to track session lifecycle
       const clientStartSession = vi.spyOn((db as any).client, 'startSession');
-      
+
       // Mock to fail and track session cleanup
-      vi.spyOn(collection.getCollection(), 'insertOne').mockRejectedValue(
-        new Error('Simulated failure')
-      );
+      vi.spyOn(collection.getCollection(), 'insertOne').mockRejectedValue(new Error('Simulated failure'));
 
       const result = await collection.create(userData, { userContext });
       TestAssertions.expectError(result);
@@ -265,9 +249,7 @@ describe('Transaction Strategy Integration Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       // Execute concurrent creates
-      const createPromises = users.map(userData => 
-        collection.create(userData, { userContext })
-      );
+      const createPromises = users.map(userData => collection.create(userData, { userContext }));
 
       const results = await Promise.all(createPromises);
 
@@ -289,19 +271,13 @@ describe('Transaction Strategy Integration Tests', () => {
       // Create multiple documents
       const users = TestDataFactory.createMultipleUsers(3);
       const userContext = TestDataFactory.createUserContext();
-      
-      const createResults = await Promise.all(
-        users.map(userData => collection.create(userData, { userContext }))
-      );
+
+      const createResults = await Promise.all(users.map(userData => collection.create(userData, { userContext })));
       createResults.forEach(result => TestAssertions.expectSuccess(result));
 
       // Update all documents concurrently
-      const updatePromises = createResults.map((result, index) => 
-        collection.updateById(
-          result.data!._id,
-          { $set: { name: `Updated User ${index}` } },
-          { userContext }
-        )
+      const updatePromises = createResults.map((result, index) =>
+        collection.updateById(result.data!._id, { $set: { name: `Updated User ${index}` } }, { userContext })
       );
 
       const updateResults = await Promise.all(updatePromises);
@@ -311,7 +287,7 @@ describe('Transaction Strategy Integration Tests', () => {
       const allDocsResult = await collection.find({});
       TestAssertions.expectSuccess(allDocsResult);
       expect(allDocsResult.data).toHaveLength(3);
-      
+
       // Sort by name to ensure predictable order for verification
       const sortedDocs = allDocsResult.data.sort((a, b) => a.name.localeCompare(b.name));
       sortedDocs.forEach((doc, index) => {
@@ -336,14 +312,14 @@ describe('Transaction Strategy Integration Tests', () => {
       const operations = [
         collection.create(userData2, { userContext }), // Create new
         collection.updateById(createResult.data!._id, { $set: { name: 'Updated User 1' } }, { userContext }), // Update existing
-        collection.count({}) // Read operation
+        collection.count({}), // Read operation
       ];
 
       const results = await Promise.all(operations);
 
       // Verify results - need to cast since results array contains different types
       TestAssertions.expectSuccess(results[0]! as any); // Create succeeded
-      TestAssertions.expectSuccess(results[1]! as any); // Update succeeded  
+      TestAssertions.expectSuccess(results[1]! as any); // Update succeeded
       TestAssertions.expectSuccess(results[2]! as any); // Count succeeded
       expect(results[2]!.data).toBeGreaterThanOrEqual(1); // Count depends on timing of concurrent operations
 
@@ -384,7 +360,7 @@ describe('Transaction Strategy Integration Tests', () => {
 
     it('should handle operations without audit logs in transactions', async () => {
       const userData = TestDataFactory.createUser();
-      
+
       const result = await collection.create(userData, { skipAudit: true });
       TestAssertions.expectSuccess(result);
 
@@ -413,7 +389,7 @@ describe('Transaction Strategy Integration Tests', () => {
     it('should ensure audit log metadata is correct in transactions', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
-      
+
       const result = await collection.create(userData, { userContext });
       TestAssertions.expectSuccess(result);
 
@@ -430,7 +406,7 @@ describe('Transaction Strategy Integration Tests', () => {
     it('should track field changes correctly in transaction updates', async () => {
       const userData = TestDataFactory.createUser({ name: 'Original', email: 'original@test.com' });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const createResult = await collection.create(userData, { userContext });
       TestAssertions.expectSuccess(createResult);
 

@@ -23,7 +23,7 @@ export class TestDataFactory {
       createdBy: undefined,
       updatedBy: undefined,
       deletedBy: undefined,
-      ...overrides
+      ...overrides,
     };
   }
 
@@ -32,13 +32,17 @@ export class TestDataFactory {
       name: 'Test Product',
       price: 99.99,
       category: 'electronics',
-      ...overrides
+      ...overrides,
     };
   }
 
   static createUserContext(userId?: MongoObjectId | string): UserContext {
     return {
-      userId: userId ? (typeof userId === 'string' ? userId : adaptObjectId(userId)) : adaptObjectId(new MongoObjectId())
+      userId: userId
+        ? typeof userId === 'string'
+          ? userId
+          : adaptObjectId(userId)
+        : adaptObjectId(new MongoObjectId()),
     };
   }
 
@@ -47,11 +51,11 @@ export class TestDataFactory {
   }
 
   static createMultipleUsers(count: number): Array<Omit<TestUser, '_id' | 'createdAt' | 'updatedAt'>> {
-    return Array.from({ length: count }, (_, i) => 
-      this.createUser({ 
-        name: `User ${i + 1}`, 
+    return Array.from({ length: count }, (_, i) =>
+      this.createUser({
+        name: `User ${i + 1}`,
         email: `user${i + 1}@example.com`,
-        age: 20 + i 
+        age: 20 + i,
       })
     );
   }

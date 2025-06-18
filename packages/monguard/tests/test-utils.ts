@@ -10,7 +10,9 @@ export class TestAssertions {
     expect(result.error).toBeUndefined();
   }
 
-  static expectError<T>(result: WrapperResult<T>): asserts result is WrapperResult<T> & { success: false; error: string } {
+  static expectError<T>(
+    result: WrapperResult<T>
+  ): asserts result is WrapperResult<T> & { success: false; error: string } {
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
     expect(result.data).toBeUndefined();
@@ -55,7 +57,7 @@ export class TestHelpers {
   static createDateRange(startMs: number = Date.now() - 1000, endMs: number = Date.now() + 1000) {
     return {
       start: new Date(startMs),
-      end: new Date(endMs)
+      end: new Date(endMs),
     };
   }
 

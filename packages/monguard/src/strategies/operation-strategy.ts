@@ -1,24 +1,24 @@
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, Collection } from '../mongodb-types';
-import { 
-  BaseDocument, 
-  CreateOptions, 
-  UpdateOptions, 
-  DeleteOptions, 
+import {
+  BaseDocument,
+  CreateOptions,
+  UpdateOptions,
+  DeleteOptions,
   WrapperResult,
-  MonguardConcurrencyConfig
+  MonguardConcurrencyConfig,
 } from '../types';
 
 export interface OperationStrategy<T extends BaseDocument> {
   create(document: any, options: CreateOptions): Promise<WrapperResult<T & { _id: ObjectId }>>;
-  
+
   update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions): Promise<WrapperResult<UpdateResult>>;
-  
+
   updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions): Promise<WrapperResult<UpdateResult>>;
-  
+
   delete(filter: Filter<T>, options: DeleteOptions): Promise<WrapperResult<UpdateResult | DeleteResult>>;
-  
+
   deleteById(id: ObjectId, options: DeleteOptions): Promise<WrapperResult<UpdateResult | DeleteResult>>;
-  
+
   restore(filter: Filter<T>, userContext?: any): Promise<WrapperResult<UpdateResult>>;
 }
 
