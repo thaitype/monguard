@@ -336,7 +336,6 @@ export type WithoutId<T> = Omit<T, '_id'>;
 export type WithId<T> = T & { _id: ObjectId };
 
 /**
- * ObjectId constructor export for user convenience
- * Users should import ObjectId from their chosen MongoDB-compatible library
+ * Note: Users should import ObjectId from their chosen MongoDB-compatible library
+ * The ObjectIdConstructor interface is available for typing purposes
  */
-// export type { ObjectIdConstructor };

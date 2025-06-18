@@ -15,7 +15,7 @@ import type { Db, ObjectId } from '../src/mongodb-types';
 export function adaptDb(mongoDb: MongoDb): Db {
   // Ensure client is properly exposed for transaction strategy
   const adaptedDb = mongoDb as any as Db;
-  (adaptedDb as any).client = mongoDb.client;
+  (adaptedDb as any).client = (mongoDb as any).client;
   
   // Override collection method to ensure proper db reference
   const originalCollection = adaptedDb.collection.bind(adaptedDb);

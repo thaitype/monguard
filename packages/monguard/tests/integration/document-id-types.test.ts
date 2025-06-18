@@ -42,14 +42,14 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // User tracking fields should store ObjectId as-is
-      expect(result.data.createdBy).toEqual(objectIdUser);
-      expect(result.data.updatedBy).toEqual(objectIdUser);
+      expect(result.data!.createdBy).toEqual(objectIdUser);
+      expect(result.data!.updatedBy).toEqual(objectIdUser);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toEqual(objectIdUser);
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.userId).toEqual(objectIdUser);
+      expect(auditLogs[0]!.action).toBe('create');
     });
 
     it('should handle string user context in create operations', async () => {
@@ -61,14 +61,14 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // User tracking fields should store string as-is
-      expect(result.data.createdBy).toBe(stringUserId);
-      expect(result.data.updatedBy).toBe(stringUserId);
+      expect(result.data!.createdBy).toBe(stringUserId);
+      expect(result.data!.updatedBy).toBe(stringUserId);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toBe(stringUserId);
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.userId).toBe(stringUserId);
+      expect(auditLogs[0]!.action).toBe('create');
     });
 
     it('should handle mixed ID types in update operations', async () => {
@@ -92,7 +92,7 @@ describe('Document ID Types Integration Tests', () => {
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({ action: 'update' }).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toEqual(objectIdUser);
+      expect(auditLogs[0]!.userId).toEqual(objectIdUser);
     });
 
     it('should handle deletion with different ID types', async () => {
@@ -115,7 +115,7 @@ describe('Document ID Types Integration Tests', () => {
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toBe(stringUserId);
+      expect(auditLogs[0]!.userId).toBe(stringUserId);
     });
   });
 
@@ -139,14 +139,14 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // User tracking fields should store string as-is
-      expect(result.data.createdBy).toBe(stringUserId);
-      expect(result.data.updatedBy).toBe(stringUserId);
+      expect(result.data!.createdBy).toBe(stringUserId);
+      expect(result.data!.updatedBy).toBe(stringUserId);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toBe(stringUserId);
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.userId).toBe(stringUserId);
+      expect(auditLogs[0]!.action).toBe('create');
     });
 
     it('should handle ObjectId user context in create operations', async () => {
@@ -158,14 +158,14 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // User tracking fields should store ObjectId as-is (no conversion)
-      expect(result.data.createdBy).toEqual(objectIdUser);
-      expect(result.data.updatedBy).toEqual(objectIdUser);
+      expect(result.data!.createdBy).toEqual(objectIdUser);
+      expect(result.data!.updatedBy).toEqual(objectIdUser);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toEqual(objectIdUser);
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.userId).toEqual(objectIdUser);
+      expect(auditLogs[0]!.action).toBe('create');
     });
 
     it('should handle custom ID types in operations', async () => {
@@ -177,14 +177,14 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // User tracking fields should store custom object as-is
-      expect(result.data.createdBy).toEqual(customUserId);
-      expect(result.data.updatedBy).toEqual(customUserId);
+      expect(result.data!.createdBy).toEqual(customUserId);
+      expect(result.data!.updatedBy).toEqual(customUserId);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toEqual(customUserId);
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.userId).toEqual(customUserId);
+      expect(auditLogs[0]!.action).toBe('create');
     });
 
     it('should handle null user context values', async () => {
@@ -197,14 +197,14 @@ describe('Document ID Types Integration Tests', () => {
 
       const result = await collection.create(userData, { userContext: { userId: null } });
       TestAssertions.expectSuccess(result);
-      expect(result.data.createdBy).toBeNull();
-      expect(result.data.updatedBy).toBeNull();
+      expect(result.data!.createdBy).toBeNull();
+      expect(result.data!.updatedBy).toBeNull();
 
       // Verify audit log stores null userId as-is
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toBeNull();
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.userId).toBeNull();
+      expect(auditLogs[0]!.action).toBe('create');
     });
   });
 
@@ -228,13 +228,13 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // Should behave exactly like objectId mode
-      expect(result.data.createdBy).toEqual(objectIdUser);
-      expect(result.data.updatedBy).toEqual(objectIdUser);
+      expect(result.data!.createdBy).toEqual(objectIdUser);
+      expect(result.data!.updatedBy).toEqual(objectIdUser);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toEqual(objectIdUser);
+      expect(auditLogs[0]!.userId).toEqual(objectIdUser);
     });
 
     it('should handle string IDs in default mode', async () => {
@@ -246,13 +246,13 @@ describe('Document ID Types Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // Should store string as-is (no conversion)
-      expect(result.data.createdBy).toBe(stringUserId);
-      expect(result.data.updatedBy).toBe(stringUserId);
+      expect(result.data!.createdBy).toBe(stringUserId);
+      expect(result.data!.updatedBy).toBe(stringUserId);
 
       // Verify audit log
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].userId).toBe(stringUserId);
+      expect(auditLogs[0]!.userId).toBe(stringUserId);
     });
   });
 
@@ -293,8 +293,8 @@ describe('Document ID Types Integration Tests', () => {
       expect(objectIdAuditLogs).toHaveLength(1);
       expect(stringAuditLogs).toHaveLength(1);
 
-      expect(objectIdAuditLogs[0].userId).toEqual(objectIdUser);
-      expect(stringAuditLogs[0].userId).toBe(stringUserId);
+      expect(objectIdAuditLogs[0]!.userId).toEqual(objectIdUser);
+      expect(stringAuditLogs[0]!.userId).toBe(stringUserId);
     });
 
     it('should demonstrate why sharing audit collections requires same documentIdType', async () => {

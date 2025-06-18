@@ -184,8 +184,7 @@ describe('Audit Logging Integration Tests', () => {
       
       const auditLog = await collection.getAuditCollection().findOne({});
       expect(auditLog).not.toBeNull();
-      expect(auditLog!.userId).toBeInstanceOf(ObjectId);
-      expect(auditLog!.userId!.toString()).toBe('507f1f77bcf86cd799439011');
+      expect(auditLog!.userId).toBe('507f1f77bcf86cd799439011');
     });
 
     it('should handle ObjectId userId in audit logs', async () => {

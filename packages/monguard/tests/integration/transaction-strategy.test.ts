@@ -35,21 +35,21 @@ describe('Transaction Strategy Integration Tests', () => {
       const result = await collection.create(userData, { userContext });
       
       TestAssertions.expectSuccess(result);
-      expect(result.data._id).toBeDefined();
-      expect(result.data.name).toBe(userData.name);
+      expect(result.data!._id).toBeDefined();
+      expect(result.data!.name).toBe(userData.name);
       TestAssertions.expectTimestamps(result.data);
       TestAssertions.expectUserTracking(result.data, userContext.userId as any);
 
       // Verify document was committed to database
-      const findResult = await collection.findById(result.data._id);
+      const findResult = await collection.findById(result.data!._id);
       TestAssertions.expectSuccess(findResult);
       expect(findResult.data!.name).toBe(userData.name);
 
       // Verify audit log was created in same transaction
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].action).toBe('create');
-      expect(auditLogs[0].ref.id.toString()).toBe(result.data._id.toString());
+      expect(auditLogs[0]!.action).toBe('create');
+      expect(auditLogs[0]!.ref.id.toString()).toBe(result.data!._id.toString());
     });
 
     it('should update document within a transaction', async () => {
@@ -62,7 +62,7 @@ describe('Transaction Strategy Integration Tests', () => {
       // Update the document
       const updateData = { name: 'Updated Name' };
       const updateResult = await collection.updateById(
-        createResult.data._id,
+        createResult.data!._id,
         { $set: updateData },
         { userContext }
       );
@@ -71,7 +71,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(updateResult.data.modifiedCount).toBe(1);
 
       // Verify document was updated
-      const findResult = await collection.findById(createResult.data._id);
+      const findResult = await collection.findById(createResult.data!._id);
       TestAssertions.expectSuccess(findResult);
       expect(findResult.data!.name).toBe('Updated Name');
 
@@ -89,16 +89,16 @@ describe('Transaction Strategy Integration Tests', () => {
       TestAssertions.expectSuccess(createResult);
 
       // Soft delete the document
-      const deleteResult = await collection.deleteById(createResult.data._id, { userContext });
+      const deleteResult = await collection.deleteById(createResult.data!._id, { userContext });
       TestAssertions.expectSuccess(deleteResult);
 
       // Verify document is soft deleted
-      const findResult = await collection.findById(createResult.data._id);
+      const findResult = await collection.findById(createResult.data!._id);
       TestAssertions.expectSuccess(findResult);
       expect(findResult.data).toBeNull(); // Not found in normal search
 
       // Verify document exists with soft delete flag
-      const findWithDeleted = await collection.findById(createResult.data._id, { includeSoftDeleted: true });
+      const findWithDeleted = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
       TestAssertions.expectSuccess(findWithDeleted);
       expect(findWithDeleted.data!.deletedAt).toBeInstanceOf(Date);
 
@@ -117,13 +117,13 @@ describe('Transaction Strategy Integration Tests', () => {
 
       // Hard delete the document
       const deleteResult = await collection.deleteById(
-        createResult.data._id, 
+        createResult.data!._id, 
         { userContext, hardDelete: true }
       );
       TestAssertions.expectSuccess(deleteResult);
 
       // Verify document is completely removed
-      const findResult = await collection.findById(createResult.data._id, { includeSoftDeleted: true });
+      const findResult = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
       TestAssertions.expectSuccess(findResult);
       expect(findResult.data).toBeNull();
 
@@ -141,17 +141,17 @@ describe('Transaction Strategy Integration Tests', () => {
       const createResult = await collection.create(userData, { userContext });
       TestAssertions.expectSuccess(createResult);
 
-      await collection.deleteById(createResult.data._id, { userContext });
+      await collection.deleteById(createResult.data!._id, { userContext });
 
       // Restore the document
       const restoreResult = await collection.restore(
-        { _id: createResult.data._id },
+        { _id: createResult.data!._id },
         userContext
       );
       TestAssertions.expectSuccess(restoreResult);
 
       // Verify document is restored
-      const findResult = await collection.findById(createResult.data._id);
+      const findResult = await collection.findById(createResult.data!._id);
       TestAssertions.expectSuccess(findResult);
       expect(findResult.data).not.toBeNull();
       expect(findResult.data!.deletedAt).toBeUndefined();
@@ -298,7 +298,7 @@ describe('Transaction Strategy Integration Tests', () => {
       // Update all documents concurrently
       const updatePromises = createResults.map((result, index) => 
         collection.updateById(
-          result.data._id,
+          result.data!._id,
           { $set: { name: `Updated User ${index}` } },
           { userContext }
         )
@@ -335,17 +335,17 @@ describe('Transaction Strategy Integration Tests', () => {
       // Execute mixed operations concurrently
       const operations = [
         collection.create(userData2, { userContext }), // Create new
-        collection.updateById(createResult.data._id, { $set: { name: 'Updated User 1' } }, { userContext }), // Update existing
+        collection.updateById(createResult.data!._id, { $set: { name: 'Updated User 1' } }, { userContext }), // Update existing
         collection.count({}) // Read operation
       ];
 
       const results = await Promise.all(operations);
 
-      // Verify results
-      TestAssertions.expectSuccess(results[0]); // Create succeeded
-      TestAssertions.expectSuccess(results[1]); // Update succeeded
-      TestAssertions.expectSuccess(results[2]); // Count succeeded
-      expect(results[2].data).toBeGreaterThanOrEqual(1); // Count depends on timing of concurrent operations
+      // Verify results - need to cast since results array contains different types
+      TestAssertions.expectSuccess(results[0]! as any); // Create succeeded
+      TestAssertions.expectSuccess(results[1]! as any); // Update succeeded  
+      TestAssertions.expectSuccess(results[2]! as any); // Count succeeded
+      expect(results[2]!.data).toBeGreaterThanOrEqual(1); // Count depends on timing of concurrent operations
 
       // Verify final state
       const allDocsResult = await collection.find({});
@@ -389,7 +389,7 @@ describe('Transaction Strategy Integration Tests', () => {
       TestAssertions.expectSuccess(result);
 
       // Verify document was created
-      const findResult = await collection.findById(result.data._id);
+      const findResult = await collection.findById(result.data!._id);
       TestAssertions.expectSuccess(findResult);
 
       // Verify no audit log was created
@@ -424,7 +424,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(auditLog!.metadata?.after).toBeDefined();
       expect(auditLog!.metadata?.after.name).toBe(userData.name);
       expect(auditLog!.ref.collection).toBe('test_users');
-      expect(auditLog!.ref.id.toString()).toBe(result.data._id.toString());
+      expect(auditLog!.ref.id.toString()).toBe(result.data!._id.toString());
     });
 
     it('should track field changes correctly in transaction updates', async () => {
@@ -436,7 +436,7 @@ describe('Transaction Strategy Integration Tests', () => {
 
       // Update specific fields
       const updateResult = await collection.updateById(
-        createResult.data._id,
+        createResult.data!._id,
         { $set: { name: 'Updated', age: 25 } },
         { userContext }
       );

@@ -543,7 +543,7 @@ describe('Concurrent Operations Integration Tests', () => {
       // Concurrent updates with transactions
       const updatePromises = createResults.map((result, index) => 
         transactionCollection.updateById(
-          result.data._id,
+          result.data!._id,
           { $set: { name: `Transaction Updated ${index}`, age: 20 + index } },
           { userContext }
         )
@@ -583,7 +583,7 @@ describe('Concurrent Operations Integration Tests', () => {
         if (failureCount === 2) { // Fail the second audit log
           throw new Error('Simulated audit failure');
         }
-        return originalInsertOne.apply(transactionCollection.getAuditCollection(), args);
+        return originalInsertOne.apply(transactionCollection.getAuditCollection(), args as any);
       });
       
       vi.spyOn(transactionCollection.getAuditCollection(), 'insertOne').mockImplementation(mockInsertOne);

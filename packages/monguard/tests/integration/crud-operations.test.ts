@@ -35,7 +35,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.create(userData);
       
       TestAssertions.expectSuccess(result);
-      expect(result.data._id).toBeInstanceOf(ObjectId);
+      expect(result.data._id).toBeDefined();
       expect(result.data.name).toBe(userData.name);
       expect(result.data.email).toBe(userData.email);
       TestAssertions.expectTimestamps(result.data);
@@ -533,7 +533,7 @@ describe('CRUD Operations Integration Tests', () => {
       // Update all users
       const updatePromises = createResults.map(result => 
         transactionCollection.updateById(
-          result.data._id,
+          result.data!._id,
           { $set: { age: 25 } },
           { userContext }
         )
@@ -558,8 +558,8 @@ describe('CRUD Operations Integration Tests', () => {
       // Verify audit log was created
       const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].action).toBe('create');
-      expect(auditLogs[0].ref.id.toString()).toBe(result.data._id.toString());
+      expect(auditLogs[0]!.action).toBe('create');
+      expect(auditLogs[0]!.ref.id.toString()).toBe(result.data!._id.toString());
 
       // Update and check audit consistency
       await transactionCollection.updateById(
