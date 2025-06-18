@@ -1,6 +1,6 @@
 {
   "name": "monguard",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "A lightweight, zero-boilerplate toolkit designed to enhance MongoDB or Mongoose models with production-ready features",
   "main": "./dist/main.cjs",

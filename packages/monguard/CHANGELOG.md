@@ -1,5 +1,11 @@
 # monguard
 
+## 0.1.0
+
+### Minor Changes
+
+- a8b47ae: Init Release support soft delete, baisc concurrency support both transaction or not
+
 ## 0.0.2
 
 ### Patch Changes
