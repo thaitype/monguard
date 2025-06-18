@@ -1,5 +1,11 @@
 # monguard
 
+## 0.2.0
+
+### Minor Changes
+
+- 4f01ada: Remove non-used field documentIdType
+
 ## 0.1.0
 
 ### Minor Changes
