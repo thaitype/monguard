@@ -34,14 +34,7 @@ export interface MonguardCollectionOptions {
    * Audit collection name.
    * If not provided, defaults to 'audit_logs'.
    */
-  auditCollectionName: string;
-  /**
-   * Document ID type used for user tracking and audit logs.
-   * - 'objectId': Use ObjectId for user IDs (default, backward compatible)
-   * - 'string': Use string for user IDs
-   * All collections sharing the same audit collection should use the same documentIdType.
-   */
-  documentIdType?: 'string' | 'objectId';
+  auditCollectionName?: string;
   /**
    * Globally disable audit logging for this collection.
    * When true, no audit logs will be created regardless of skipAudit options.
@@ -57,7 +50,6 @@ export interface MonguardCollectionOptions {
 
 const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditCollectionName: 'audit_logs',
-  documentIdType: 'objectId',
   disableAudit: false
 };
 
@@ -67,7 +59,6 @@ export class MonguardCollection<T extends BaseDocument> {
   private collectionName: string;
   private options: MonguardCollectionOptions;
   private strategy: OperationStrategy<T>;
-  private documentIdType: 'string' | 'objectId';
 
   constructor(
     db: Db,
@@ -85,10 +76,9 @@ export class MonguardCollection<T extends BaseDocument> {
     // Validate configuration
     StrategyFactory.validateConfig(options.concurrency);
 
-    this.options = merge({}, defaultOptions, options);
-    this.documentIdType = this.options.documentIdType!; // Will be set by defaultOptions merge
+    this.options = merge({}, defaultOptions, options) as MonguardCollectionOptions;
     this.collection = db.collection<T>(collectionName);
-    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName);
+    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName!); // Set by default value
     this.collectionName = collectionName;
 
     // Create strategy context
