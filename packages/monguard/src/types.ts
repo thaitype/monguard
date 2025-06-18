@@ -1,12 +1,3 @@
-import type { ObjectId, ObjectIdConstructor } from './mongodb-types';
-
-// Global ObjectId constructor - will be provided by the consumer using MongoDB
-declare const ObjectId: ObjectIdConstructor;
-
-export function toObjectId(id: ObjectId | string): ObjectId {
-  return typeof id === 'string' ? new ObjectId(id) : id;
-}
-
 export interface MonguardConcurrencyConfig {
   transactionsEnabled: boolean;
   retryAttempts?: number;
@@ -14,7 +5,7 @@ export interface MonguardConcurrencyConfig {
 }
 
 export interface BaseDocument {
-  _id: ObjectId;
+  _id: any;  // Can be string, ObjectId, or any other ID type
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -22,9 +13,9 @@ export interface BaseDocument {
 }
 
 export interface AuditableDocument extends BaseDocument {
-  createdBy?: ObjectId;
-  updatedBy?: ObjectId;
-  deletedBy?: ObjectId;
+  createdBy?: any;  // Can be string, ObjectId, or any other ID type
+  updatedBy?: any;
+  deletedBy?: any;
 }
 
 export type AuditAction = "create" | "update" | "delete";
@@ -32,10 +23,10 @@ export type AuditAction = "create" | "update" | "delete";
 export interface AuditLogDocument extends BaseDocument {
   ref: {
     collection: string;
-    id: ObjectId;
+    id: any;  // Can be string, ObjectId, or any other ID type
   };
   action: AuditAction;
-  userId?: ObjectId;
+  userId?: any;  // Can be string, ObjectId, or any other ID type
   timestamp: Date;
   metadata?: {
     before?: any;
@@ -47,7 +38,7 @@ export interface AuditLogDocument extends BaseDocument {
 }
 
 export interface UserContext {
-  userId: ObjectId | string;
+  userId: any;  // Can be string, ObjectId, or any other ID type - user's choice
 }
 
 export interface CreateOptions {

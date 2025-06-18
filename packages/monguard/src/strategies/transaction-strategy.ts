@@ -6,7 +6,6 @@ import {
   DeleteOptions, 
   WrapperResult
 } from '../types';
-import { toObjectId } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 
 export class TransactionStrategy<T extends BaseDocument> implements OperationStrategy<T> {
@@ -101,7 +100,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
             $set: {
               ...((update as any).$set || {}),
               updatedAt: new Date(),
-              ...(options.userContext && { updatedBy: toObjectId(options.userContext.userId) })
+              ...(options.userContext && { updatedBy: options.userContext.userId })
             }
           };
           
@@ -147,7 +146,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
             $set: {
               ...((update as any).$set || {}),
               updatedAt: new Date(),
-              ...(options.userContext && { updatedBy: toObjectId(options.userContext.userId) })
+              ...(options.userContext && { updatedBy: options.userContext.userId })
             }
           };
           
@@ -248,7 +247,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
               $set: {
                 deletedAt: new Date(),
                 updatedAt: new Date(),
-                ...(options.userContext && { deletedBy: toObjectId(options.userContext.userId) })
+                ...(options.userContext && { deletedBy: options.userContext.userId })
               }
             };
             
@@ -302,7 +301,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
               $set: {
                 deletedAt: new Date(),
                 updatedAt: new Date(),
-                ...(options.userContext && { deletedBy: toObjectId(options.userContext.userId) })
+                ...(options.userContext && { deletedBy: options.userContext.userId })
               }
             };
             
@@ -361,7 +360,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
             $unset: { deletedAt: 1, deletedBy: 1 },
             $set: {
               updatedAt: new Date(),
-              ...(userContext && { updatedBy: toObjectId(userContext.userId) })
+              ...(userContext && { updatedBy: userContext.userId })
             }
           };
           
@@ -379,7 +378,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
             $unset: { deletedAt: 1, deletedBy: 1 },
             $set: {
               updatedAt: new Date(),
-              ...(userContext && { updatedBy: toObjectId(userContext.userId) })
+              ...(userContext && { updatedBy: userContext.userId })
             }
           };
           

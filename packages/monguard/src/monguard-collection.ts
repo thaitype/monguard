@@ -26,7 +26,6 @@ import type {
   CreateDocument,
   MonguardConcurrencyConfig
 } from './types';
-import { toObjectId } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
 
@@ -36,6 +35,13 @@ export interface MonguardCollectionOptions {
    * If not provided, defaults to 'audit_logs'.
    */
   auditCollectionName: string;
+  /**
+   * Document ID type used for user tracking and audit logs.
+   * - 'objectId': Use ObjectId for user IDs (default, backward compatible)
+   * - 'string': Use string for user IDs
+   * All collections sharing the same audit collection should use the same documentIdType.
+   */
+  documentIdType?: 'string' | 'objectId';
   /**
    * Globally disable audit logging for this collection.
    * When true, no audit logs will be created regardless of skipAudit options.
@@ -51,6 +57,7 @@ export interface MonguardCollectionOptions {
 
 const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditCollectionName: 'audit_logs',
+  documentIdType: 'objectId',
   disableAudit: false
 };
 
@@ -60,6 +67,7 @@ export class MonguardCollection<T extends BaseDocument> {
   private collectionName: string;
   private options: MonguardCollectionOptions;
   private strategy: OperationStrategy<T>;
+  private documentIdType: 'string' | 'objectId';
 
   constructor(
     db: Db,
@@ -78,6 +86,7 @@ export class MonguardCollection<T extends BaseDocument> {
     StrategyFactory.validateConfig(options.concurrency);
 
     this.options = merge({}, defaultOptions, options);
+    this.documentIdType = this.options.documentIdType!; // Will be set by defaultOptions merge
     this.collection = db.collection<T>(collectionName);
     this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName);
     this.collectionName = collectionName;
@@ -117,7 +126,7 @@ export class MonguardCollection<T extends BaseDocument> {
           id: documentId
         },
         action,
-        userId: userContext?.userId ? toObjectId(userContext.userId) : undefined,
+        userId: userContext?.userId,
         timestamp: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -141,13 +150,13 @@ export class MonguardCollection<T extends BaseDocument> {
     if (!isUpdate) {
       (timestamped as any).createdAt = now;
       if (userContext && 'createdBy' in timestamped) {
-        (timestamped as any).createdBy = toObjectId(userContext.userId);
+        (timestamped as any).createdBy = userContext.userId;
       }
     }
 
     (timestamped as any).updatedAt = now;
     if (userContext && 'updatedBy' in timestamped) {
-      (timestamped as any).updatedBy = toObjectId(userContext.userId);
+      (timestamped as any).updatedBy = userContext.userId;
     }
 
     return timestamped;

@@ -336,8 +336,7 @@ export type WithoutId<T> = Omit<T, '_id'>;
 export type WithId<T> = T & { _id: ObjectId };
 
 /**
- * Global ObjectId constructor declaration
+ * ObjectId constructor export for user convenience
+ * Users should import ObjectId from their chosen MongoDB-compatible library
  */
-declare global {
-  const ObjectId: ObjectIdConstructor;
-}
+// export type { ObjectIdConstructor };

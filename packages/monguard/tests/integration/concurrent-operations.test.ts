@@ -383,7 +383,7 @@ describe('Concurrent Operations Integration Tests', () => {
       auditLogs.forEach(log => {
         expect(log.action).toMatch(/^(create|update|delete)$/);
         expect(log.ref.collection).toBe('test_users');
-        expect(log.ref.id).toBeInstanceOf(ObjectId);
+        expect(log.ref.id).toBeInstanceOf(MongoObjectId);
         expect(log.timestamp).toBeInstanceOf(Date);
         expect(log.createdAt).toBeInstanceOf(Date);
         expect(log.updatedAt).toBeInstanceOf(Date);

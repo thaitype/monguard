@@ -7,8 +7,7 @@ import { ObjectId as MongoObjectIdConstructor } from 'mongodb';
 import type { Db as MongoDb, ObjectId as MongoObjectId } from 'mongodb';
 import type { Db, ObjectId } from '../src/mongodb-types';
 
-// Make ObjectId available globally for the main library
-(global as any).ObjectId = MongoObjectIdConstructor;
+// ObjectId is no longer exposed globally - users should import it themselves
 
 /**
  * Adapt MongoDB Db to our custom Db type
