@@ -1,17 +1,15 @@
-import {
+import type {
   Collection,
   Db,
-  ObjectId
-} from 'mongodb';
-import type {
+  ObjectId,
   Filter,
   UpdateFilter,
   InsertOneResult,
   UpdateResult,
   DeleteResult,
-  FindOptions as MongoFindOptions,
+  FindOptions,
   WithoutId
-} from 'mongodb';
+} from './mongodb-types';
 import { merge } from 'lodash-es';
 
 import type {
@@ -22,7 +20,7 @@ import type {
   CreateOptions,
   UpdateOptions,
   DeleteOptions,
-  FindOptions,
+  MonguardFindOptions,
   WrapperResult,
   UserContext,
   CreateDocument,
@@ -175,7 +173,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   async findById(
     id: ObjectId,
-    options: FindOptions = {}
+    options: MonguardFindOptions = {}
   ): Promise<WrapperResult<T | null>> {
     try {
       const filter = options.includeSoftDeleted
@@ -198,14 +196,14 @@ export class MonguardCollection<T extends BaseDocument> {
 
   async find(
     filter: Filter<T> = {},
-    options: FindOptions = {}
+    options: MonguardFindOptions = {}
   ): Promise<WrapperResult<T[]>> {
     try {
       const finalFilter = options.includeSoftDeleted
         ? filter
         : this.mergeSoftDeleteFilter(filter);
 
-      const mongoOptions: MongoFindOptions = {};
+      const mongoOptions: FindOptions = {};
       if (options.limit) mongoOptions.limit = options.limit;
       if (options.skip) mongoOptions.skip = options.skip;
       if (options.sort) mongoOptions.sort = options.sort;
@@ -228,7 +226,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   async findOne(
     filter: Filter<T>,
-    options: FindOptions = {}
+    options: MonguardFindOptions = {}
   ): Promise<WrapperResult<T | null>> {
     try {
       const finalFilter = options.includeSoftDeleted

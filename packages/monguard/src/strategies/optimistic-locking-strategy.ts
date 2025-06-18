@@ -1,4 +1,4 @@
-import { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from 'mongodb';
+import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
 import { 
   BaseDocument, 
   CreateOptions, 
@@ -277,8 +277,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
             };
             
             const updateResult = await this.context.collection.updateOne(
-              versionedFilter,
-              softDeleteUpdate
+              versionedFilter as Filter<T>,
+              softDeleteUpdate as UpdateFilter<T>
             );
             
             if (updateResult.modifiedCount > 0) {
@@ -352,7 +352,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
           const currentVersion = doc.version || 1;
           
           const restoreUpdate = {
-            $unset: { deletedAt: "", deletedBy: "" },
+            $unset: { deletedAt: 1, deletedBy: 1 },
             $set: {
               updatedAt: new Date(),
               ...(userContext && { updatedBy: toObjectId(userContext.userId) })
@@ -367,8 +367,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
           };
           
           const updateResult = await this.context.collection.updateOne(
-            versionedFilter,
-            restoreUpdate
+            versionedFilter as Filter<T>,
+            restoreUpdate as UpdateFilter<T>
           );
           
           if (updateResult.modifiedCount === 0) {

@@ -1,4 +1,4 @@
-import { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from 'mongodb';
+import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, Collection } from '../mongodb-types';
 import { 
   BaseDocument, 
   CreateOptions, 
@@ -23,8 +23,8 @@ export interface OperationStrategy<T extends BaseDocument> {
 }
 
 export interface OperationStrategyContext<T extends BaseDocument> {
-  collection: any; // MongoDB Collection
-  auditCollection: any; // MongoDB Collection  
+  collection: Collection<T>;
+  auditCollection: Collection<any>;
   collectionName: string;
   config: MonguardConcurrencyConfig;
   disableAudit: boolean;

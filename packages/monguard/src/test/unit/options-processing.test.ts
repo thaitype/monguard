@@ -1,16 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Db } from 'mongodb';
+import { Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../monguard-collection';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
+import { adaptDb } from '../mongodb-adapter';
+import type { Db } from '../../mongodb-types';
 
 describe('Options Processing and Edge Cases', () => {
   let testDb: TestDatabase;
+  let mongoDb: MongoDb;
   let db: Db;
 
   beforeEach(async () => {
     testDb = new TestDatabase();
-    db = await testDb.start();
+    mongoDb = await testDb.start();
+    db = adaptDb(mongoDb);
   });
 
   afterEach(async () => {

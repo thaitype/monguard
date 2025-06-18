@@ -1,4 +1,7 @@
-import { ObjectId } from 'mongodb';
+import type { ObjectId, ObjectIdConstructor } from './mongodb-types';
+
+// Global ObjectId constructor - will be provided by the consumer using MongoDB
+declare const ObjectId: ObjectIdConstructor;
 
 export function toObjectId(id: ObjectId | string): ObjectId {
   return typeof id === 'string' ? new ObjectId(id) : id;
@@ -66,7 +69,7 @@ export interface DeleteOptions {
   hardDelete?: boolean;
 }
 
-export interface FindOptions {
+export interface MonguardFindOptions {
   includeSoftDeleted?: boolean;
   limit?: number;
   skip?: number;

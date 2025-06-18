@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
-import { ObjectId } from 'mongodb';
+import { ObjectId as MongoObjectId } from 'mongodb';
 import { WrapperResult, AuditLogDocument } from '../types';
+import type { ObjectId } from '../mongodb-types';
 
 export class TestAssertions {
   static expectSuccess<T>(result: WrapperResult<T>): asserts result is WrapperResult<T> & { success: true; data: T } {
@@ -35,7 +36,7 @@ export class TestAssertions {
 
   static expectAuditLog(auditLog: AuditLogDocument, expectedAction: string, documentId: ObjectId): void {
     expect(auditLog.action).toBe(expectedAction);
-    expect(auditLog.ref.id).toEqual(documentId);
+    expect(auditLog.ref.id.toString()).toEqual(documentId.toString());
     expect(auditLog.timestamp).toBeInstanceOf(Date);
     expect(auditLog.createdAt).toBeInstanceOf(Date);
     expect(auditLog.updatedAt).toBeInstanceOf(Date);
@@ -47,8 +48,8 @@ export class TestHelpers {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  static isObjectId(value: any): value is ObjectId {
-    return value instanceof ObjectId;
+  static isObjectId(value: any): value is MongoObjectId {
+    return value instanceof MongoObjectId;
   }
 
   static createDateRange(startMs: number = Date.now() - 1000, endMs: number = Date.now() + 1000) {

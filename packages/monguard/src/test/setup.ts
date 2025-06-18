@@ -1,5 +1,7 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Db } from 'mongodb';
+// Import adapter to setup global ObjectId
+import './mongodb-adapter';
 
 // Singleton instance to avoid concurrency issues
 let globalMongod: MongoMemoryServer | null = null;

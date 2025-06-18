@@ -1,19 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ObjectId, Db } from 'mongodb';
+import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../monguard-collection';
 import { AuditLogDocument } from '../../types';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
+import { adaptDb, adaptObjectId } from '../mongodb-adapter';
+import type { Db, ObjectId } from '../../mongodb-types';
 
 describe('Audit Logging Integration Tests', () => {
   let testDb: TestDatabase;
+  let mongoDb: MongoDb;
   let db: Db;
   let collection: MonguardCollection<TestUser>;
 
   beforeEach(async () => {
     testDb = new TestDatabase();
-    db = await testDb.start();
+    mongoDb = await testDb.start();
+    db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
       concurrency: { transactionsEnabled: false }
@@ -186,7 +190,7 @@ describe('Audit Logging Integration Tests', () => {
 
     it('should handle ObjectId userId in audit logs', async () => {
       const userData = TestDataFactory.createUser();
-      const userId = new ObjectId();
+      const userId = adaptObjectId(new MongoObjectId());
       const userContext = { userId };
       
       const result = await collection.create(userData, { userContext });
@@ -417,7 +421,7 @@ describe('Audit Logging Integration Tests', () => {
 
   describe('Error Scenarios', () => {
     it('should handle missing before document gracefully', async () => {
-      const nonExistentId = new ObjectId();
+      const nonExistentId = adaptObjectId(new MongoObjectId());
       
       // Attempt to update a non-existent document
       const result = await collection.updateById(

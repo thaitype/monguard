@@ -1,18 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ObjectId, Db } from 'mongodb';
+import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../monguard-collection';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
+import { adaptDb } from '../mongodb-adapter';
+import type { Db } from '../../mongodb-types';
 
 describe('CRUD Operations Integration Tests', () => {
   let testDb: TestDatabase;
+  let mongoDb: MongoDb;
   let db: Db;
   let collection: MonguardCollection<TestUser>;
 
   beforeEach(async () => {
     testDb = new TestDatabase();
-    db = await testDb.start();
+    mongoDb = await testDb.start();
+    db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
       concurrency: { transactionsEnabled: false }
@@ -45,7 +49,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await collection.create(userData, { userContext });
       
       TestAssertions.expectSuccess(result);
-      TestAssertions.expectUserTracking(result.data, userContext.userId as ObjectId);
+      TestAssertions.expectUserTracking(result.data, userContext.userId as any);
     });
 
     it('should create multiple documents independently', async () => {
@@ -306,7 +310,7 @@ describe('CRUD Operations Integration Tests', () => {
       
       const deletedUser = await collection.findById(testUser._id, { includeSoftDeleted: true });
       TestAssertions.expectSuccess(deletedUser);
-      TestAssertions.expectSoftDeleted(deletedUser.data!, userContext.userId as ObjectId);
+      TestAssertions.expectSoftDeleted(deletedUser.data!, userContext.userId as any);
     });
 
     it('should hard delete when specified', async () => {

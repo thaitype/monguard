@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ObjectId, Db } from 'mongodb';
+import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../monguard-collection';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestHelpers } from '../test-utils';
+import { adaptDb, adaptObjectId } from '../mongodb-adapter';
+import type { Db, ObjectId } from '../../mongodb-types';
 
 // Test class to access private methods
 class TestableMonguardCollection<T extends { _id: ObjectId; createdAt: Date; updatedAt: Date; deletedAt?: Date }> extends MonguardCollection<T> {
@@ -26,12 +28,14 @@ class TestableMonguardCollection<T extends { _id: ObjectId; createdAt: Date; upd
 
 describe('MonguardCollection Internal Methods', () => {
   let testDb: TestDatabase;
+  let mongoDb: MongoDb;
   let db: Db;
   let collection: TestableMonguardCollection<TestUser>;
 
   beforeEach(async () => {
     testDb = new TestDatabase();
-    db = await testDb.start();
+    mongoDb = await testDb.start();
+    db = adaptDb(mongoDb);
     collection = new TestableMonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
       concurrency: { transactionsEnabled: false }
@@ -218,12 +222,12 @@ describe('MonguardCollection Internal Methods', () => {
       const before = { 
         name: 'John', 
         updatedAt: new Date('2023-01-01'), 
-        updatedBy: new ObjectId() 
+        updatedBy: adaptObjectId(new MongoObjectId()) 
       };
       const after = { 
         name: 'John', 
         updatedAt: new Date('2023-01-02'), 
-        updatedBy: new ObjectId() 
+        updatedBy: adaptObjectId(new MongoObjectId()) 
       };
       
       const changes = collection.testGetChangedFields(before, after);
@@ -279,8 +283,8 @@ describe('MonguardCollection Internal Methods', () => {
     });
 
     it('should handle ObjectId changes', () => {
-      const id1 = new ObjectId();
-      const id2 = new ObjectId();
+      const id1 = adaptObjectId(new MongoObjectId());
+      const id2 = adaptObjectId(new MongoObjectId());
       const before = { name: 'John', managerId: id1 };
       const after = { name: 'John', managerId: id2 };
       

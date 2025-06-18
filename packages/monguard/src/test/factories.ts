@@ -1,5 +1,6 @@
-import { ObjectId } from 'mongodb';
+import { ObjectId as MongoObjectId } from 'mongodb';
 import { BaseDocument, AuditableDocument, UserContext } from '../types';
+import { adaptObjectId } from './mongodb-adapter';
 
 export interface TestUser extends AuditableDocument {
   name: string;
@@ -35,14 +36,14 @@ export class TestDataFactory {
     };
   }
 
-  static createUserContext(userId?: ObjectId | string): UserContext {
+  static createUserContext(userId?: MongoObjectId | string): UserContext {
     return {
-      userId: userId || new ObjectId()
+      userId: userId ? (typeof userId === 'string' ? userId : adaptObjectId(userId)) : adaptObjectId(new MongoObjectId())
     };
   }
 
-  static createObjectId(): ObjectId {
-    return new ObjectId();
+  static createObjectId() {
+    return adaptObjectId(new MongoObjectId());
   }
 
   static createMultipleUsers(count: number): Array<Omit<TestUser, '_id' | 'createdAt' | 'updatedAt'>> {

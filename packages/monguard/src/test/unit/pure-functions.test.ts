@@ -1,31 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { ObjectId } from 'mongodb';
+import { ObjectId as MongoObjectId } from 'mongodb';
 import { toObjectId } from '../../types';
+import { adaptObjectId } from '../mongodb-adapter';
 
 describe('Pure Functions', () => {
   describe('toObjectId', () => {
     it('should return ObjectId as-is when input is ObjectId', () => {
-      const objectId = new ObjectId();
+      const objectId = adaptObjectId(new MongoObjectId());
       const result = toObjectId(objectId);
       
       expect(result).toBe(objectId);
-      expect(result).toBeInstanceOf(ObjectId);
     });
 
     it('should convert valid string to ObjectId', () => {
       const validHex = '507f1f77bcf86cd799439011';
       const result = toObjectId(validHex);
       
-      expect(result).toBeInstanceOf(ObjectId);
+      // ObjectId is created from string
       expect(result.toString()).toBe(validHex);
     });
 
     it('should convert valid ObjectId string to ObjectId', () => {
-      const originalId = new ObjectId();
+      const originalId = adaptObjectId(new MongoObjectId());
       const stringId = originalId.toString();
       const result = toObjectId(stringId);
       
-      expect(result).toBeInstanceOf(ObjectId);
+      // ObjectId is created from string
       expect(result.toString()).toBe(stringId);
       expect(result.equals(originalId)).toBe(true);
     });

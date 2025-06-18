@@ -1,4 +1,4 @@
-import { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, ClientSession } from 'mongodb';
+import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, ClientSession } from '../mongodb-types';
 import { 
   BaseDocument, 
   CreateOptions, 
@@ -176,7 +176,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           };
           
           const finalFilter = this.context.mergeSoftDeleteFilter(filter);
-          result = await this.context.collection.updateMany(finalFilter, softDeleteUpdate, { session });
+          result = await this.context.collection.updateMany(finalFilter, softDeleteUpdate as UpdateFilter<T>, { session });
           
           // Create audit log for soft delete
           if (!options.skipAudit && !this.context.disableAudit && beforeDoc && 'modifiedCount' in result && result.modifiedCount > 0) {
@@ -222,7 +222,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
       
       await session.withTransaction(async () => {
         const restoreUpdate = {
-          $unset: { deletedAt: "", deletedBy: "" },
+          $unset: { deletedAt: 1, deletedBy: 1 },
           $set: {
             updatedAt: new Date(),
             ...(userContext && { updatedBy: toObjectId(userContext.userId) })
@@ -231,7 +231,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
         
         result = await this.context.collection.updateMany(
           { ...filter, deletedAt: { $exists: true } } as Filter<T>,
-          restoreUpdate,
+          restoreUpdate as UpdateFilter<T>,
           { session }
         );
       });

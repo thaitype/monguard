@@ -1,18 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ObjectId, Db } from 'mongodb';
+import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../monguard-collection';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
+import { adaptDb } from '../mongodb-adapter';
+import type { Db } from '../../mongodb-types';
 
 describe('Concurrent Operations Integration Tests', () => {
   let testDb: TestDatabase;
+  let mongoDb: MongoDb;
   let db: Db;
   let collection: MonguardCollection<TestUser>;
 
   beforeEach(async () => {
     testDb = new TestDatabase();
-    db = await testDb.start();
+    mongoDb = await testDb.start();
+    db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditCollectionName: 'audit_logs',
       concurrency: { transactionsEnabled: false }
