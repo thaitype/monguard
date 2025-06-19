@@ -276,9 +276,10 @@ describe('Transaction Strategy Integration Tests', () => {
       createResults.forEach(result => TestAssertions.expectSuccess(result));
 
       // Update all documents concurrently
-      const updatePromises = createResults.map((result, index) =>
-        collection.updateById(result.data!._id, { $set: { name: `Updated User ${index}` } }, { userContext })
-      );
+      const updatePromises = createResults.map((result, index) => {
+        TestAssertions.expectSuccess(result);
+        return collection.updateById(result.data._id, { $set: { name: `Updated User ${index}` } }, { userContext });
+      });
 
       const updateResults = await Promise.all(updatePromises);
       updateResults.forEach(result => TestAssertions.expectSuccess(result));
@@ -321,7 +322,7 @@ describe('Transaction Strategy Integration Tests', () => {
       TestAssertions.expectSuccess(results[0]! as any); // Create succeeded
       TestAssertions.expectSuccess(results[1]! as any); // Update succeeded
       TestAssertions.expectSuccess(results[2]! as any); // Count succeeded
-      expect(results[2]!.data).toBeGreaterThanOrEqual(1); // Count depends on timing of concurrent operations
+      expect((results[2]! as any).data).toBeGreaterThanOrEqual(1); // Count depends on timing of concurrent operations
 
       // Verify final state
       const allDocsResult = await collection.find({});

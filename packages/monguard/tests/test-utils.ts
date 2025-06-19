@@ -4,18 +4,20 @@ import { Result, AuditLogDocument } from '../src/types';
 import type { ObjectId } from '../src/mongodb-types';
 
 export class TestAssertions {
-  static expectSuccess<T>(result: Result<T>): asserts result is Result<T> & { success: true; data: T } {
+  static expectSuccess<T>(result: Result<T>): asserts result is { success: true; data: T } {
     expect(result.success).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.error).toBeUndefined();
+    if (result.success) {
+      expect(result.data).toBeDefined();
+    }
   }
 
   static expectError<T>(
     result: Result<T>
-  ): asserts result is Result<T> & { success: false; error: string } {
+  ): asserts result is { success: false; error: string } {
     expect(result.success).toBe(false);
-    expect(result.error).toBeDefined();
-    expect(result.data).toBeUndefined();
+    if (!result.success) {
+      expect(result.error).toBeDefined();
+    }
   }
 
   static expectTimestamps(document: any): void {

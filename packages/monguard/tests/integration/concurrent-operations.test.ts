@@ -40,7 +40,10 @@ describe('Concurrent Operations Integration Tests', () => {
       results.forEach(result => TestAssertions.expectSuccess(result));
 
       // All should have unique IDs
-      const ids = results.map(r => r.data!._id.toString());
+      const ids = results.map(r => {
+        TestAssertions.expectSuccess(r);
+        return r.data._id.toString();
+      });
       expect(new Set(ids)).toHaveLength(10);
 
       // Verify all documents exist in database
@@ -529,13 +532,14 @@ describe('Concurrent Operations Integration Tests', () => {
       createResults.forEach(result => TestAssertions.expectSuccess(result));
 
       // Concurrent updates with transactions
-      const updatePromises = createResults.map((result, index) =>
-        transactionCollection.updateById(
-          result.data!._id,
+      const updatePromises = createResults.map((result, index) => {
+        TestAssertions.expectSuccess(result);
+        return transactionCollection.updateById(
+          result.data._id,
           { $set: { name: `Transaction Updated ${index}`, age: 20 + index } },
           { userContext }
-        )
-      );
+        );
+      });
 
       const updateResults = await Promise.all(updatePromises);
       updateResults.forEach(result => TestAssertions.expectSuccess(result));

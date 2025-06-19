@@ -84,11 +84,11 @@ describe('Strategy Comparison Tests', () => {
       // Update both documents
       const updateData = { $set: { name: 'Updated Name', age: 30 } };
 
-      const transactionUpdate = await transactionCollection.updateById(transactionCreate.data!._id, updateData, {
+      const transactionUpdate = await transactionCollection.updateById(transactionCreate.data._id, updateData, {
         userContext,
       });
 
-      const optimisticUpdate = await optimisticCollection.updateById(optimisticCreate.data!._id, updateData, {
+      const optimisticUpdate = await optimisticCollection.updateById(optimisticCreate.data._id, updateData, {
         userContext,
       });
 
@@ -100,8 +100,8 @@ describe('Strategy Comparison Tests', () => {
       expect(optimisticUpdate.data.modifiedCount).toBe(1);
 
       // Verify updated documents
-      const transactionDoc = await transactionCollection.findById(transactionCreate.data!._id);
-      const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data!._id);
+      const transactionDoc = await transactionCollection.findById(transactionCreate.data._id);
+      const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data._id);
 
       TestAssertions.expectSuccess(transactionDoc);
       TestAssertions.expectSuccess(optimisticDoc);
@@ -127,18 +127,20 @@ describe('Strategy Comparison Tests', () => {
       const transactionCreate = await transactionCollection.create(userData, { userContext });
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
-      // Soft delete both documents
-      const transactionDelete = await transactionCollection.deleteById(transactionCreate.data!._id, { userContext });
+      // Soft delete both documents  
+      TestAssertions.expectSuccess(transactionCreate);
+      TestAssertions.expectSuccess(optimisticCreate);
+      const transactionDelete = await transactionCollection.deleteById(transactionCreate.data._id, { userContext });
 
-      const optimisticDelete = await optimisticCollection.deleteById(optimisticCreate.data!._id, { userContext });
+      const optimisticDelete = await optimisticCollection.deleteById(optimisticCreate.data._id, { userContext });
 
       // Both deletes should succeed
       TestAssertions.expectSuccess(transactionDelete);
       TestAssertions.expectSuccess(optimisticDelete);
 
       // Both documents should not be found in normal search
-      const transactionFind = await transactionCollection.findById(transactionCreate.data!._id);
-      const optimisticFind = await optimisticCollection.findById(optimisticCreate.data!._id);
+      const transactionFind = await transactionCollection.findById(transactionCreate.data._id);
+      const optimisticFind = await optimisticCollection.findById(optimisticCreate.data._id);
 
       TestAssertions.expectSuccess(transactionFind);
       TestAssertions.expectSuccess(optimisticFind);
@@ -146,10 +148,10 @@ describe('Strategy Comparison Tests', () => {
       expect(optimisticFind.data).toBeNull();
 
       // Both should be found with includeSoftDeleted
-      const transactionDeleted = await transactionCollection.findById(transactionCreate.data!._id, {
+      const transactionDeleted = await transactionCollection.findById(transactionCreate.data._id, {
         includeSoftDeleted: true,
       });
-      const optimisticDeleted = await optimisticCollection.findById(optimisticCreate.data!._id, {
+      const optimisticDeleted = await optimisticCollection.findById(optimisticCreate.data._id, {
         includeSoftDeleted: true,
       });
 
@@ -169,12 +171,14 @@ describe('Strategy Comparison Tests', () => {
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
       // Hard delete both documents
-      const transactionDelete = await transactionCollection.deleteById(transactionCreate.data!._id, {
+      TestAssertions.expectSuccess(transactionCreate);
+      TestAssertions.expectSuccess(optimisticCreate);
+      const transactionDelete = await transactionCollection.deleteById(transactionCreate.data._id, {
         userContext,
         hardDelete: true,
       });
 
-      const optimisticDelete = await optimisticCollection.deleteById(optimisticCreate.data!._id, {
+      const optimisticDelete = await optimisticCollection.deleteById(optimisticCreate.data._id, {
         userContext,
         hardDelete: true,
       });
@@ -184,10 +188,10 @@ describe('Strategy Comparison Tests', () => {
       TestAssertions.expectSuccess(optimisticDelete);
 
       // Both documents should be completely gone
-      const transactionFind = await transactionCollection.findById(transactionCreate.data!._id, {
+      const transactionFind = await transactionCollection.findById(transactionCreate.data._id, {
         includeSoftDeleted: true,
       });
-      const optimisticFind = await optimisticCollection.findById(optimisticCreate.data!._id, {
+      const optimisticFind = await optimisticCollection.findById(optimisticCreate.data._id, {
         includeSoftDeleted: true,
       });
 
@@ -218,13 +222,13 @@ describe('Strategy Comparison Tests', () => {
 
       // Update both documents
       const transactionUpdate = await transactionCollection.updateById(
-        transactionCreate.data!._id,
+        transactionCreate.data._id,
         { $set: { name: 'Updated' } },
         { userContext }
       );
 
       const optimisticUpdate = await optimisticCollection.updateById(
-        optimisticCreate.data!._id,
+        optimisticCreate.data._id,
         { $set: { name: 'Updated' } },
         { userContext }
       );
@@ -233,8 +237,8 @@ describe('Strategy Comparison Tests', () => {
       TestAssertions.expectSuccess(optimisticUpdate);
 
       // Check version handling after update
-      const transactionDoc = await transactionCollection.findById(transactionCreate.data!._id);
-      const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data!._id);
+      const transactionDoc = await transactionCollection.findById(transactionCreate.data._id);
+      const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data._id);
 
       TestAssertions.expectSuccess(transactionDoc);
       TestAssertions.expectSuccess(optimisticDoc);
@@ -329,13 +333,13 @@ describe('Strategy Comparison Tests', () => {
 
       // Concurrent updates to the same document
       const transactionPromises = [
-        transactionCollection.updateById(transactionCreate.data!._id, { $set: { name: 'Update 1' } }, { userContext }),
-        transactionCollection.updateById(transactionCreate.data!._id, { $set: { name: 'Update 2' } }, { userContext }),
+        transactionCollection.updateById(transactionCreate.data._id, { $set: { name: 'Update 1' } }, { userContext }),
+        transactionCollection.updateById(transactionCreate.data._id, { $set: { name: 'Update 2' } }, { userContext }),
       ];
 
       const optimisticPromises = [
-        optimisticCollection.updateById(optimisticCreate.data!._id, { $set: { name: 'Update 1' } }, { userContext }),
-        optimisticCollection.updateById(optimisticCreate.data!._id, { $set: { name: 'Update 2' } }, { userContext }),
+        optimisticCollection.updateById(optimisticCreate.data._id, { $set: { name: 'Update 1' } }, { userContext }),
+        optimisticCollection.updateById(optimisticCreate.data._id, { $set: { name: 'Update 2' } }, { userContext }),
       ];
 
       const [transactionResults, optimisticResults] = await Promise.all([
@@ -351,8 +355,8 @@ describe('Strategy Comparison Tests', () => {
       expect(optimisticSuccesses.length).toBeGreaterThan(0);
 
       // Verify final state is consistent
-      const transactionDoc = await transactionCollection.findById(transactionCreate.data!._id);
-      const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data!._id);
+      const transactionDoc = await transactionCollection.findById(transactionCreate.data._id);
+      const optimisticDoc = await optimisticCollection.findById(optimisticCreate.data._id);
 
       TestAssertions.expectSuccess(transactionDoc);
       TestAssertions.expectSuccess(optimisticDoc);

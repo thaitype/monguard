@@ -320,6 +320,7 @@ describe('Audit Logging Integration Tests', () => {
 
       // Verify each user has corresponding audit logs
       for (const createResult of createResults) {
+        TestAssertions.expectSuccess(createResult);
         const userAuditLogs = auditLogs.filter(log => log.ref.id.equals(createResult.data!._id));
         expect(userAuditLogs).toHaveLength(2); // 1 create + 1 update
       }

@@ -4,6 +4,7 @@ import { MonguardCollection } from '../../src/monguard-collection';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { adaptDb } from '../mongodb-adapter';
+import { TestAssertions } from '../test-utils';
 import type { Db } from '../../src/mongodb-types';
 
 describe('Options Processing and Edge Cases', () => {
@@ -210,7 +211,7 @@ describe('Options Processing and Edge Cases', () => {
 
           // Verify document is completely removed
           const findResult = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
-          expect(findResult.success).toBe(true);
+          TestAssertions.expectSuccess(findResult);
           expect(findResult.data).toBeNull();
         }
       });
@@ -245,7 +246,7 @@ describe('Options Processing and Edge Cases', () => {
 
           const findResult = await collection.findById(createResult.data!._id, { includeSoftDeleted: true });
 
-          expect(findResult.success).toBe(true);
+          TestAssertions.expectSuccess(findResult);
           expect(findResult.data).not.toBeNull();
           expect(findResult.data!.deletedAt).toBeInstanceOf(Date);
         }
@@ -342,8 +343,8 @@ describe('Options Processing and Edge Cases', () => {
       const result = await collection.create({});
 
       // MongoDB allows empty documents, so this should succeed
-      expect(result.success).toBe(true);
-      expect(result.data!._id).toBeDefined();
+      TestAssertions.expectSuccess(result);
+      expect(result.data._id).toBeDefined();
     });
 
     it('should handle null document gracefully', async () => {
@@ -351,8 +352,8 @@ describe('Options Processing and Edge Cases', () => {
       const result = await collection.create(null);
 
       // MongoDB driver converts null to empty object and succeeds
-      expect(result.success).toBe(true);
-      expect(result.data!._id).toBeDefined();
+      TestAssertions.expectSuccess(result);
+      expect(result.data._id).toBeDefined();
     });
   });
 });

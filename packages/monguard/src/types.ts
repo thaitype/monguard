@@ -70,11 +70,9 @@ export interface MonguardFindOptions {
   sort?: { [key: string]: 1 | -1 };
 }
 
-export interface Result<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
+export type Result<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
 
 export interface BulkWriteResult {
   insertedCount: number;
