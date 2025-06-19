@@ -4,29 +4,35 @@ export interface MonguardConcurrencyConfig {
   retryDelayMs?: number;
 }
 
-export interface BaseDocument {
-  _id: any; // Can be string, ObjectId, or any other ID type
+/**
+ * Can be string, ObjectId, or any other ID type
+ * Id should be same type across the application.
+ */
+export type ReferenceId = any;
+
+export interface BaseDocument<TId = ReferenceId> {
+  _id: TId;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
   version?: number;
 }
 
-export interface AuditableDocument extends BaseDocument {
-  createdBy?: any; // Can be string, ObjectId, or any other ID type
-  updatedBy?: any;
-  deletedBy?: any;
+export interface AuditableDocument<TId = ReferenceId> extends BaseDocument<TId> {
+  createdBy?: TId;
+  updatedBy?: TId;
+  deletedBy?: TId;
 }
 
 export type AuditAction = 'create' | 'update' | 'delete';
 
-export interface AuditLogDocument extends BaseDocument {
+export interface AuditLogDocument<TId = ReferenceId> extends BaseDocument<TId> {
   ref: {
     collection: string;
-    id: any; // Can be string, ObjectId, or any other ID type
+    id: TId;
   };
   action: AuditAction;
-  userId?: any; // Can be string, ObjectId, or any other ID type
+  userId?: TId;
   timestamp: Date;
   metadata?: {
     before?: any;
@@ -37,8 +43,8 @@ export interface AuditLogDocument extends BaseDocument {
   };
 }
 
-export interface UserContext<TUserId = any> {
-  userId: TUserId; // Can be string, ObjectId, or any other ID type - user's choice
+export interface UserContext<TUserId = ReferenceId> {
+  userId: TUserId;
 }
 
 export interface CreateOptions {
