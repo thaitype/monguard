@@ -3,24 +3,24 @@
   "version": "0.2.0",
   "type": "module",
   "description": "A lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features",
-  "main": "./dist/main.cjs",
-  "module": "./dist/main.js",
-  "types": "./dist/main.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/main.d.ts",
-      "import": "./dist/main.js",
-      "default": "./dist/main.cjs"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.cjs"
     }
   },
   "scripts": {
-    "start": "tsx src/main.ts",
-    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "test:coverage": "vitest run --coverage",
     "test": "vitest",
     "test:ci": "vitest run",
     "check-types": "tsc --noEmit",
-    "build": "tsup src/main.ts --dts --format esm,cjs",
+    "build": "tsup src/index.ts --dts --format esm,cjs",
     "format": "prettier -w src",
     "lint": "tsc --noEmit && eslint ./src && prettier -c src",
     "lint:fix": "eslint --fix ./src && prettier -w src",
