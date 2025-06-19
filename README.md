@@ -75,54 +75,6 @@ npm install mongodb
 # or any MongoDB-compatible driver
 ```
 
-## Migration Guide
-
-### Migrating from v0.3.x to v0.4.x
-
-Version 0.4.0 introduces a **breaking change** in error handling. The library now uses standard JavaScript exceptions instead of `Result<T>` types.
-
-#### Before (v0.3.x)
-```typescript
-const result = await collection.create(userData);
-if (result.success) {
-  console.log('Created:', result.data);
-} else {
-  console.error('Error:', result.error);
-}
-```
-
-#### After (v0.4.x)
-```typescript
-try {
-  const user = await collection.create(userData);
-  console.log('Created:', user);
-} catch (error) {
-  console.error('Error:', error.message);
-}
-```
-
-#### Migration Steps
-
-1. **Remove `Result<T>` type checks**: Replace all `result.success` checks with try-catch blocks
-2. **Update data access**: Replace `result.data` with direct variable assignment
-3. **Update error handling**: Replace `result.error` with `error.message` in catch blocks
-4. **Update type annotations**: Remove `Result<T>` wrappers from return types if you're extending the library
-
-#### Automatic Migration
-
-You can use the following regex patterns to help migrate your code:
-
-**Find**: `const\s+(\w+)\s*=\s*await\s+([^;]+);\s*if\s*\(\s*\1\.success\s*\)\s*\{([^}]+)\}\s*else\s*\{([^}]+)\}`
-
-**Replace with try-catch pattern and manual adjustment**
-
-#### Benefits of the Change
-
-- **More idiomatic JavaScript**: Standard exception handling
-- **Reduced boilerplate**: No need to check `result.success` on every call
-- **Better integration**: Works naturally with async/await patterns
-- **Familiar pattern**: Consistent with other JavaScript libraries
-
 ## Quick Start
 
 ```typescript
