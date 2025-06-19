@@ -1,5 +1,11 @@
 # monguard
 
+## 0.3.0
+
+### Minor Changes
+
+- 978af58: Fix type & add jsdoc
+
 ## 0.2.0
 
 ### Minor Changes
