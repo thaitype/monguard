@@ -1,5 +1,11 @@
 # monguard
 
+## 0.4.0
+
+### Minor Changes
+
+- 8aad686: feat: migrate result to try catch throw
+
 ## 0.3.0
 
 ### Minor Changes
