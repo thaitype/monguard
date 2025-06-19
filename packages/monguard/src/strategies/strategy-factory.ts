@@ -1,9 +1,39 @@
+/**
+ * @fileoverview Factory class for creating appropriate operation strategies based on configuration.
+ */
+
 import { BaseDocument, MonguardConcurrencyConfig } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import { TransactionStrategy } from './transaction-strategy';
 import { OptimisticLockingStrategy } from './optimistic-locking-strategy';
 
+/**
+ * Factory class responsible for creating the appropriate operation strategy
+ * based on the concurrency configuration and database capabilities.
+ */
 export class StrategyFactory {
+  /**
+   * Creates an operation strategy based on the configuration.
+   *
+   * @template T - The document type extending BaseDocument
+   * @param context - The operation strategy context containing configuration and resources
+   * @returns TransactionStrategy if transactions are enabled, OptimisticLockingStrategy otherwise
+   *
+   * @example
+   * ```typescript
+   * // For MongoDB with transactions
+   * const strategy = StrategyFactory.create({
+   *   config: { transactionsEnabled: true },
+   *   // ... other context properties
+   * });
+   *
+   * // For Cosmos DB without transactions
+   * const strategy = StrategyFactory.create({
+   *   config: { transactionsEnabled: false },
+   *   // ... other context properties
+   * });
+   * ```
+   */
   static create<T extends BaseDocument>(context: OperationStrategyContext<T>): OperationStrategy<T> {
     if (context.config.transactionsEnabled) {
       return new TransactionStrategy(context);
@@ -12,6 +42,26 @@ export class StrategyFactory {
     }
   }
 
+  /**
+   * Validates the concurrency configuration to ensure it contains required settings.
+   *
+   * @param config - The concurrency configuration to validate
+   * @throws {Error} When configuration is invalid or missing required properties
+   *
+   * @example
+   * ```typescript
+   * // Valid configurations
+   * StrategyFactory.validateConfig({ transactionsEnabled: true });
+   * StrategyFactory.validateConfig({
+   *   transactionsEnabled: false,
+   *   retryAttempts: 5,
+   *   retryDelayMs: 200
+   * });
+   *
+   * // Invalid - will throw error
+   * StrategyFactory.validateConfig({ retryAttempts: -1 });
+   * ```
+   */
   static validateConfig(config: MonguardConcurrencyConfig): void {
     if (config.transactionsEnabled === undefined) {
       throw new Error(

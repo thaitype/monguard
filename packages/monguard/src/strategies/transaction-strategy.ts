@@ -1,11 +1,34 @@
-import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, ClientSession } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, WrapperResult } from '../types';
+/**
+ * @fileoverview Transaction-based strategy implementation for handling concurrent document modifications.
+ */
+
+import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 
+/**
+ * TransactionStrategy uses MongoDB transactions to ensure ACID properties for operations.
+ * When transactions are not supported, it gracefully falls back to non-transactional operations.
+ *
+ * @template T - The document type extending BaseDocument
+ */
 export class TransactionStrategy<T extends BaseDocument> implements OperationStrategy<T> {
+  /**
+   * Creates a new TransactionStrategy instance.
+   *
+   * @param context - The operation strategy context providing shared resources
+   */
   constructor(private context: OperationStrategyContext<T>) {}
 
-  async create(document: any, options: CreateOptions = {}): Promise<WrapperResult<T & { _id: ObjectId }>> {
+  /**
+   * Creates a new document within a transaction when possible.
+   * Falls back to non-transactional operation if transactions are not supported.
+   *
+   * @param document - The document data to create
+   * @param options - Options for the create operation
+   * @returns Promise resolving to the created document or error result
+   */
+  async create(document: any, options: CreateOptions = {}): Promise<Result<T & { _id: ObjectId }>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -59,11 +82,16 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
     }
   }
 
-  async update(
-    filter: Filter<T>,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  /**
+   * Updates documents within a transaction when possible.
+   * Falls back to non-transactional operation if transactions are not supported.
+   *
+   * @param filter - MongoDB filter criteria
+   * @param update - Update operations to apply
+   * @param options - Options for the update operation
+   * @returns Promise resolving to update result information
+   */
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -174,15 +202,27 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
     }
   }
 
-  async updateById(
-    id: ObjectId,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  /**
+   * Updates a single document by ID within a transaction when possible.
+   *
+   * @param id - The document ID to update
+   * @param update - Update operations to apply
+   * @param options - Options for the update operation
+   * @returns Promise resolving to update result information
+   */
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  /**
+   * Deletes documents within a transaction when possible (soft delete by default).
+   * Falls back to non-transactional operation if transactions are not supported.
+   *
+   * @param filter - MongoDB filter criteria
+   * @param options - Options for the delete operation
+   * @returns Promise resolving to delete/update result information
+   */
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -318,11 +358,26 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
     }
   }
 
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  /**
+   * Deletes a single document by ID within a transaction when possible.
+   *
+   * @param id - The document ID to delete
+   * @param options - Options for the delete operation
+   * @returns Promise resolving to delete/update result information
+   */
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 
-  async restore(filter: Filter<T>, userContext?: any): Promise<WrapperResult<UpdateResult>> {
+  /**
+   * Restores soft-deleted documents within a transaction when possible.
+   * Falls back to non-transactional operation if transactions are not supported.
+   *
+   * @param filter - MongoDB filter criteria for documents to restore
+   * @param userContext - Optional user context for audit trails
+   * @returns Promise resolving to update result information
+   */
+  async restore(filter: Filter<T>, userContext?: any): Promise<Result<UpdateResult>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {

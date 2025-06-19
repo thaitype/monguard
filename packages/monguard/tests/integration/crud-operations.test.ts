@@ -516,9 +516,10 @@ describe('CRUD Operations Integration Tests', () => {
       expect(allUsers.data).toHaveLength(5);
 
       // Update all users
-      const updatePromises = createResults.map(result =>
-        transactionCollection.updateById(result.data!._id, { $set: { age: 25 } }, { userContext })
-      );
+      const updatePromises = createResults.map(result => {
+        TestAssertions.expectSuccess(result);
+        return transactionCollection.updateById(result.data._id, { $set: { age: 25 } }, { userContext });
+      });
       const updateResults = await Promise.all(updatePromises);
 
       updateResults.forEach(result => TestAssertions.expectSuccess(result));

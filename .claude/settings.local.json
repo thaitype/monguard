@@ -8,7 +8,9 @@
       "Bash(grep:*)",
       "Bash(pnpm test:*)",
       "Bash(find:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(rg:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

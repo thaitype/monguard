@@ -1,22 +1,67 @@
+/**
+ * @fileoverview Optimistic locking strategy implementation for handling concurrent document modifications.
+ */
+
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, WrapperResult } from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 
+/**
+ * OptimisticLockingStrategy uses version numbers to detect and handle concurrent modifications.
+ * When transactions are not available (e.g., Cosmos DB), this strategy prevents race conditions
+ * by checking document versions before applying updates.
+ *
+ * @template T - The document type extending BaseDocument
+ */
 export class OptimisticLockingStrategy<T extends BaseDocument> implements OperationStrategy<T> {
+  /**
+   * Creates a new OptimisticLockingStrategy instance.
+   *
+   * @param context - The operation strategy context providing shared resources
+   */
   constructor(private context: OperationStrategyContext<T>) {}
 
+  /**
+   * Gets the default number of retry attempts for version conflicts.
+   *
+   * @private
+   * @returns The configured retry attempts or default of 3
+   */
   private get defaultRetryAttempts(): number {
     return this.context.config.retryAttempts || 3;
   }
 
+  /**
+   * Gets the default delay between retry attempts in milliseconds.
+   *
+   * @private
+   * @returns The configured retry delay or default of 100ms
+   */
   private get defaultRetryDelay(): number {
     return this.context.config.retryDelayMs || 100;
   }
 
+  /**
+   * Utility function to pause execution for a specified duration.
+   *
+   * @private
+   * @param ms - Number of milliseconds to wait
+   * @returns Promise that resolves after the specified delay
+   */
   private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  /**
+   * Executes an operation with exponential backoff retry logic for version conflicts.
+   *
+   * @private
+   * @template R - The return type of the operation
+   * @param operation - The operation function to execute with retry logic
+   * @param attempts - Number of retry attempts (defaults to configured value)
+   * @returns Promise resolving to the operation result
+   * @throws {Error} When all retry attempts are exhausted
+   */
   private async retryWithBackoff<R>(
     operation: () => Promise<R>,
     attempts: number = this.defaultRetryAttempts
@@ -46,7 +91,14 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
     throw lastError!;
   }
 
-  async create(document: any, options: CreateOptions = {}): Promise<WrapperResult<T & { _id: ObjectId }>> {
+  /**
+   * Creates a new document with version 1 and automatic timestamps.
+   *
+   * @param document - The document data to create
+   * @param options - Options for the create operation
+   * @returns Promise resolving to the created document or error result
+   */
+  async create(document: any, options: CreateOptions = {}): Promise<Result<T & { _id: ObjectId }>> {
     try {
       // Add version field and timestamps for new documents
       const versionedDoc = {
@@ -81,11 +133,16 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
     }
   }
 
-  async update(
-    filter: Filter<T>,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  /**
+   * Updates documents with optimistic locking by checking version numbers.
+   * Automatically increments version numbers and handles version conflicts with retry logic.
+   *
+   * @param filter - MongoDB filter criteria
+   * @param update - Update operations to apply
+   * @param options - Options for the update operation
+   * @returns Promise resolving to update result information
+   */
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     try {
       const result = await this.retryWithBackoff(async () => {
         // Get current document with version
@@ -176,15 +233,27 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
     }
   }
 
-  async updateById(
-    id: ObjectId,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  /**
+   * Updates a single document by ID with optimistic locking.
+   *
+   * @param id - The document ID to update
+   * @param update - Update operations to apply
+   * @param options - Options for the update operation
+   * @returns Promise resolving to update result information
+   */
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  /**
+   * Deletes documents with optimistic locking (soft delete by default).
+   * For soft deletes, uses version control to prevent concurrent modifications.
+   *
+   * @param filter - MongoDB filter criteria
+   * @param options - Options for the delete operation
+   * @returns Promise resolving to delete/update result information
+   */
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     try {
       const result = await this.retryWithBackoff(async () => {
         if (options.hardDelete) {
@@ -285,11 +354,26 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
     }
   }
 
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  /**
+   * Deletes a single document by ID with optimistic locking.
+   *
+   * @param id - The document ID to delete
+   * @param options - Options for the delete operation
+   * @returns Promise resolving to delete/update result information
+   */
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 
-  async restore(filter: Filter<T>, userContext?: any): Promise<WrapperResult<UpdateResult>> {
+  /**
+   * Restores soft-deleted documents with optimistic locking.
+   * Uses version control to ensure consistent restore operations.
+   *
+   * @param filter - MongoDB filter criteria for documents to restore
+   * @param userContext - Optional user context for audit trails
+   * @returns Promise resolving to update result information
+   */
+  async restore(filter: Filter<T>, userContext?: any): Promise<Result<UpdateResult>> {
     try {
       const result = await this.retryWithBackoff(async () => {
         // Find deleted documents to restore

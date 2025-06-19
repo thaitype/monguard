@@ -12,6 +12,8 @@
  * ```
  */
 export interface ObjectId {
+  get _bsontype(): 'ObjectId';
+  get id(): Uint8Array;
   /** Convert ObjectId to string representation */
   toString(): string;
   /** Convert ObjectId to hex string (same as toString) */

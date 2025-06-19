@@ -208,7 +208,7 @@ const collection = new MonguardCollection<User>(db, 'users', {
 async create(
   document: CreateDocument<T>,
   options?: CreateOptions
-): Promise<WrapperResult<T & { _id: ObjectId }>>
+): Promise<Result<T & { _id: ObjectId }>>
 
 interface CreateOptions {
   skipAudit?: boolean;
@@ -226,28 +226,28 @@ interface UserContext {
 // Find by ID
 async findById(
   id: ObjectId,
-  options?: MonguardFindOptions
-): Promise<WrapperResult<T | null>>
+  options?: FindOptions
+): Promise<Result<T | null>>
 
 // Find multiple documents
 async find(
   filter?: Filter<T>,
-  options?: MonguardFindOptions
-): Promise<WrapperResult<T[]>>
+  options?: FindOptions
+): Promise<Result<T[]>>
 
 // Find one document
 async findOne(
   filter: Filter<T>,
-  options?: MonguardFindOptions
-): Promise<WrapperResult<T | null>>
+  options?: FindOptions
+): Promise<Result<T | null>>
 
 // Count documents
 async count(
   filter?: Filter<T>,
   includeSoftDeleted?: boolean
-): Promise<WrapperResult<number>>
+): Promise<Result<number>>
 
-interface MonguardFindOptions {
+interface FindOptions {
   includeSoftDeleted?: boolean;
   limit?: number;
   skip?: number;
@@ -263,14 +263,14 @@ async update(
   filter: Filter<T>,
   update: UpdateFilter<T>,
   options?: UpdateOptions
-): Promise<WrapperResult<UpdateResult>>
+): Promise<Result<UpdateResult>>
 
 // Update by ID
 async updateById(
   id: ObjectId,
   update: UpdateFilter<T>,
   options?: UpdateOptions
-): Promise<WrapperResult<UpdateResult>>
+): Promise<Result<UpdateResult>>
 
 interface UpdateOptions {
   skipAudit?: boolean;
@@ -286,13 +286,13 @@ interface UpdateOptions {
 async delete(
   filter: Filter<T>,
   options?: DeleteOptions
-): Promise<WrapperResult<UpdateResult | DeleteResult>>
+): Promise<Result<UpdateResult | DeleteResult>>
 
 // Delete by ID
 async deleteById(
   id: ObjectId,
   options?: DeleteOptions
-): Promise<WrapperResult<UpdateResult | DeleteResult>>
+): Promise<Result<UpdateResult | DeleteResult>>
 
 interface DeleteOptions {
   skipAudit?: boolean;
@@ -307,15 +307,15 @@ interface DeleteOptions {
 async restore(
   filter: Filter<T>,
   userContext?: UserContext
-): Promise<WrapperResult<UpdateResult>>
+): Promise<Result<UpdateResult>>
 ```
 
 ### Result Type
 
-All operations return a `WrapperResult`:
+All operations return a `Result`:
 
 ```typescript
-interface WrapperResult<T> {
+interface Result<T> {
   success: boolean;
   data?: T;
   error?: string;
