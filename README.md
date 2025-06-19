@@ -2,11 +2,8 @@
 
 [![CI](https://github.com/thaitype/monguard/actions/workflows/main.yml/badge.svg)](https://github.com/thaitype/monguard/actions/workflows/main.yml) [![codecov](https://codecov.io/gh/thaitype/monguard/graph/badge.svg?token=B7MCHM57BH)](https://codecov.io/gh/thaitype/monguard) [![NPM Version](https://img.shields.io/npm/v/monguard) ](https://www.npmjs.com/package/monguard)[![npm downloads](https://img.shields.io/npm/dt/monguard)](https://www.npmjs.com/package/monguard) 
 
-> 🛡️ Soft delete, auto fields, and full audit logging – all in one TypeScript-friendly MongoDB toolkit.
-
-A lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features
-
-### ✅ Overview
+> Note: This is early stage of development, the API is subject to change. Please report any issues or suggestions. 
+> Don't use in production yet.
 
 **`monguard`** is a lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features:
 
@@ -45,9 +42,9 @@ Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging,
 ## Table of Contents
 
 - [Installation](#installation)
+- [Migration Guide](#migration-guide)
 - [Quick Start](#quick-start)
 - [Core Features](#core-features)
-- [Document ID Types](#document-id-types)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Concurrency Strategies](#concurrency-strategies)
@@ -107,15 +104,17 @@ const users = new MonguardCollection<User>(db, 'users', {
 });
 
 // Create a user with audit logging
-const result = await users.create({
-  name: 'John Doe',
-  email: 'john@example.com'
-}, {
-  userContext: { userId: 'admin-123' }
-});
-
-if (result.success) {
-  console.log('User created:', result.data);
+try {
+  const user = await users.create({
+    name: 'John Doe',
+    email: 'john@example.com'
+  }, {
+    userContext: { userId: 'admin-123' }
+  });
+  
+  console.log('User created:', user);
+} catch (error) {
+  console.error('Failed to create user:', error.message);
 }
 ```
 
@@ -208,7 +207,7 @@ const collection = new MonguardCollection<User>(db, 'users', {
 async create(
   document: CreateDocument<T>,
   options?: CreateOptions
-): Promise<Result<T & { _id: ObjectId }>>
+): Promise<T & { _id: ObjectId }>
 
 interface CreateOptions {
   skipAudit?: boolean;
@@ -227,25 +226,25 @@ interface UserContext {
 async findById(
   id: ObjectId,
   options?: FindOptions
-): Promise<Result<T | null>>
+): Promise<T | null>
 
 // Find multiple documents
 async find(
   filter?: Filter<T>,
   options?: FindOptions
-): Promise<Result<T[]>>
+): Promise<T[]>
 
 // Find one document
 async findOne(
   filter: Filter<T>,
   options?: FindOptions
-): Promise<Result<T | null>>
+): Promise<T | null>
 
 // Count documents
 async count(
   filter?: Filter<T>,
   includeSoftDeleted?: boolean
-): Promise<Result<number>>
+): Promise<number>
 
 interface FindOptions {
   includeSoftDeleted?: boolean;
@@ -263,14 +262,14 @@ async update(
   filter: Filter<T>,
   update: UpdateFilter<T>,
   options?: UpdateOptions
-): Promise<Result<UpdateResult>>
+): Promise<UpdateResult>
 
 // Update by ID
 async updateById(
   id: ObjectId,
   update: UpdateFilter<T>,
   options?: UpdateOptions
-): Promise<Result<UpdateResult>>
+): Promise<UpdateResult>
 
 interface UpdateOptions {
   skipAudit?: boolean;
@@ -286,13 +285,13 @@ interface UpdateOptions {
 async delete(
   filter: Filter<T>,
   options?: DeleteOptions
-): Promise<Result<UpdateResult | DeleteResult>>
+): Promise<UpdateResult | DeleteResult>
 
 // Delete by ID
 async deleteById(
   id: ObjectId,
   options?: DeleteOptions
-): Promise<Result<UpdateResult | DeleteResult>>
+): Promise<UpdateResult | DeleteResult>
 
 interface DeleteOptions {
   skipAudit?: boolean;
@@ -307,27 +306,28 @@ interface DeleteOptions {
 async restore(
   filter: Filter<T>,
   userContext?: UserContext
-): Promise<Result<UpdateResult>>
+): Promise<UpdateResult>
 ```
 
-### Result Type
+### Error Handling
 
-All operations return a `Result`:
+All operations return data directly and throw exceptions on error:
 
 ```typescript
-interface Result<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
+// Usage with try-catch
+try {
+  const user = await collection.create(userData);
+  console.log('Created:', user);
+} catch (error) {
+  console.error('Error:', error.message);
 }
 
-// Usage
-const result = await collection.create(userData);
-if (result.success) {
-  console.log('Created:', result.data);
-} else {
-  console.error('Error:', result.error);
-}
+// Or with async/await and .catch()
+const user = await collection.create(userData)
+  .catch(error => {
+    console.error('Error:', error.message);
+    throw error; // re-throw if needed
+  });
 ```
 
 ## Concurrency Strategies
@@ -425,10 +425,14 @@ const collection = new MonguardCollection<User>(db, 'users', {
 });
 
 // Skip audit for specific operation
-const result = await collection.create(userData, {
-  skipAudit: true,
-  userContext: { userId: 'admin' }
-});
+try {
+  const user = await collection.create(userData, {
+    skipAudit: true,
+    userContext: { userId: 'admin' }
+  });
+} catch (error) {
+  console.error('Create failed:', error.message);
+}
 ```
 
 ## Soft Deletes
@@ -470,27 +474,42 @@ const deletedUsers = await users.find({
 
 ```typescript
 // Restore by ID
-const result = await users.restore(
-  { _id: userId },
-  { userId: 'admin' }
-);
+try {
+  const result = await users.restore(
+    { _id: userId },
+    { userId: 'admin' }
+  );
+  console.log(`Restored ${result.modifiedCount} documents`);
+} catch (error) {
+  console.error('Restore failed:', error.message);
+}
 
 // Restore multiple documents
-const result = await users.restore(
-  { deletedBy: 'old-admin' },
-  { userId: 'current-admin' }
-);
+try {
+  const result = await users.restore(
+    { deletedBy: 'old-admin' },
+    { userId: 'current-admin' }
+  );
+  console.log(`Restored ${result.modifiedCount} documents`);
+} catch (error) {
+  console.error('Restore failed:', error.message);
+}
 ```
 
 ### Hard Deletes
 
 ```typescript
 // Permanently delete document
-const result = await users.deleteById(userId, {
-  userContext: { userId: 'admin' },
-  hardDelete: true
-});
-// Document is completely removed from database
+try {
+  const result = await users.deleteById(userId, {
+    userContext: { userId: 'admin' },
+    hardDelete: true
+  });
+  console.log(`Deleted ${result.deletedCount} documents permanently`);
+  // Document is completely removed from database
+} catch (error) {
+  console.error('Hard delete failed:', error.message);
+}
 ```
 
 ## User Tracking
@@ -510,22 +529,26 @@ interface User extends AuditableDocument {
 }
 
 // Create with user tracking
-const result = await users.create({
-  name: 'John Doe',
-  email: 'john@example.com'
-}, {
-  userContext: { userId: 'admin-123' }
-});
+try {
+  const user = await users.create({
+    name: 'John Doe',
+    email: 'john@example.com'
+  }, {
+    userContext: { userId: 'admin-123' }
+  });
 
-// Result includes user tracking:
-// {
-//   name: 'John Doe',
-//   email: 'john@example.com',
-//   createdBy: 'admin-123',
-//   updatedBy: 'admin-123',
-//   createdAt: Date,
-//   updatedAt: Date
-// }
+  // User includes user tracking:
+  // {
+  //   name: 'John Doe',
+  //   email: 'john@example.com',
+  //   createdBy: 'admin-123',
+  //   updatedBy: 'admin-123',
+  //   createdAt: Date,
+  //   updatedAt: Date
+  // }
+} catch (error) {
+  console.error('Create failed:', error.message);
+}
 ```
 
 ### User Context Types
@@ -553,15 +576,14 @@ const userContext = {
 ### 1. Error Handling
 
 ```typescript
-// Always check results
-const result = await users.create(userData, { userContext });
-
-if (result.success) {
+// Always use try-catch for error handling
+try {
+  const user = await users.create(userData, { userContext });
   // Handle success
-  console.log('User created:', result.data._id);
-} else {
+  console.log('User created:', user._id);
+} catch (error) {
   // Handle error
-  console.error('Failed to create user:', result.error);
+  console.error('Failed to create user:', error.message);
   // Log for debugging, show user-friendly message
 }
 ```
@@ -581,11 +603,15 @@ await users.deleteById(userId, { userContext });
 
 ```typescript
 // Be explicit about soft delete behavior
-const activeUsers = await users.find({}); // Default: excludes deleted
-const allUsers = await users.find({}, { includeSoftDeleted: true });
-const deletedUsers = await users.find({ 
-  deletedAt: { $exists: true } 
-}, { includeSoftDeleted: true });
+try {
+  const activeUsers = await users.find({}); // Default: excludes deleted
+  const allUsers = await users.find({}, { includeSoftDeleted: true });
+  const deletedUsers = await users.find({ 
+    deletedAt: { $exists: true } 
+  }, { includeSoftDeleted: true });
+} catch (error) {
+  console.error('Query failed:', error.message);
+}
 ```
 
 ### 4. Concurrency Configuration
@@ -634,28 +660,44 @@ class UserService {
   }
 
   async createUser(userData: Omit<User, '_id' | 'createdAt' | 'updatedAt'>, adminId: string) {
-    return await this.users.create(userData, {
-      userContext: { userId: adminId }
-    });
+    try {
+      return await this.users.create(userData, {
+        userContext: { userId: adminId }
+      });
+    } catch (error) {
+      throw new Error(`Failed to create user: ${error.message}`);
+    }
   }
 
   async deactivateUser(userId: ObjectId, adminId: string) {
-    return await this.users.updateById(userId, {
-      $set: { isActive: false }
-    }, {
-      userContext: { userId: adminId }
-    });
+    try {
+      return await this.users.updateById(userId, {
+        $set: { isActive: false }
+      }, {
+        userContext: { userId: adminId }
+      });
+    } catch (error) {
+      throw new Error(`Failed to deactivate user: ${error.message}`);
+    }
   }
 
   async deleteUser(userId: ObjectId, adminId: string, permanent = false) {
-    return await this.users.deleteById(userId, {
-      userContext: { userId: adminId },
-      hardDelete: permanent
-    });
+    try {
+      return await this.users.deleteById(userId, {
+        userContext: { userId: adminId },
+        hardDelete: permanent
+      });
+    } catch (error) {
+      throw new Error(`Failed to delete user: ${error.message}`);
+    }
   }
 
   async getActiveUsers() {
-    return await this.users.find({ isActive: true });
+    try {
+      return await this.users.find({ isActive: true });
+    } catch (error) {
+      throw new Error(`Failed to get active users: ${error.message}`);
+    }
   }
 
   async getUserAuditTrail(userId: ObjectId) {
@@ -693,31 +735,41 @@ class TenantUserService {
   }
 
   async createUser(tenantId: string, userData: Omit<User, '_id' | 'tenantId'>, userId: string) {
-    return await this.users.create({
-      ...userData,
-      tenantId
-    }, {
-      userContext: { userId }
-    });
+    try {
+      return await this.users.create({
+        ...userData,
+        tenantId
+      }, {
+        userContext: { userId }
+      });
+    } catch (error) {
+      throw new Error(`Failed to create tenant user: ${error.message}`);
+    }
   }
 
   async getTenantUsers(tenantId: string) {
-    return await this.users.find({ tenantId });
+    try {
+      return await this.users.find({ tenantId });
+    } catch (error) {
+      throw new Error(`Failed to get tenant users: ${error.message}`);
+    }
   }
 
   async getTenantAuditLogs(tenantId: string) {
-    const auditCollection = this.users.getAuditCollection();
-    
-    // Get all user IDs for the tenant first
-    const tenantUsersResult = await this.users.find({ tenantId });
-    if (!tenantUsersResult.success) return tenantUsersResult;
-    
-    const userIds = tenantUsersResult.data.map(user => user._id);
-    
-    return await auditCollection.find({
-      'ref.collection': 'users',
-      'ref.id': { $in: userIds }
-    }).sort({ timestamp: -1 }).toArray();
+    try {
+      const auditCollection = this.users.getAuditCollection();
+      
+      // Get all user IDs for the tenant first
+      const tenantUsers = await this.users.find({ tenantId });
+      const userIds = tenantUsers.map(user => user._id);
+      
+      return await auditCollection.find({
+        'ref.collection': 'users',
+        'ref.id': { $in: userIds }
+      }).sort({ timestamp: -1 }).toArray();
+    } catch (error) {
+      throw new Error(`Failed to get tenant audit logs: ${error.message}`);
+    }
   }
 }
 ```
@@ -773,11 +825,15 @@ await db.collection('audit_logs').createIndex({ timestamp: -1 });
 2. **Use appropriate query options**:
 ```typescript
 // Limit results for large datasets
-const result = await users.find({}, { 
-  limit: 100,
-  skip: page * 100,
-  sort: { createdAt: -1 }
-});
+try {
+  const users = await users.find({}, { 
+    limit: 100,
+    skip: page * 100,
+    sort: { createdAt: -1 }
+  });
+} catch (error) {
+  console.error('Query failed:', error.message);
+}
 ```
 
 3. **Consider pagination for audit logs**:
@@ -806,12 +862,18 @@ async function bulkUpdateUsers(userIds: ObjectId[], updateData: any, userContext
   
   for (let i = 0; i < userIds.length; i += batchSize) {
     const batch = userIds.slice(i, i + batchSize);
-    const batchPromises = batch.map(id => 
-      users.updateById(id, updateData, { userContext })
-    );
     
-    const batchResults = await Promise.all(batchPromises);
-    results.push(...batchResults);
+    try {
+      const batchPromises = batch.map(id => 
+        users.updateById(id, updateData, { userContext })
+      );
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    } catch (error) {
+      console.error(`Batch update failed for batch ${i / batchSize}:`, error.message);
+      throw error; // Re-throw to stop processing
+    }
   }
   
   return results;
@@ -843,10 +905,12 @@ console.log('Recent operations:', recentAudits);
 
 3. **Use detailed error logging**:
 ```typescript
-const result = await users.create(userData, { userContext });
-if (!result.success) {
+try {
+  const user = await users.create(userData, { userContext });
+  console.log('User created successfully:', user._id);
+} catch (error) {
   console.error('Operation failed:', {
-    error: result.error,
+    error: error.message,
     userData,
     userContext,
     timestamp: new Date()

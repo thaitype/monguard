@@ -37,19 +37,13 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(createPromises);
 
       // All operations should succeed
-      results.forEach(result => TestAssertions.expectSuccess(result));
-
       // All should have unique IDs
-      const ids = results.map(r => {
-        TestAssertions.expectSuccess(r);
-        return r.data._id.toString();
-      });
+      const ids = results.map(r => r._id.toString());
       expect(new Set(ids)).toHaveLength(10);
 
       // Verify all documents exist in database
       const allUsers = await collection.find();
-      TestAssertions.expectSuccess(allUsers);
-      expect(allUsers.data).toHaveLength(10);
+      expect(allUsers).toHaveLength(10);
 
       // Verify all audit logs were created
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
@@ -64,7 +58,7 @@ describe('Concurrent Operations Integration Tests', () => {
 
       const results = await Promise.all(createPromises);
 
-      results.forEach(result => TestAssertions.expectSuccess(result));
+      // All operations should succeed
 
       // Verify each document has correct user tracking
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
@@ -88,9 +82,8 @@ describe('Concurrent Operations Integration Tests', () => {
       testUsers = [];
 
       for (const user of users) {
-        const result = await collection.create(user);
-        TestAssertions.expectSuccess(result);
-        testUsers.push(result.data);
+        const doc = await collection.create(user);
+        testUsers.push(doc);
       }
     });
 
@@ -108,15 +101,13 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(updatePromises);
 
       results.forEach(result => {
-        TestAssertions.expectSuccess(result);
-        expect(result.data.modifiedCount).toBe(1);
+        expect(result.modifiedCount).toBe(1);
       });
 
       // Verify all updates were applied correctly
       const updatedUsers = await collection.find();
-      TestAssertions.expectSuccess(updatedUsers);
 
-      updatedUsers.data.forEach((user, index) => {
+      updatedUsers.forEach((user, index) => {
         expect(user.name).toBe(`Concurrently Updated User ${index}`);
         expect(user.age).toBe(30 + index);
       });
@@ -135,18 +126,17 @@ describe('Concurrent Operations Integration Tests', () => {
         collection.updateById(targetUser._id, { $inc: { age: 1 }, $set: { name: `Update ${index}` } }, { userContext })
       );
 
-      const results = await Promise.all(updatePromises);
+      const results = await Promise.allSettled(updatePromises);
 
       // Some updates might succeed, some might fail due to race conditions
-      const successfulUpdates = results.filter(r => r.success);
+      const successfulUpdates = results.filter(r => r.status === 'fulfilled');
       expect(successfulUpdates.length).toBeGreaterThan(0);
 
       // Verify final state is consistent
       const finalUser = await collection.findById(targetUser!._id);
-      TestAssertions.expectSuccess(finalUser);
 
-      expect(finalUser.data).not.toBeNull();
-      expect(finalUser.data!.age).toBeGreaterThan(targetUser!.age || 0);
+      expect(finalUser).not.toBeNull();
+      expect(finalUser!.age).toBeGreaterThan(targetUser!.age || 0);
 
       // Verify audit logs match successful operations
       const auditLogs = await collection
@@ -171,20 +161,19 @@ describe('Concurrent Operations Integration Tests', () => {
         collection.updateById(targetUser!._id, { $set: { name: 'Name Update 2' } }, { userContext }),
       ];
 
-      const results = await Promise.all(updatePromises);
+      const results = await Promise.allSettled(updatePromises);
 
-      const successfulUpdates = results.filter(r => r.success);
+      const successfulUpdates = results.filter(r => r.status === 'fulfilled');
       expect(successfulUpdates.length).toBeGreaterThan(0);
 
       // Verify final document state
       const finalUser = await collection.findById(targetUser!._id);
-      TestAssertions.expectSuccess(finalUser);
-      expect(finalUser.data).not.toBeNull();
+      expect(finalUser).not.toBeNull();
 
       // At least some updates should have been applied
-      const hasNameUpdate = finalUser.data!.name.includes('Name Update');
-      const hasAgeUpdate = finalUser.data!.age === 25;
-      const hasEmailUpdate = finalUser.data!.email === 'updated@example.com';
+      const hasNameUpdate = finalUser!.name.includes('Name Update');
+      const hasAgeUpdate = finalUser!.age === 25;
+      const hasEmailUpdate = finalUser!.email === 'updated@example.com';
 
       expect(hasNameUpdate || hasAgeUpdate || hasEmailUpdate).toBe(true);
     });
@@ -198,9 +187,8 @@ describe('Concurrent Operations Integration Tests', () => {
       testUsers = [];
 
       for (const user of users) {
-        const result = await collection.create(user);
-        TestAssertions.expectSuccess(result);
-        testUsers.push(result.data);
+        const doc = await collection.create(user);
+        testUsers.push(doc);
       }
     });
 
@@ -211,17 +199,15 @@ describe('Concurrent Operations Integration Tests', () => {
 
       const results = await Promise.all(deletePromises);
 
-      results.forEach(result => TestAssertions.expectSuccess(result));
+      // All operations should succeed
 
       // Verify all documents are soft deleted
       const activeUsers = await collection.find();
-      TestAssertions.expectSuccess(activeUsers);
-      expect(activeUsers.data).toHaveLength(0);
+      expect(activeUsers).toHaveLength(0);
 
       const deletedUsers = await collection.find({}, { includeSoftDeleted: true });
-      TestAssertions.expectSuccess(deletedUsers);
-      expect(deletedUsers.data).toHaveLength(5);
-      deletedUsers.data.forEach(user => {
+      expect(deletedUsers).toHaveLength(5);
+      deletedUsers.forEach(user => {
         expect(user.deletedAt).toBeInstanceOf(Date);
       });
     });
@@ -233,12 +219,11 @@ describe('Concurrent Operations Integration Tests', () => {
 
       const results = await Promise.all(deletePromises);
 
-      results.forEach(result => TestAssertions.expectSuccess(result));
+      // All operations should succeed
 
       // Verify all documents are permanently deleted
       const remainingUsers = await collection.find({}, { includeSoftDeleted: true });
-      TestAssertions.expectSuccess(remainingUsers);
-      expect(remainingUsers.data).toHaveLength(0);
+      expect(remainingUsers).toHaveLength(0);
 
       // Verify audit logs were created
       const deleteAuditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
@@ -255,15 +240,12 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(deletePromises);
 
       // At least one should succeed
-      const successfulDeletes = results.filter(
-        r => r.success && r.data && 'modifiedCount' in r.data && r.data.modifiedCount > 0
-      );
+      const successfulDeletes = results.filter(r => 'modifiedCount' in r && r.modifiedCount > 0);
       expect(successfulDeletes.length).toBe(1);
 
       // Verify document is soft deleted
       const deletedUser = await collection.findById(targetUser!._id, { includeSoftDeleted: true });
-      TestAssertions.expectSuccess(deletedUser);
-      expect(deletedUser.data!.deletedAt).toBeInstanceOf(Date);
+      expect(deletedUser!.deletedAt).toBeInstanceOf(Date);
 
       // Only one audit log should be created
       const auditLogs = await collection
@@ -285,9 +267,8 @@ describe('Concurrent Operations Integration Tests', () => {
       const initialUsers = TestDataFactory.createMultipleUsers(3);
       const createResults = [];
       for (const user of initialUsers) {
-        const result = await collection.create(user);
-        TestAssertions.expectSuccess(result);
-        createResults.push(result.data);
+        const doc = await collection.create(user);
+        createResults.push(doc);
       }
 
       // Mixed concurrent operations
@@ -311,17 +292,16 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(operations);
 
       // Verify most operations succeeded
-      const successfulOps = results.filter(r => r.success);
+      const successfulOps = results;
       expect(successfulOps.length).toBeGreaterThanOrEqual(5);
 
       // Verify final database state is consistent
       const finalUsers = await collection.find({}, { includeSoftDeleted: true });
-      TestAssertions.expectSuccess(finalUsers);
 
       // Should have created 2 new users (total 5), deleted 1 (4 remaining)
-      expect(finalUsers.data).toHaveLength(5);
-      const activeUsers = finalUsers.data.filter(u => !u.deletedAt);
-      const deletedUsers = finalUsers.data.filter(u => u.deletedAt);
+      expect(finalUsers).toHaveLength(5);
+      const activeUsers = finalUsers.filter(u => !u.deletedAt);
+      const deletedUsers = finalUsers.filter(u => u.deletedAt);
       expect(activeUsers).toHaveLength(4);
       expect(deletedUsers).toHaveLength(1);
     });
@@ -333,9 +313,8 @@ describe('Concurrent Operations Integration Tests', () => {
       // Create base users for operations
       const baseUsers = [];
       for (let i = 0; i < 5; i++) {
-        const result = await collection.create(TestDataFactory.createUser());
-        TestAssertions.expectSuccess(result);
-        baseUsers.push(result.data);
+        const doc = await collection.create(TestDataFactory.createUser());
+        baseUsers.push(doc);
       }
 
       // Generate concurrent operations
@@ -364,8 +343,8 @@ describe('Concurrent Operations Integration Tests', () => {
 
       const results = await Promise.all(operations);
 
-      // Count successful operations
-      const successfulOps = results.filter(r => r.success);
+      // Count successful operations (all results are successful since exceptions would be thrown on failure)
+      const successfulOps = results;
 
       // Verify audit logs match successful operations
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
@@ -394,13 +373,11 @@ describe('Concurrent Operations Integration Tests', () => {
       deletedUsers = [];
 
       for (const user of users) {
-        const createResult = await collection.create(user);
-        TestAssertions.expectSuccess(createResult);
+        const createdDoc = await collection.create(user);
 
-        const deleteResult = await collection.deleteById(createResult.data._id);
-        TestAssertions.expectSuccess(deleteResult);
+        await collection.deleteById(createdDoc._id);
 
-        deletedUsers.push(createResult.data);
+        deletedUsers.push(createdDoc);
       }
     });
 
@@ -412,16 +389,14 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(restorePromises);
 
       results.forEach(result => {
-        TestAssertions.expectSuccess(result);
-        expect(result.data.modifiedCount).toBe(1);
+        expect(result.modifiedCount).toBe(1);
       });
 
       // Verify all users are restored
       const restoredUsers = await collection.find();
-      TestAssertions.expectSuccess(restoredUsers);
-      expect(restoredUsers.data).toHaveLength(3);
+      expect(restoredUsers).toHaveLength(3);
 
-      restoredUsers.data.forEach(user => {
+      restoredUsers.forEach(user => {
         expect(user.deletedAt).toBeUndefined();
         expect(user.deletedBy).toBeUndefined();
         expect(user.updatedBy).toEqual(userContext.userId);
@@ -440,16 +415,13 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(restorePromises);
 
       // Only one should actually modify the document
-      const successfulRestores = results.filter(
-        r => r.success && r.data && 'modifiedCount' in r.data && r.data.modifiedCount > 0
-      );
+      const successfulRestores = results.filter(r => 'modifiedCount' in r && r.modifiedCount > 0);
       expect(successfulRestores.length).toBe(1);
 
       // Verify user is restored
       const restoredUser = await collection.findById(targetUser!._id);
-      TestAssertions.expectSuccess(restoredUser);
-      expect(restoredUser.data).not.toBeNull();
-      expect(restoredUser.data!.deletedAt).toBeUndefined();
+      expect(restoredUser).not.toBeNull();
+      expect(restoredUser!.deletedAt).toBeUndefined();
     });
   });
 
@@ -468,7 +440,7 @@ describe('Concurrent Operations Integration Tests', () => {
       const results = await Promise.all(operations);
       const endTime = Date.now();
 
-      const successfulOps = results.filter(r => r.success);
+      const successfulOps = results;
       const duration = endTime - startTime;
 
       expect(successfulOps.length).toBe(concurrentOps);
@@ -506,12 +478,10 @@ describe('Concurrent Operations Integration Tests', () => {
       const duration = Date.now() - startTime;
 
       // All operations should succeed
-      results.forEach(result => TestAssertions.expectSuccess(result));
 
       // Verify all documents were created
       const allDocs = await transactionCollection.find({});
-      TestAssertions.expectSuccess(allDocs);
-      expect(allDocs.data).toHaveLength(10);
+      expect(allDocs).toHaveLength(10);
 
       // Verify all audit logs were created atomically
       const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
@@ -529,25 +499,23 @@ describe('Concurrent Operations Integration Tests', () => {
       const createResults = await Promise.all(
         users.map(userData => transactionCollection.create(userData, { userContext }))
       );
-      createResults.forEach(result => TestAssertions.expectSuccess(result));
+      // All creates should succeed
 
       // Concurrent updates with transactions
-      const updatePromises = createResults.map((result, index) => {
-        TestAssertions.expectSuccess(result);
+      const updatePromises = createResults.map((doc, index) => {
         return transactionCollection.updateById(
-          result.data._id,
+          doc._id,
           { $set: { name: `Transaction Updated ${index}`, age: 20 + index } },
           { userContext }
         );
       });
 
       const updateResults = await Promise.all(updatePromises);
-      updateResults.forEach(result => TestAssertions.expectSuccess(result));
+      // All updates should succeed
 
       // Verify all documents were updated
       const updatedDocs = await transactionCollection.find({});
-      TestAssertions.expectSuccess(updatedDocs);
-      updatedDocs.data.forEach((doc, index) => {
+      updatedDocs.forEach((doc, index) => {
         expect(doc.name).toContain('Transaction Updated');
       });
 
@@ -564,8 +532,7 @@ describe('Concurrent Operations Integration Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       // Create a document first
-      const createResult = await transactionCollection.create(userData, { userContext });
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await transactionCollection.create(userData, { userContext });
 
       // Mock one audit operation to fail
       let failureCount = 0;
@@ -583,8 +550,8 @@ describe('Concurrent Operations Integration Tests', () => {
 
       // Concurrent operations, one should fail due to audit failure
       const operations = [
-        transactionCollection.updateById(createResult.data._id, { $set: { name: 'Update 1' } }, { userContext }),
-        transactionCollection.updateById(createResult.data._id, { $set: { name: 'Update 2' } }, { userContext }),
+        transactionCollection.updateById(createdDoc._id, { $set: { name: 'Update 1' } }, { userContext }),
+        transactionCollection.updateById(createdDoc._id, { $set: { name: 'Update 2' } }, { userContext }),
       ];
 
       const results = await Promise.allSettled(operations);
@@ -631,10 +598,8 @@ describe('Concurrent Operations Integration Tests', () => {
       const transactionDocs = await transactionCollection.find({});
       const optimisticDocs = await collection.find({});
 
-      TestAssertions.expectSuccess(transactionDocs);
-      TestAssertions.expectSuccess(optimisticDocs);
-      expect(transactionDocs.data).toHaveLength(10);
-      expect(optimisticDocs.data).toHaveLength(10);
+      expect(transactionDocs).toHaveLength(10);
+      expect(optimisticDocs).toHaveLength(10);
 
       console.log(`Performance Comparison:`);
       console.log(`  Transaction Strategy: ${transactionDuration}ms for 10 operations`);

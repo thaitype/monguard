@@ -34,15 +34,14 @@ describe('Audit Logging Integration Tests', () => {
       const userContext = TestDataFactory.createUserContext();
       const timeRange = TestHelpers.createDateRange();
 
-      const result = await collection.create(userData, { userContext });
-      TestAssertions.expectSuccess(result);
+      const doc = await collection.create(userData, { userContext });
 
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
       expect(auditLog).toBeDefined();
-      TestAssertions.expectAuditLog(auditLog!, 'create', result.data!._id);
+      TestAssertions.expectAuditLog(auditLog!, 'create', doc._id);
       expect(auditLog!.userId).toEqual(userContext.userId);
       expect(auditLog!.ref.collection).toBe('test_users');
       expect(auditLog!.metadata?.after).toBeDefined();
@@ -51,25 +50,19 @@ describe('Audit Logging Integration Tests', () => {
     });
 
     it('should create audit log for update operation', async () => {
-      const createResult = await collection.create(TestDataFactory.createUser({ name: 'Original Name' }));
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await collection.create(TestDataFactory.createUser({ name: 'Original Name' }));
 
       const userContext = TestDataFactory.createUserContext();
       const timeRange = TestHelpers.createDateRange();
 
-      const updateResult = await collection.updateById(
-        createResult.data._id,
-        { $set: { name: 'Updated Name', age: 35 } },
-        { userContext }
-      );
-      TestAssertions.expectSuccess(updateResult);
+      await collection.updateById(createdDoc._id, { $set: { name: 'Updated Name', age: 35 } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection().find({ action: 'update' }).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
       expect(auditLog).toBeDefined();
-      TestAssertions.expectAuditLog(auditLog!, 'update', createResult.data!._id);
+      TestAssertions.expectAuditLog(auditLog!, 'update', createdDoc._id);
       expect(auditLog!.userId).toEqual(userContext.userId);
       expect(auditLog!.metadata?.before.name).toBe('Original Name');
       expect(auditLog!.metadata?.after.name).toBe('Updated Name');
@@ -79,21 +72,19 @@ describe('Audit Logging Integration Tests', () => {
     });
 
     it('should create audit log for soft delete operation', async () => {
-      const createResult = await collection.create(TestDataFactory.createUser());
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await collection.create(TestDataFactory.createUser());
 
       const userContext = TestDataFactory.createUserContext();
       const timeRange = TestHelpers.createDateRange();
 
-      const deleteResult = await collection.deleteById(createResult.data._id, { userContext });
-      TestAssertions.expectSuccess(deleteResult);
+      await collection.deleteById(createdDoc._id, { userContext });
 
       const auditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
       expect(auditLog).toBeDefined();
-      TestAssertions.expectAuditLog(auditLog!, 'delete', createResult.data!._id);
+      TestAssertions.expectAuditLog(auditLog!, 'delete', createdDoc._id);
       expect(auditLog!.userId).toEqual(userContext.userId);
       expect(auditLog!.metadata?.softDelete).toBe(true);
       expect(auditLog!.metadata?.before).toBeDefined();
@@ -101,21 +92,19 @@ describe('Audit Logging Integration Tests', () => {
     });
 
     it('should create audit log for hard delete operation', async () => {
-      const createResult = await collection.create(TestDataFactory.createUser());
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await collection.create(TestDataFactory.createUser());
 
       const userContext = TestDataFactory.createUserContext();
       const timeRange = TestHelpers.createDateRange();
 
-      const deleteResult = await collection.deleteById(createResult.data._id, { userContext, hardDelete: true });
-      TestAssertions.expectSuccess(deleteResult);
+      await collection.deleteById(createdDoc._id, { userContext, hardDelete: true });
 
       const auditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
       expect(auditLog).toBeDefined();
-      TestAssertions.expectAuditLog(auditLog!, 'delete', createResult.data!._id);
+      TestAssertions.expectAuditLog(auditLog!, 'delete', createdDoc._id);
       expect(auditLog!.userId).toEqual(userContext.userId);
       expect(auditLog!.metadata?.hardDelete).toBe(true);
       expect(auditLog!.metadata?.before).toBeDefined();
@@ -125,8 +114,7 @@ describe('Audit Logging Integration Tests', () => {
     it('should not create audit log when skipAudit is true', async () => {
       const userData = TestDataFactory.createUser();
 
-      const result = await collection.create(userData, { skipAudit: true });
-      TestAssertions.expectSuccess(result);
+      await collection.create(userData, { skipAudit: true });
 
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(0);
@@ -142,17 +130,11 @@ describe('Audit Logging Integration Tests', () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
 
-      const createResult = await disabledCollection.create(userData, { userContext });
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await disabledCollection.create(userData, { userContext });
 
-      const updateResult = await disabledCollection.updateById(
-        createResult.data._id,
-        { $set: { name: 'Updated' } },
-        { userContext }
-      );
-      TestAssertions.expectSuccess(updateResult);
+      await disabledCollection.updateById(createdDoc._id, { $set: { name: 'Updated' } }, { userContext });
 
-      await disabledCollection.deleteById(createResult.data._id, { userContext });
+      await disabledCollection.deleteById(createdDoc._id, { userContext });
 
       const auditLogs = await disabledCollection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(0);
@@ -166,8 +148,7 @@ describe('Audit Logging Integration Tests', () => {
       const userData = TestDataFactory.createUser();
 
       // Operation should still succeed despite audit failure
-      const result = await collection.create(userData);
-      TestAssertions.expectSuccess(result);
+      await collection.create(userData);
 
       // Restore original method
       collection.getAuditCollection().insertOne = originalInsertOne;
@@ -179,8 +160,7 @@ describe('Audit Logging Integration Tests', () => {
       const userData = TestDataFactory.createUser();
       const userContext = { userId: '507f1f77bcf86cd799439011' };
 
-      const result = await collection.create(userData, { userContext });
-      TestAssertions.expectSuccess(result);
+      await collection.create(userData, { userContext });
 
       const auditLog = await collection.getAuditCollection().findOne({});
       expect(auditLog).not.toBeNull();
@@ -192,8 +172,7 @@ describe('Audit Logging Integration Tests', () => {
       const userId = adaptObjectId(new MongoObjectId());
       const userContext = { userId };
 
-      const result = await collection.create(userData, { userContext });
-      TestAssertions.expectSuccess(result);
+      await collection.create(userData, { userContext });
 
       const auditLog = await collection.getAuditCollection().findOne({});
       expect(auditLog).not.toBeNull();
@@ -201,17 +180,15 @@ describe('Audit Logging Integration Tests', () => {
     });
 
     it('should store complete before and after state for updates', async () => {
-      const createResult = await collection.create(
+      const createdDoc = await collection.create(
         TestDataFactory.createUser({
           name: 'John Doe',
           email: 'john@example.com',
           age: 30,
         })
       );
-      TestAssertions.expectSuccess(createResult);
 
-      const updateResult = await collection.updateById(createResult.data._id, { $set: { name: 'Jane Doe', age: 31 } });
-      TestAssertions.expectSuccess(updateResult);
+      await collection.updateById(createdDoc._id, { $set: { name: 'Jane Doe', age: 31 } });
 
       const auditLog = await collection.getAuditCollection().findOne({ action: 'update' });
       expect(auditLog).not.toBeNull();
@@ -237,13 +214,11 @@ describe('Audit Logging Integration Tests', () => {
         profile: { bio: 'Original bio', preferences: { theme: 'light' } },
       };
 
-      const createResult = await collection.create(userWithProfile as any);
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await collection.create(userWithProfile as any);
 
-      const updateResult = await collection.updateById(createResult.data._id, {
+      await collection.updateById(createdDoc._id, {
         $set: { 'profile.preferences.theme': 'dark' },
       });
-      TestAssertions.expectSuccess(updateResult);
 
       const auditLog = await collection.getAuditCollection().findOne({ action: 'update' });
       expect(auditLog).not.toBeNull();
@@ -260,24 +235,23 @@ describe('Audit Logging Integration Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       // Create
-      const createResult = await collection.create(userData, { userContext });
-      TestAssertions.expectSuccess(createResult);
+      const createdDoc = await collection.create(userData, { userContext });
 
       // Update
-      await collection.updateById(createResult.data._id, { $set: { name: 'Updated Name' } }, { userContext });
+      await collection.updateById(createdDoc._id, { $set: { name: 'Updated Name' } }, { userContext });
 
       // Soft Delete
-      await collection.deleteById(createResult.data._id, { userContext });
+      await collection.deleteById(createdDoc._id, { userContext });
 
       // Restore
-      await collection.restore({ _id: createResult.data._id }, userContext);
+      await collection.restore({ _id: createdDoc._id }, userContext);
 
       // Hard Delete
-      await collection.deleteById(createResult.data._id, { userContext, hardDelete: true });
+      await collection.deleteById(createdDoc._id, { userContext, hardDelete: true });
 
       const auditLogs = await collection
         .getAuditCollection()
-        .find({ 'ref.id': createResult.data._id })
+        .find({ 'ref.id': createdDoc._id })
         .sort({ timestamp: 1 })
         .toArray();
 
@@ -302,9 +276,8 @@ describe('Audit Logging Integration Tests', () => {
       const createResults = await Promise.all(createPromises);
 
       // Update all users concurrently
-      const updatePromises = createResults.map((result, index) => {
-        TestAssertions.expectSuccess(result);
-        return collection.updateById(result.data._id, { $set: { name: `Updated User ${index}` } }, { userContext });
+      const updatePromises = createResults.map((doc, index) => {
+        return collection.updateById(doc._id, { $set: { name: `Updated User ${index}` } }, { userContext });
       });
       await Promise.all(updatePromises);
 
@@ -319,9 +292,8 @@ describe('Audit Logging Integration Tests', () => {
       expect(updateLogs).toHaveLength(5);
 
       // Verify each user has corresponding audit logs
-      for (const createResult of createResults) {
-        TestAssertions.expectSuccess(createResult);
-        const userAuditLogs = auditLogs.filter(log => log.ref.id.equals(createResult.data!._id));
+      for (const doc of createResults) {
+        const userAuditLogs = auditLogs.filter(log => log.ref.id.equals(doc._id));
         expect(userAuditLogs).toHaveLength(2); // 1 create + 1 update
       }
     });
@@ -333,14 +305,12 @@ describe('Audit Logging Integration Tests', () => {
       // Create users
       const createResults = [];
       for (const user of users) {
-        const result = await collection.create(user, { userContext });
-        TestAssertions.expectSuccess(result);
-        createResults.push(result.data);
+        const doc = await collection.create(user, { userContext });
+        createResults.push(doc);
       }
 
       // Bulk delete (soft delete)
-      const deleteResult = await collection.delete({ name: { $regex: /^User / } }, { userContext });
-      TestAssertions.expectSuccess(deleteResult);
+      await collection.delete({ name: { $regex: /^User / } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection().find({}).sort({ timestamp: 1 }).toArray();
       expect(auditLogs).toHaveLength(6); // 3 creates + 3 deletes
@@ -364,8 +334,7 @@ describe('Audit Logging Integration Tests', () => {
       });
 
       const userData = TestDataFactory.createUser();
-      const result = await customCollection.create(userData);
-      TestAssertions.expectSuccess(result);
+      await customCollection.create(userData);
 
       // Verify audit log was created in custom collection
       const auditLogs = await db.collection('custom_audit_logs').find({}).toArray();
@@ -409,8 +378,7 @@ describe('Audit Logging Integration Tests', () => {
       // Attempt to update a non-existent document
       const result = await collection.updateById(nonExistentId, { $set: { name: 'Updated' } });
 
-      TestAssertions.expectSuccess(result);
-      expect(result.data.modifiedCount).toBe(0);
+      expect(result.modifiedCount).toBe(0);
 
       // No audit log should be created since no document was modified
       const auditLogs = await collection.getAuditCollection().find({}).toArray();
@@ -426,8 +394,7 @@ describe('Audit Logging Integration Tests', () => {
       const userData = TestDataFactory.createUser();
 
       // Normal operations should still work
-      const result = await collection.create(userData);
-      TestAssertions.expectSuccess(result);
+      await collection.create(userData);
 
       const validAuditLogs = await collection
         .getAuditCollection()

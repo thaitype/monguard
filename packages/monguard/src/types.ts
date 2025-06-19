@@ -162,10 +162,3 @@ export interface FindOptions extends MongoFindOptions {
   /** Whether to include soft-deleted documents in query results */
   includeSoftDeleted?: boolean;
 }
-
-/**
- * Result type for operations
- * Represents either a successful operation with data or an error.
- * @template T - The type of data returned on success.
- */
-export type Result<T> = { success: true; data: T } | { success: false; error: string };

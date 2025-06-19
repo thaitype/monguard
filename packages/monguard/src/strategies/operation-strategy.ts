@@ -3,7 +3,7 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, Collection } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result, MonguardConcurrencyConfig } from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, MonguardConcurrencyConfig } from '../types';
 
 /**
  * Interface defining the operations that different concurrency strategies must implement.
@@ -17,9 +17,10 @@ export interface OperationStrategy<T extends BaseDocument> {
    *
    * @param document - The document data to create
    * @param options - Options for the create operation
-   * @returns Promise resolving to the created document or error result
+   * @returns Promise resolving to the created document
+   * @throws Error if the operation fails
    */
-  create(document: any, options: CreateOptions): Promise<Result<T & { _id: ObjectId }>>;
+  create(document: any, options: CreateOptions): Promise<T & { _id: ObjectId }>;
 
   /**
    * Updates documents matching the filter with the strategy's concurrency control approach.
@@ -28,8 +29,9 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    */
-  update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions): Promise<Result<UpdateResult>>;
+  update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions): Promise<UpdateResult>;
 
   /**
    * Updates a single document by ID with the strategy's concurrency control approach.
@@ -38,8 +40,9 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    */
-  updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions): Promise<Result<UpdateResult>>;
+  updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions): Promise<UpdateResult>;
 
   /**
    * Deletes documents matching the filter with the strategy's concurrency control approach.
@@ -47,8 +50,9 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
+   * @throws Error if the operation fails
    */
-  delete(filter: Filter<T>, options: DeleteOptions): Promise<Result<UpdateResult | DeleteResult>>;
+  delete(filter: Filter<T>, options: DeleteOptions): Promise<UpdateResult | DeleteResult>;
 
   /**
    * Deletes a single document by ID with the strategy's concurrency control approach.
@@ -56,8 +60,9 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
+   * @throws Error if the operation fails
    */
-  deleteById(id: ObjectId, options: DeleteOptions): Promise<Result<UpdateResult | DeleteResult>>;
+  deleteById(id: ObjectId, options: DeleteOptions): Promise<UpdateResult | DeleteResult>;
 
   /**
    * Restores soft-deleted documents with the strategy's concurrency control approach.
@@ -65,8 +70,9 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    */
-  restore(filter: Filter<T>, userContext?: any): Promise<Result<UpdateResult>>;
+  restore(filter: Filter<T>, userContext?: any): Promise<UpdateResult>;
 }
 
 /**
