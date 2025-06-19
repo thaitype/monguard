@@ -3,7 +3,7 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result } from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 
 /**
@@ -26,9 +26,10 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    *
    * @param document - The document data to create
    * @param options - Options for the create operation
-   * @returns Promise resolving to the created document or error result
+   * @returns Promise resolving to the created document
+   * @throws Error if the operation fails
    */
-  async create(document: any, options: CreateOptions = {}): Promise<Result<T & { _id: ObjectId }>> {
+  async create(document: any, options: CreateOptions = {}): Promise<T & { _id: ObjectId }> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -68,15 +69,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
         }
       }
 
-      return {
-        success: true,
-        data: result!,
-      };
+      return result!;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Create operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Create operation failed');
     } finally {
       await session.endSession();
     }
@@ -90,8 +85,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -188,15 +184,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
         }
       }
 
-      return {
-        success: true,
-        data: result!,
-      };
+      return result!;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Update operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Update operation failed');
     } finally {
       await session.endSession();
     }
@@ -209,8 +199,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
@@ -221,8 +212,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
+   * @throws Error if the operation fails
    */
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -344,15 +336,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
         }
       }
 
-      return {
-        success: true,
-        data: result!,
-      };
+      return result!;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Delete operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Delete operation failed');
     } finally {
       await session.endSession();
     }
@@ -364,8 +350,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
+   * @throws Error if the operation fails
    */
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 
@@ -376,8 +363,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @param filter - MongoDB filter criteria for documents to restore
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    */
-  async restore(filter: Filter<T>, userContext?: any): Promise<Result<UpdateResult>> {
+  async restore(filter: Filter<T>, userContext?: any): Promise<UpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -420,15 +408,9 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
         }
       }
 
-      return {
-        success: true,
-        data: result!,
-      };
+      return result!;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Restore operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Restore operation failed');
     } finally {
       await session.endSession();
     }

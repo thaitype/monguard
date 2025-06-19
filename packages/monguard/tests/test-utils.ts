@@ -1,23 +1,9 @@
 import { expect } from 'vitest';
 import { ObjectId as MongoObjectId } from 'mongodb';
-import { Result, AuditLogDocument } from '../src/types';
+import { AuditLogDocument } from '../src/types';
 import type { ObjectId } from '../src/mongodb-types';
 
 export class TestAssertions {
-  static expectSuccess<T>(result: Result<T>): asserts result is { success: true; data: T } {
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data).toBeDefined();
-    }
-  }
-
-  static expectError<T>(result: Result<T>): asserts result is { success: false; error: string } {
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeDefined();
-    }
-  }
-
   static expectTimestamps(document: any): void {
     expect(document.createdAt).toBeInstanceOf(Date);
     expect(document.updatedAt).toBeInstanceOf(Date);

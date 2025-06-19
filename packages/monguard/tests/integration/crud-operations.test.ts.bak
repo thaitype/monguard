@@ -136,10 +136,11 @@ describe('CRUD Operations Integration Tests', () => {
     });
 
     it('should handle sorting', async () => {
-      const docs = await collection.find({}, { sort: { name: -1 } });
+      const result = await collection.find({}, { sort: { name: -1 } });
 
-      expect(docs[0]!.name).toBe('User 5');
-      expect(docs[4]!.name).toBe('User 1');
+      TestAssertions.expectSuccess(result);
+      expect(result.data![0]!.name).toBe('User 5');
+      expect(result.data![4]!.name).toBe('User 1');
     });
 
     it('should exclude soft deleted documents by default', async () => {
@@ -191,7 +192,7 @@ describe('CRUD Operations Integration Tests', () => {
       await collection.updateById(testUser._id, { $set: { name: 'Updated Name' } }, { userContext });
 
       const updatedUser = await collection.findById(testUser._id);
-      expect(updatedUser!.updatedBy).toEqual(userContext.userId);
+      expect(updatedUser.data!.updatedBy).toEqual(userContext.userId);
     });
 
     it('should update multiple documents with filter', async () => {
@@ -200,10 +201,12 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.update({ name: 'Batch User' }, { $set: { age: 40 } });
 
-      expect(result.modifiedCount).toBe(2);
+      TestAssertions.expectSuccess(result);
+      expect(result.data.modifiedCount).toBe(2);
 
       const updatedUsers = await collection.find({ name: 'Batch User' });
-      expect(updatedUsers.every(u => u.age === 40)).toBe(true);
+      TestAssertions.expectSuccess(updatedUsers);
+      expect(updatedUsers.data.every(u => u.age === 40)).toBe(true);
     });
 
     it('should handle upsert when document does not exist', async () => {
@@ -215,10 +218,12 @@ describe('CRUD Operations Integration Tests', () => {
         { upsert: true }
       );
 
-      expect(result.upsertedCount).toBe(1);
+      TestAssertions.expectSuccess(result);
+      expect(result.data.upsertedCount).toBe(1);
 
       const upsertedUser = await collection.findById(nonExistentId);
-      expect(upsertedUser!.name).toBe('Upserted User');
+      TestAssertions.expectSuccess(upsertedUser);
+      expect(upsertedUser.data!.name).toBe('Upserted User');
     });
 
     it('should not update soft deleted documents', async () => {
@@ -226,7 +231,8 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.updateById(testUser._id, { $set: { name: 'Should Not Update' } });
 
-      expect(result.modifiedCount).toBe(0);
+      TestAssertions.expectSuccess(result);
+      expect(result.data.modifiedCount).toBe(0);
     });
   });
 
@@ -234,7 +240,9 @@ describe('CRUD Operations Integration Tests', () => {
     let testUser: TestUser;
 
     beforeEach(async () => {
-      testUser = await collection.create(TestDataFactory.createUser());
+      const result = await collection.create(TestDataFactory.createUser());
+      TestAssertions.expectSuccess(result);
+      testUser = result.data;
     });
 
     it('should soft delete document by default', async () => {
@@ -242,17 +250,20 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.deleteById(testUser._id);
 
-      expect((result as any).modifiedCount).toBe(1);
+      TestAssertions.expectSuccess(result);
+      expect((result.data as any).modifiedCount).toBe(1);
 
       // Document should not be found in normal queries
       const findResult = await collection.findById(testUser._id);
-      expect(findResult).toBeNull();
+      TestAssertions.expectSuccess(findResult);
+      expect(findResult.data).toBeNull();
 
       // But should be found when including soft deleted
       const findDeletedResult = await collection.findById(testUser._id, { includeSoftDeleted: true });
-      expect(findDeletedResult).not.toBeNull();
-      TestAssertions.expectSoftDeleted(findDeletedResult!);
-      TestHelpers.expectDateInRange(findDeletedResult!.deletedAt!, timeRange);
+      TestAssertions.expectSuccess(findDeletedResult);
+      expect(findDeletedResult.data).not.toBeNull();
+      TestAssertions.expectSoftDeleted(findDeletedResult.data!);
+      TestHelpers.expectDateInRange(findDeletedResult.data!.deletedAt!, timeRange);
     });
 
     it('should soft delete with user context', async () => {
@@ -260,18 +271,23 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.deleteById(testUser._id, { userContext });
 
+      TestAssertions.expectSuccess(result);
+
       const deletedUser = await collection.findById(testUser._id, { includeSoftDeleted: true });
-      TestAssertions.expectSoftDeleted(deletedUser!, userContext.userId as any);
+      TestAssertions.expectSuccess(deletedUser);
+      TestAssertions.expectSoftDeleted(deletedUser.data!, userContext.userId as any);
     });
 
     it('should hard delete when specified', async () => {
       const result = await collection.deleteById(testUser._id, { hardDelete: true });
 
-      expect((result as any).deletedCount).toBe(1);
+      TestAssertions.expectSuccess(result);
+      expect((result.data as any).deletedCount).toBe(1);
 
       // Document should not exist at all
       const findResult = await collection.findById(testUser._id, { includeSoftDeleted: true });
-      expect(findResult).toBeNull();
+      TestAssertions.expectSuccess(findResult);
+      expect(findResult.data).toBeNull();
     });
 
     it('should delete multiple documents with filter', async () => {
@@ -280,10 +296,12 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.delete({ name: 'Batch Delete' });
 
-      expect((result as any).modifiedCount).toBe(2);
+      TestAssertions.expectSuccess(result);
+      expect((result.data as any).modifiedCount).toBe(2);
 
       const remainingUsers = await collection.find({ name: 'Batch Delete' });
-      expect(remainingUsers).toHaveLength(0);
+      TestAssertions.expectSuccess(remainingUsers);
+      expect(remainingUsers.data).toHaveLength(0);
     });
 
     it('should not soft delete already soft deleted documents', async () => {
@@ -291,7 +309,8 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.deleteById(testUser._id); // Second soft delete attempt
 
-      expect((result as any).modifiedCount).toBe(0);
+      TestAssertions.expectSuccess(result);
+      expect((result.data as any).modifiedCount).toBe(0);
     });
   });
 
@@ -299,7 +318,9 @@ describe('CRUD Operations Integration Tests', () => {
     let testUser: TestUser;
 
     beforeEach(async () => {
-      testUser = await collection.create(TestDataFactory.createUser());
+      const result = await collection.create(TestDataFactory.createUser());
+      TestAssertions.expectSuccess(result);
+      testUser = result.data;
 
       // Soft delete the user
       await collection.deleteById(testUser._id);
@@ -310,14 +331,16 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.restore({ _id: testUser._id });
 
-      expect(result.modifiedCount).toBe(1);
+      TestAssertions.expectSuccess(result);
+      expect(result.data.modifiedCount).toBe(1);
 
       // Document should be found in normal queries again
       const restoredUser = await collection.findById(testUser._id);
-      expect(restoredUser).not.toBeNull();
-      expect(restoredUser!.deletedAt).toBeUndefined();
-      expect(restoredUser!.deletedBy).toBeUndefined();
-      TestHelpers.expectDateInRange(restoredUser!.updatedAt, timeRange);
+      TestAssertions.expectSuccess(restoredUser);
+      expect(restoredUser.data).not.toBeNull();
+      expect(restoredUser.data!.deletedAt).toBeUndefined();
+      expect(restoredUser.data!.deletedBy).toBeUndefined();
+      TestHelpers.expectDateInRange(restoredUser.data!.updatedAt, timeRange);
     });
 
     it('should restore with user context', async () => {
@@ -325,31 +348,40 @@ describe('CRUD Operations Integration Tests', () => {
 
       const result = await collection.restore({ _id: testUser._id }, userContext);
 
+      TestAssertions.expectSuccess(result);
+
       const restoredUser = await collection.findById(testUser._id);
-      expect(restoredUser!.updatedBy).toEqual(userContext.userId);
+      TestAssertions.expectSuccess(restoredUser);
+      expect(restoredUser.data!.updatedBy).toEqual(userContext.userId);
     });
 
     it('should restore multiple documents with filter', async () => {
-      await collection.create(TestDataFactory.createUser({ name: 'Batch Restore' }));
-      await collection.create(TestDataFactory.createUser({ name: 'Batch Restore' }));
+      const user2Result = await collection.create(TestDataFactory.createUser({ name: 'Batch Restore' }));
+      const user3Result = await collection.create(TestDataFactory.createUser({ name: 'Batch Restore' }));
+      TestAssertions.expectSuccess(user2Result);
+      TestAssertions.expectSuccess(user3Result);
 
       // Soft delete multiple users
       await collection.delete({ name: 'Batch Restore' });
 
       const result = await collection.restore({ name: 'Batch Restore' });
 
-      expect(result.modifiedCount).toBe(2);
+      TestAssertions.expectSuccess(result);
+      expect(result.data.modifiedCount).toBe(2);
 
       const restoredUsers = await collection.find({ name: 'Batch Restore' });
-      expect(restoredUsers).toHaveLength(2);
+      TestAssertions.expectSuccess(restoredUsers);
+      expect(restoredUsers.data).toHaveLength(2);
     });
 
     it('should not restore non-deleted documents', async () => {
-      const activeUser = await collection.create(TestDataFactory.createUser());
+      const activeUserResult = await collection.create(TestDataFactory.createUser());
+      TestAssertions.expectSuccess(activeUserResult);
 
-      const result = await collection.restore({ _id: activeUser._id });
+      const result = await collection.restore({ _id: activeUserResult.data._id });
 
-      expect(result.modifiedCount).toBe(0);
+      TestAssertions.expectSuccess(result);
+      expect(result.data.modifiedCount).toBe(0);
     });
   });
 
@@ -362,29 +394,38 @@ describe('CRUD Operations Integration Tests', () => {
 
       // Soft delete some users
       const allUsers = await collection.find();
+      TestAssertions.expectSuccess(allUsers);
       for (let i = 0; i < 3; i++) {
-        await collection.deleteById(allUsers[i]!._id);
+        await collection.deleteById(allUsers.data![i]!._id);
       }
     });
 
     it('should count active documents by default', async () => {
       const result = await collection.count();
-      expect(result).toBe(7); // 10 - 3 deleted
+
+      TestAssertions.expectSuccess(result);
+      expect(result.data).toBe(7); // 10 - 3 deleted
     });
 
     it('should count all documents including soft deleted', async () => {
       const result = await collection.count({}, true);
-      expect(result).toBe(10);
+
+      TestAssertions.expectSuccess(result);
+      expect(result.data).toBe(10);
     });
 
     it('should count with filter', async () => {
       const result = await collection.count({ name: 'User 5' }); // User 5 should not be deleted (only first 3 are deleted)
-      expect(result).toBe(1);
+
+      TestAssertions.expectSuccess(result);
+      expect(result.data).toBe(1);
     });
 
     it('should count deleted documents with filter', async () => {
       const result = await collection.count({ deletedAt: { $exists: true } }, true);
-      expect(result).toBe(3);
+
+      TestAssertions.expectSuccess(result);
+      expect(result.data).toBe(3);
     });
   });
 
@@ -405,30 +446,36 @@ describe('CRUD Operations Integration Tests', () => {
 
       // Create
       const createResult = await transactionCollection.create(userData, { userContext });
-      TestAssertions.expectTimestamps(createResult);
-      TestAssertions.expectUserTracking(createResult, userContext.userId as any);
+      TestAssertions.expectSuccess(createResult);
+      TestAssertions.expectTimestamps(createResult.data);
+      TestAssertions.expectUserTracking(createResult.data, userContext.userId as any);
 
       // Read
-      const findResult = await transactionCollection.findById(createResult._id);
-      expect(findResult!.name).toBe(userData.name);
+      const findResult = await transactionCollection.findById(createResult.data._id);
+      TestAssertions.expectSuccess(findResult);
+      expect(findResult.data!.name).toBe(userData.name);
 
       // Update
       const updateResult = await transactionCollection.updateById(
-        createResult._id,
+        createResult.data._id,
         { $set: { name: 'Updated via Transaction' } },
         { userContext }
       );
+      TestAssertions.expectSuccess(updateResult);
 
       // Verify update
-      const updatedDoc = await transactionCollection.findById(createResult._id);
-      expect(updatedDoc!.name).toBe('Updated via Transaction');
+      const updatedDoc = await transactionCollection.findById(createResult.data._id);
+      TestAssertions.expectSuccess(updatedDoc);
+      expect(updatedDoc.data!.name).toBe('Updated via Transaction');
 
       // Delete
-      const deleteResult = await transactionCollection.deleteById(createResult._id, { userContext });
+      const deleteResult = await transactionCollection.deleteById(createResult.data._id, { userContext });
+      TestAssertions.expectSuccess(deleteResult);
 
       // Verify soft delete
-      const deletedDoc = await transactionCollection.findById(createResult._id);
-      expect(deletedDoc).toBeNull();
+      const deletedDoc = await transactionCollection.findById(createResult.data._id);
+      TestAssertions.expectSuccess(deletedDoc);
+      expect(deletedDoc.data).toBeNull();
     });
 
     it('should handle batch operations within transactions', async () => {
@@ -439,19 +486,26 @@ describe('CRUD Operations Integration Tests', () => {
       const createPromises = users.map(userData => transactionCollection.create(userData, { userContext }));
       const createResults = await Promise.all(createPromises);
 
+      createResults.forEach(result => TestAssertions.expectSuccess(result));
+
       // Verify all were created
       const allUsers = await transactionCollection.find({});
-      expect(allUsers).toHaveLength(5);
+      TestAssertions.expectSuccess(allUsers);
+      expect(allUsers.data).toHaveLength(5);
 
       // Update all users
       const updatePromises = createResults.map(result => {
-        return transactionCollection.updateById(result._id, { $set: { age: 25 } }, { userContext });
+        TestAssertions.expectSuccess(result);
+        return transactionCollection.updateById(result.data._id, { $set: { age: 25 } }, { userContext });
       });
-      await Promise.all(updatePromises);
+      const updateResults = await Promise.all(updatePromises);
+
+      updateResults.forEach(result => TestAssertions.expectSuccess(result));
 
       // Verify all updates
       const updatedUsers = await transactionCollection.find({});
-      updatedUsers.forEach(user => expect(user.age).toBe(25));
+      TestAssertions.expectSuccess(updatedUsers);
+      updatedUsers.data.forEach(user => expect(user.age).toBe(25));
     });
 
     it('should maintain audit log consistency in transactions', async () => {
@@ -459,15 +513,16 @@ describe('CRUD Operations Integration Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       const result = await transactionCollection.create(userData, { userContext });
+      TestAssertions.expectSuccess(result);
 
       // Verify audit log was created
       const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
       expect(auditLogs[0]!.action).toBe('create');
-      expect(auditLogs[0]!.ref.id.toString()).toBe(result._id.toString());
+      expect(auditLogs[0]!.ref.id.toString()).toBe(result.data!._id.toString());
 
       // Update and check audit consistency
-      await transactionCollection.updateById(result._id, { $set: { name: 'Updated' } }, { userContext });
+      await transactionCollection.updateById(result.data._id, { $set: { name: 'Updated' } }, { userContext });
 
       const updatedAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
       expect(updatedAuditLogs).toHaveLength(2);

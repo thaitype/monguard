@@ -24,7 +24,6 @@ import type {
   UpdateOptions,
   DeleteOptions,
   FindOptions,
-  Result,
   UserContext,
   CreateDocument,
   MonguardConcurrencyConfig,
@@ -233,17 +232,18 @@ export class MonguardCollection<T extends BaseDocument> {
    *
    * @param document - The document data to create (without system fields)
    * @param options - Options for the create operation
-   * @returns Promise resolving to the created document or an error result
+   * @returns Promise resolving to the created document
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * const result = await collection.create(
+   * const doc = await collection.create(
    *   { name: 'John', email: 'john@example.com' },
    *   { userContext: { userId: 'user123' } }
    * );
    * ```
    */
-  async create(document: CreateDocument<T>, options: CreateOptions = {}): Promise<Result<T & { _id: ObjectId }>> {
+  async create(document: CreateDocument<T>, options: CreateOptions = {}): Promise<T & { _id: ObjectId }> {
     return this.strategy.create(document, options);
   }
 
@@ -253,31 +253,25 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param id - The document ID to search for
    * @param options - Options for the find operation
    * @returns Promise resolving to the found document or null
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * const result = await collection.findById(documentId, {
+   * const doc = await collection.findById(documentId, {
    *   includeSoftDeleted: true
    * });
    * ```
    */
-  async findById(id: ObjectId, options: FindOptions = {}): Promise<Result<T | null>> {
+  async findById(id: ObjectId, options: FindOptions = {}): Promise<T | null> {
     try {
       const filter = options.includeSoftDeleted
         ? ({ _id: id } as Filter<T>)
         : this.mergeSoftDeleteFilter({ _id: id } as Filter<T>);
 
       const document = await this.collection.findOne(filter);
-
-      return {
-        success: true,
-        data: document as T | null,
-      };
+      return document as T | null;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Find operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Find operation failed');
     }
   }
 
@@ -287,16 +281,17 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria
    * @param options - Options for the find operation including pagination
    * @returns Promise resolving to an array of matching documents
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * const result = await collection.find(
+   * const docs = await collection.find(
    *   { status: 'active' },
    *   { limit: 10, skip: 20, sort: { createdAt: -1 } }
    * );
    * ```
    */
-  async find(filter: Filter<T> = {}, options: FindOptions = {}): Promise<Result<T[]>> {
+  async find(filter: Filter<T> = {}, options: FindOptions = {}): Promise<T[]> {
     try {
       const finalFilter = options.includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
@@ -306,16 +301,9 @@ export class MonguardCollection<T extends BaseDocument> {
       if (options.sort) mongoOptions.sort = options.sort;
 
       const documents = await this.collection.find(finalFilter, mongoOptions).toArray();
-
-      return {
-        success: true,
-        data: documents as T[],
-      };
+      return documents as T[];
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Find operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Find operation failed');
     }
   }
 
@@ -325,27 +313,21 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria
    * @param options - Options for the find operation
    * @returns Promise resolving to the first matching document or null
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * const result = await collection.findOne({ email: 'john@example.com' });
+   * const doc = await collection.findOne({ email: 'john@example.com' });
    * ```
    */
-  async findOne(filter: Filter<T>, options: FindOptions = {}): Promise<Result<T | null>> {
+  async findOne(filter: Filter<T>, options: FindOptions = {}): Promise<T | null> {
     try {
       const finalFilter = options.includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
       const document = await this.collection.findOne(finalFilter);
-
-      return {
-        success: true,
-        data: document as T | null,
-      };
+      return document as T | null;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Find operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Find operation failed');
     }
   }
 
@@ -356,6 +338,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
@@ -366,7 +349,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
     return this.strategy.update(filter, update, options);
   }
 
@@ -377,6 +360,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
@@ -387,7 +371,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
     return this.strategy.updateById(id, update, options);
   }
 
@@ -397,6 +381,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria to select documents
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
@@ -413,7 +398,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
     return this.strategy.delete(filter, options);
   }
 
@@ -423,6 +408,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
@@ -432,7 +418,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
     return this.strategy.deleteById(id, options);
   }
 
@@ -442,6 +428,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria to select documents to restore
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
@@ -451,7 +438,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async restore(filter: Filter<T>, userContext?: UserContext): Promise<Result<UpdateResult>> {
+  async restore(filter: Filter<T>, userContext?: UserContext): Promise<UpdateResult> {
     return this.strategy.restore(filter, userContext);
   }
 
@@ -461,28 +448,22 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param filter - MongoDB filter criteria
    * @param includeSoftDeleted - Whether to include soft-deleted documents in the count
    * @returns Promise resolving to the count of matching documents
+   * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * const result = await collection.count({ status: 'active' });
-   * const totalResult = await collection.count({}, true); // Include soft-deleted
+   * const count = await collection.count({ status: 'active' });
+   * const totalCount = await collection.count({}, true); // Include soft-deleted
    * ```
    */
-  async count(filter: Filter<T> = {}, includeSoftDeleted: boolean = false): Promise<Result<number>> {
+  async count(filter: Filter<T> = {}, includeSoftDeleted: boolean = false): Promise<number> {
     try {
       const finalFilter = includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
       const count = await this.collection.countDocuments(finalFilter);
-
-      return {
-        success: true,
-        data: count,
-      };
+      return count;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Count operation failed',
-      };
+      throw new Error(error instanceof Error ? error.message : 'Count operation failed');
     }
   }
 
