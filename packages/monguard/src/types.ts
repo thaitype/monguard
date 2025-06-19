@@ -2,7 +2,7 @@
  * @fileoverview Type definitions and interfaces for the Monguard package.
  */
 
-import { FindOptions as MongoFindOptions } from "./mongodb-types";
+import { FindOptions as MongoFindOptions } from './mongodb-types';
 
 /**
  * Configuration interface for handling concurrency in Monguard operations.
@@ -24,7 +24,7 @@ export interface MonguardConcurrencyConfig {
  * ```typescript
  * // Using ObjectId
  * type MyReferenceId = ObjectId;
- * 
+ *
  * // Using string
  * type MyReferenceId = string;
  * ```
@@ -168,6 +168,4 @@ export interface FindOptions extends MongoFindOptions {
  * Represents either a successful operation with data or an error.
  * @template T - The type of data returned on success.
  */
-export type Result<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+export type Result<T> = { success: true; data: T } | { success: false; error: string };

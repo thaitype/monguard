@@ -14,11 +14,11 @@ import { OptimisticLockingStrategy } from './optimistic-locking-strategy';
 export class StrategyFactory {
   /**
    * Creates an operation strategy based on the configuration.
-   * 
+   *
    * @template T - The document type extending BaseDocument
    * @param context - The operation strategy context containing configuration and resources
    * @returns TransactionStrategy if transactions are enabled, OptimisticLockingStrategy otherwise
-   * 
+   *
    * @example
    * ```typescript
    * // For MongoDB with transactions
@@ -26,7 +26,7 @@ export class StrategyFactory {
    *   config: { transactionsEnabled: true },
    *   // ... other context properties
    * });
-   * 
+   *
    * // For Cosmos DB without transactions
    * const strategy = StrategyFactory.create({
    *   config: { transactionsEnabled: false },
@@ -44,10 +44,10 @@ export class StrategyFactory {
 
   /**
    * Validates the concurrency configuration to ensure it contains required settings.
-   * 
+   *
    * @param config - The concurrency configuration to validate
    * @throws {Error} When configuration is invalid or missing required properties
-   * 
+   *
    * @example
    * ```typescript
    * // Valid configurations
@@ -57,7 +57,7 @@ export class StrategyFactory {
    *   retryAttempts: 5,
    *   retryDelayMs: 200
    * });
-   * 
+   *
    * // Invalid - will throw error
    * StrategyFactory.validateConfig({ retryAttempts: -1 });
    * ```

@@ -3,25 +3,18 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, Collection } from '../mongodb-types';
-import {
-  BaseDocument,
-  CreateOptions,
-  UpdateOptions,
-  DeleteOptions,
-  Result,
-  MonguardConcurrencyConfig,
-} from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result, MonguardConcurrencyConfig } from '../types';
 
 /**
  * Interface defining the operations that different concurrency strategies must implement.
  * Strategies can include transaction-based or optimistic locking approaches.
- * 
+ *
  * @template T - The document type extending BaseDocument
  */
 export interface OperationStrategy<T extends BaseDocument> {
   /**
    * Creates a new document with the strategy's concurrency control approach.
-   * 
+   *
    * @param document - The document data to create
    * @param options - Options for the create operation
    * @returns Promise resolving to the created document or error result
@@ -30,7 +23,7 @@ export interface OperationStrategy<T extends BaseDocument> {
 
   /**
    * Updates documents matching the filter with the strategy's concurrency control approach.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param update - Update operations to apply
    * @param options - Options for the update operation
@@ -40,7 +33,7 @@ export interface OperationStrategy<T extends BaseDocument> {
 
   /**
    * Updates a single document by ID with the strategy's concurrency control approach.
-   * 
+   *
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
@@ -50,7 +43,7 @@ export interface OperationStrategy<T extends BaseDocument> {
 
   /**
    * Deletes documents matching the filter with the strategy's concurrency control approach.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
@@ -59,7 +52,7 @@ export interface OperationStrategy<T extends BaseDocument> {
 
   /**
    * Deletes a single document by ID with the strategy's concurrency control approach.
-   * 
+   *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
@@ -68,7 +61,7 @@ export interface OperationStrategy<T extends BaseDocument> {
 
   /**
    * Restores soft-deleted documents with the strategy's concurrency control approach.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information
@@ -79,7 +72,7 @@ export interface OperationStrategy<T extends BaseDocument> {
 /**
  * Context object providing shared resources and helper functions to operation strategies.
  * Contains collections, configuration, and utility functions needed by all strategies.
- * 
+ *
  * @template T - The document type extending BaseDocument
  */
 export interface OperationStrategyContext<T extends BaseDocument> {

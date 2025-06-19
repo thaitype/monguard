@@ -10,20 +10,20 @@ import { OperationStrategy, OperationStrategyContext } from './operation-strateg
  * OptimisticLockingStrategy uses version numbers to detect and handle concurrent modifications.
  * When transactions are not available (e.g., Cosmos DB), this strategy prevents race conditions
  * by checking document versions before applying updates.
- * 
+ *
  * @template T - The document type extending BaseDocument
  */
 export class OptimisticLockingStrategy<T extends BaseDocument> implements OperationStrategy<T> {
   /**
    * Creates a new OptimisticLockingStrategy instance.
-   * 
+   *
    * @param context - The operation strategy context providing shared resources
    */
   constructor(private context: OperationStrategyContext<T>) {}
 
   /**
    * Gets the default number of retry attempts for version conflicts.
-   * 
+   *
    * @private
    * @returns The configured retry attempts or default of 3
    */
@@ -33,7 +33,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
   /**
    * Gets the default delay between retry attempts in milliseconds.
-   * 
+   *
    * @private
    * @returns The configured retry delay or default of 100ms
    */
@@ -43,7 +43,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
   /**
    * Utility function to pause execution for a specified duration.
-   * 
+   *
    * @private
    * @param ms - Number of milliseconds to wait
    * @returns Promise that resolves after the specified delay
@@ -54,7 +54,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
   /**
    * Executes an operation with exponential backoff retry logic for version conflicts.
-   * 
+   *
    * @private
    * @template R - The return type of the operation
    * @param operation - The operation function to execute with retry logic
@@ -93,7 +93,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
   /**
    * Creates a new document with version 1 and automatic timestamps.
-   * 
+   *
    * @param document - The document data to create
    * @param options - Options for the create operation
    * @returns Promise resolving to the created document or error result
@@ -136,17 +136,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
   /**
    * Updates documents with optimistic locking by checking version numbers.
    * Automatically increments version numbers and handles version conflicts with retry logic.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
    */
-  async update(
-    filter: Filter<T>,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<Result<UpdateResult>> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     try {
       const result = await this.retryWithBackoff(async () => {
         // Get current document with version
@@ -239,24 +235,20 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
   /**
    * Updates a single document by ID with optimistic locking.
-   * 
+   *
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
    */
-  async updateById(
-    id: ObjectId,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<Result<UpdateResult>> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
   /**
    * Deletes documents with optimistic locking (soft delete by default).
    * For soft deletes, uses version control to prevent concurrent modifications.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
@@ -364,7 +356,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
   /**
    * Deletes a single document by ID with optimistic locking.
-   * 
+   *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
@@ -376,7 +368,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
   /**
    * Restores soft-deleted documents with optimistic locking.
    * Uses version control to ensure consistent restore operations.
-   * 
+   *
    * @param filter - MongoDB filter criteria for documents to restore
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information

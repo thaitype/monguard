@@ -127,7 +127,7 @@ describe('Strategy Comparison Tests', () => {
       const transactionCreate = await transactionCollection.create(userData, { userContext });
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
-      // Soft delete both documents  
+      // Soft delete both documents
       TestAssertions.expectSuccess(transactionCreate);
       TestAssertions.expectSuccess(optimisticCreate);
       const transactionDelete = await transactionCollection.deleteById(transactionCreate.data._id, { userContext });

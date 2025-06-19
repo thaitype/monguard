@@ -65,20 +65,20 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
 /**
  * MonguardCollection provides enhanced MongoDB collection operations with built-in
  * audit logging, soft delete functionality, and concurrency control.
- * 
+ *
  * @template T - The document type that extends BaseDocument
- * 
+ *
  * @example
  * ```typescript
  * interface User extends BaseDocument {
  *   name: string;
  *   email: string;
  * }
- * 
+ *
  * const users = new MonguardCollection<User>(db, 'users', {
  *   concurrency: { transactionsEnabled: true }
  * });
- * 
+ *
  * const result = await users.create({ name: 'John', email: 'john@example.com' });
  * ```
  */
@@ -91,7 +91,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Creates a new MonguardCollection instance.
-   * 
+   *
    * @param db - MongoDB database instance
    * @param collectionName - Name of the collection to manage
    * @param options - Configuration options for the collection
@@ -133,7 +133,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Creates an audit log entry for a document operation.
-   * 
+   *
    * @private
    * @param action - The type of action performed (create, update, delete)
    * @param documentId - ID of the document that was modified
@@ -173,7 +173,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Adds timestamp fields to a document.
-   * 
+   *
    * @private
    * @template D - The document type
    * @param document - The document to add timestamps to
@@ -206,7 +206,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Gets a filter that excludes soft-deleted documents.
-   * 
+   *
    * @private
    * @returns Filter object that excludes documents with deletedAt field
    */
@@ -216,7 +216,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Merges a user-provided filter with the soft delete filter.
-   * 
+   *
    * @private
    * @param filter - User-provided filter to merge
    * @returns Combined filter that excludes soft-deleted documents
@@ -230,11 +230,11 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Creates a new document in the collection with automatic timestamps and audit logging.
-   * 
+   *
    * @param document - The document data to create (without system fields)
    * @param options - Options for the create operation
    * @returns Promise resolving to the created document or an error result
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.create(
@@ -243,20 +243,17 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async create(
-    document: CreateDocument<T>,
-    options: CreateOptions = {}
-  ): Promise<Result<T & { _id: ObjectId }>> {
+  async create(document: CreateDocument<T>, options: CreateOptions = {}): Promise<Result<T & { _id: ObjectId }>> {
     return this.strategy.create(document, options);
   }
 
   /**
    * Finds a document by its ID, excluding soft-deleted documents by default.
-   * 
+   *
    * @param id - The document ID to search for
    * @param options - Options for the find operation
    * @returns Promise resolving to the found document or null
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.findById(documentId, {
@@ -264,7 +261,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * });
    * ```
    */
-  async findById(id: ObjectId, options: FindOptions= {}): Promise<Result<T | null>> {
+  async findById(id: ObjectId, options: FindOptions = {}): Promise<Result<T | null>> {
     try {
       const filter = options.includeSoftDeleted
         ? ({ _id: id } as Filter<T>)
@@ -286,11 +283,11 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Finds multiple documents matching the filter, excluding soft-deleted documents by default.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the find operation including pagination
    * @returns Promise resolving to an array of matching documents
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.find(
@@ -324,11 +321,11 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Finds a single document matching the filter, excluding soft-deleted documents by default.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the find operation
    * @returns Promise resolving to the first matching document or null
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.findOne({ email: 'john@example.com' });
@@ -354,12 +351,12 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Updates multiple documents matching the filter with automatic audit logging.
-   * 
+   *
    * @param filter - MongoDB filter criteria to select documents
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.update(
@@ -369,22 +366,18 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async update(
-    filter: Filter<T>,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<Result<UpdateResult>> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     return this.strategy.update(filter, update, options);
   }
 
   /**
    * Updates a single document by ID with automatic audit logging.
-   * 
+   *
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.updateById(
@@ -394,21 +387,17 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async updateById(
-    id: ObjectId,
-    update: UpdateFilter<T>,
-    options: UpdateOptions = {}
-  ): Promise<Result<UpdateResult>> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<Result<UpdateResult>> {
     return this.strategy.updateById(id, update, options);
   }
 
   /**
    * Deletes multiple documents matching the filter (soft delete by default).
-   * 
+   *
    * @param filter - MongoDB filter criteria to select documents
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
-   * 
+   *
    * @example
    * ```typescript
    * // Soft delete
@@ -416,7 +405,7 @@ export class MonguardCollection<T extends BaseDocument> {
    *   { status: 'inactive' },
    *   { userContext: { userId: 'user123' } }
    * );
-   * 
+   *
    * // Hard delete
    * const result = await collection.delete(
    *   { status: 'inactive' },
@@ -430,11 +419,11 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Deletes a single document by ID (soft delete by default).
-   * 
+   *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.deleteById(
@@ -449,11 +438,11 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Restores soft-deleted documents by removing the deletedAt field.
-   * 
+   *
    * @param filter - MongoDB filter criteria to select documents to restore
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.restore(
@@ -468,11 +457,11 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Counts documents matching the filter, excluding soft-deleted documents by default.
-   * 
+   *
    * @param filter - MongoDB filter criteria
    * @param includeSoftDeleted - Whether to include soft-deleted documents in the count
    * @returns Promise resolving to the count of matching documents
-   * 
+   *
    * @example
    * ```typescript
    * const result = await collection.count({ status: 'active' });
@@ -499,7 +488,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Compares two document states and returns the names of changed fields.
-   * 
+   *
    * @private
    * @param before - Document state before changes
    * @param after - Document state after changes
@@ -525,7 +514,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Gets the underlying MongoDB collection instance.
-   * 
+   *
    * @returns The MongoDB collection instance
    */
   getCollection(): Collection<T> {
@@ -534,7 +523,7 @@ export class MonguardCollection<T extends BaseDocument> {
 
   /**
    * Gets the audit log collection instance.
-   * 
+   *
    * @returns The MongoDB collection instance for audit logs
    */
   getAuditCollection(): Collection<AuditLogDocument> {

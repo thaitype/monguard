@@ -11,9 +11,7 @@ export class TestAssertions {
     }
   }
 
-  static expectError<T>(
-    result: Result<T>
-  ): asserts result is { success: false; error: string } {
+  static expectError<T>(result: Result<T>): asserts result is { success: false; error: string } {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeDefined();
