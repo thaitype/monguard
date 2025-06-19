@@ -77,11 +77,11 @@ npm install mongodb
 
 ## Migration Guide
 
-### Migrating from v0.2.x to v0.3.x
+### Migrating from v0.3.x to v0.4.x
 
-Version 0.3.0 introduces a **breaking change** in error handling. The library now uses standard JavaScript exceptions instead of `Result<T>` types.
+Version 0.4.0 introduces a **breaking change** in error handling. The library now uses standard JavaScript exceptions instead of `Result<T>` types.
 
-#### Before (v0.2.x)
+#### Before (v0.3.x)
 ```typescript
 const result = await collection.create(userData);
 if (result.success) {
@@ -91,7 +91,7 @@ if (result.success) {
 }
 ```
 
-#### After (v0.3.x)
+#### After (v0.4.x)
 ```typescript
 try {
   const user = await collection.create(userData);
