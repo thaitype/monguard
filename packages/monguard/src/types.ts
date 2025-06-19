@@ -37,8 +37,8 @@ export interface AuditLogDocument extends BaseDocument {
   };
 }
 
-export interface UserContext {
-  userId: any; // Can be string, ObjectId, or any other ID type - user's choice
+export interface UserContext<TUserId = any> {
+  userId: TUserId; // Can be string, ObjectId, or any other ID type - user's choice
 }
 
 export interface CreateOptions {
