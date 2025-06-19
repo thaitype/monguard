@@ -1,4 +1,4 @@
-import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, ClientSession } from '../mongodb-types';
+import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
 import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 

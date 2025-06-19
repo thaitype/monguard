@@ -76,14 +76,11 @@ export interface MonguardFindOptions {
   sort?: { [key: string]: 1 | -1 };
 }
 
+/**
+ * Result type for operations
+ * Represents either a successful operation with data or an error.
+ * @template T - The type of data returned on success.
+ */
 export type Result<T> =
   | { success: true; data: T }
   | { success: false; error: string };
-
-export interface BulkWriteResult {
-  insertedCount: number;
-  matchedCount: number;
-  modifiedCount: number;
-  deletedCount: number;
-  upsertedCount: number;
-}
