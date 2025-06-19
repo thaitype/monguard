@@ -4,22 +4,22 @@ import {
   CreateOptions,
   UpdateOptions,
   DeleteOptions,
-  WrapperResult,
+  Result,
   MonguardConcurrencyConfig,
 } from '../types';
 
 export interface OperationStrategy<T extends BaseDocument> {
-  create(document: any, options: CreateOptions): Promise<WrapperResult<T & { _id: ObjectId }>>;
+  create(document: any, options: CreateOptions): Promise<Result<T & { _id: ObjectId }>>;
 
-  update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions): Promise<WrapperResult<UpdateResult>>;
+  update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions): Promise<Result<UpdateResult>>;
 
-  updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions): Promise<WrapperResult<UpdateResult>>;
+  updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions): Promise<Result<UpdateResult>>;
 
-  delete(filter: Filter<T>, options: DeleteOptions): Promise<WrapperResult<UpdateResult | DeleteResult>>;
+  delete(filter: Filter<T>, options: DeleteOptions): Promise<Result<UpdateResult | DeleteResult>>;
 
-  deleteById(id: ObjectId, options: DeleteOptions): Promise<WrapperResult<UpdateResult | DeleteResult>>;
+  deleteById(id: ObjectId, options: DeleteOptions): Promise<Result<UpdateResult | DeleteResult>>;
 
-  restore(filter: Filter<T>, userContext?: any): Promise<WrapperResult<UpdateResult>>;
+  restore(filter: Filter<T>, userContext?: any): Promise<Result<UpdateResult>>;
 }
 
 export interface OperationStrategyContext<T extends BaseDocument> {

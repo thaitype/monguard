@@ -21,7 +21,7 @@ import type {
   UpdateOptions,
   DeleteOptions,
   MonguardFindOptions,
-  WrapperResult,
+  Result,
   UserContext,
   CreateDocument,
   MonguardConcurrencyConfig,
@@ -162,11 +162,11 @@ export class MonguardCollection<T extends BaseDocument> {
   async create(
     document: CreateDocument<T>,
     options: CreateOptions = {}
-  ): Promise<WrapperResult<T & { _id: ObjectId }>> {
+  ): Promise<Result<T & { _id: ObjectId }>> {
     return this.strategy.create(document, options);
   }
 
-  async findById(id: ObjectId, options: MonguardFindOptions = {}): Promise<WrapperResult<T | null>> {
+  async findById(id: ObjectId, options: MonguardFindOptions = {}): Promise<Result<T | null>> {
     try {
       const filter = options.includeSoftDeleted
         ? ({ _id: id } as Filter<T>)
@@ -186,7 +186,7 @@ export class MonguardCollection<T extends BaseDocument> {
     }
   }
 
-  async find(filter: Filter<T> = {}, options: MonguardFindOptions = {}): Promise<WrapperResult<T[]>> {
+  async find(filter: Filter<T> = {}, options: MonguardFindOptions = {}): Promise<Result<T[]>> {
     try {
       const finalFilter = options.includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
@@ -209,7 +209,7 @@ export class MonguardCollection<T extends BaseDocument> {
     }
   }
 
-  async findOne(filter: Filter<T>, options: MonguardFindOptions = {}): Promise<WrapperResult<T | null>> {
+  async findOne(filter: Filter<T>, options: MonguardFindOptions = {}): Promise<Result<T | null>> {
     try {
       const finalFilter = options.includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 
@@ -231,7 +231,7 @@ export class MonguardCollection<T extends BaseDocument> {
     filter: Filter<T>,
     update: UpdateFilter<T>,
     options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  ): Promise<Result<UpdateResult>> {
     return this.strategy.update(filter, update, options);
   }
 
@@ -239,23 +239,23 @@ export class MonguardCollection<T extends BaseDocument> {
     id: ObjectId,
     update: UpdateFilter<T>,
     options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  ): Promise<Result<UpdateResult>> {
     return this.strategy.updateById(id, update, options);
   }
 
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     return this.strategy.delete(filter, options);
   }
 
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     return this.strategy.deleteById(id, options);
   }
 
-  async restore(filter: Filter<T>, userContext?: UserContext): Promise<WrapperResult<UpdateResult>> {
+  async restore(filter: Filter<T>, userContext?: UserContext): Promise<Result<UpdateResult>> {
     return this.strategy.restore(filter, userContext);
   }
 
-  async count(filter: Filter<T> = {}, includeSoftDeleted: boolean = false): Promise<WrapperResult<number>> {
+  async count(filter: Filter<T> = {}, includeSoftDeleted: boolean = false): Promise<Result<number>> {
     try {
       const finalFilter = includeSoftDeleted ? filter : this.mergeSoftDeleteFilter(filter);
 

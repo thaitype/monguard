@@ -70,7 +70,7 @@ export interface MonguardFindOptions {
   sort?: { [key: string]: 1 | -1 };
 }
 
-export interface WrapperResult<T> {
+export interface Result<T> {
   success: boolean;
   data?: T;
   error?: string;

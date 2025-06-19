@@ -1,11 +1,11 @@
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, ClientSession } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, WrapperResult } from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, Result } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 
 export class TransactionStrategy<T extends BaseDocument> implements OperationStrategy<T> {
   constructor(private context: OperationStrategyContext<T>) {}
 
-  async create(document: any, options: CreateOptions = {}): Promise<WrapperResult<T & { _id: ObjectId }>> {
+  async create(document: any, options: CreateOptions = {}): Promise<Result<T & { _id: ObjectId }>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -63,7 +63,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
     filter: Filter<T>,
     update: UpdateFilter<T>,
     options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  ): Promise<Result<UpdateResult>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -178,11 +178,11 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
     id: ObjectId,
     update: UpdateFilter<T>,
     options: UpdateOptions = {}
-  ): Promise<WrapperResult<UpdateResult>> {
+  ): Promise<Result<UpdateResult>> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -318,11 +318,11 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
     }
   }
 
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<WrapperResult<UpdateResult | DeleteResult>> {
+  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<Result<UpdateResult | DeleteResult>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 
-  async restore(filter: Filter<T>, userContext?: any): Promise<WrapperResult<UpdateResult>> {
+  async restore(filter: Filter<T>, userContext?: any): Promise<Result<UpdateResult>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {

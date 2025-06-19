@@ -1,18 +1,18 @@
 import { expect } from 'vitest';
 import { ObjectId as MongoObjectId } from 'mongodb';
-import { WrapperResult, AuditLogDocument } from '../src/types';
+import { Result, AuditLogDocument } from '../src/types';
 import type { ObjectId } from '../src/mongodb-types';
 
 export class TestAssertions {
-  static expectSuccess<T>(result: WrapperResult<T>): asserts result is WrapperResult<T> & { success: true; data: T } {
+  static expectSuccess<T>(result: Result<T>): asserts result is Result<T> & { success: true; data: T } {
     expect(result.success).toBe(true);
     expect(result.data).toBeDefined();
     expect(result.error).toBeUndefined();
   }
 
   static expectError<T>(
-    result: WrapperResult<T>
-  ): asserts result is WrapperResult<T> & { success: false; error: string } {
+    result: Result<T>
+  ): asserts result is Result<T> & { success: false; error: string } {
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
     expect(result.data).toBeUndefined();
