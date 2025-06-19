@@ -12,6 +12,8 @@
  * ```
  */
 export interface ObjectId {
+  get _bsontype(): 'ObjectId';
+  get id(): Uint8Array;
   /** Convert ObjectId to string representation */
   toString(): string;
   /** Convert ObjectId to hex string (same as toString) */
@@ -26,8 +28,8 @@ export interface ObjectId {
  * Constructor interface for ObjectId - identical to mongodb package
  */
 export interface ObjectIdConstructor {
-  new (): ObjectId;
-  new (id: string | ObjectId | Buffer): ObjectId;
+  new(): ObjectId;
+  new(id: string | ObjectId | Buffer): ObjectId;
   /** Check if a value is a valid ObjectId */
   isValid(id: string | ObjectId | Buffer): boolean;
   /** Create ObjectId from hex string */
@@ -82,8 +84,8 @@ export interface RootFilterOperators<TSchema> {
 export type Filter<TSchema> = {
   [P in keyof TSchema]?: TSchema[P] | FilterOperators<TSchema[P]>;
 } & RootFilterOperators<TSchema> & {
-    [key: string]: any;
-  };
+  [key: string]: any;
+};
 
 /**
  * MongoDB update operators - identical to mongodb package
@@ -91,8 +93,8 @@ export type Filter<TSchema> = {
 export interface UpdateFilter<TSchema> {
   /** Update operators */
   $currentDate?:
-    | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
-    | { [key: string]: true | { $type: 'date' | 'timestamp' } };
+  | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
+  | { [key: string]: true | { $type: 'date' | 'timestamp' } };
   $inc?: { [P in keyof TSchema]?: number } | { [key: string]: number };
   $min?: Partial<TSchema>;
   $max?: Partial<TSchema>;
