@@ -1,3 +1,5 @@
+import { FindOptions as MongoFindOptions } from "./mongodb-types";
+
 export interface MonguardConcurrencyConfig {
   transactionsEnabled: boolean;
   retryAttempts?: number;
@@ -69,11 +71,13 @@ export interface DeleteOptions {
   hardDelete?: boolean;
 }
 
-export interface MonguardFindOptions {
+/**
+ * Extends MongoDB FindOptions
+ * Allows for additional options like including soft-deleted documents.
+ */
+export interface FindOptions extends MongoFindOptions {
+  // Include soft-deleted documents in queries
   includeSoftDeleted?: boolean;
-  limit?: number;
-  skip?: number;
-  sort?: { [key: string]: 1 | -1 };
 }
 
 /**

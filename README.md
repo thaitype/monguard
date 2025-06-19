@@ -226,19 +226,19 @@ interface UserContext {
 // Find by ID
 async findById(
   id: ObjectId,
-  options?: MonguardFindOptions
+  options?: FindOptions
 ): Promise<Result<T | null>>
 
 // Find multiple documents
 async find(
   filter?: Filter<T>,
-  options?: MonguardFindOptions
+  options?: FindOptions
 ): Promise<Result<T[]>>
 
 // Find one document
 async findOne(
   filter: Filter<T>,
-  options?: MonguardFindOptions
+  options?: FindOptions
 ): Promise<Result<T | null>>
 
 // Count documents
@@ -247,7 +247,7 @@ async count(
   includeSoftDeleted?: boolean
 ): Promise<Result<number>>
 
-interface MonguardFindOptions {
+interface FindOptions {
   includeSoftDeleted?: boolean;
   limit?: number;
   skip?: number;
