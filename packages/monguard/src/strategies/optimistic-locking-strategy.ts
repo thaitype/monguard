@@ -237,7 +237,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  async delete<THardDelete extends boolean = false>(filter: Filter<T>, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  async delete<THardDelete extends boolean = false>(
+    filter: Filter<T>,
+    options: DeleteOptions<THardDelete> = {}
+  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     const result = await this.retryWithBackoff(async () => {
       if (options.hardDelete) {
         // Get documents to delete for audit logging
@@ -334,7 +337,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  async deleteById<THardDelete extends boolean = false>(id: ObjectId, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  async deleteById<THardDelete extends boolean = false>(
+    id: ObjectId,
+    options: DeleteOptions<THardDelete> = {}
+  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 

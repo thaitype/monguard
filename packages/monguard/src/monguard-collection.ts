@@ -399,7 +399,10 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async delete<THardDelete extends boolean = false>(filter: Filter<T>, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  async delete<THardDelete extends boolean = false>(
+    filter: Filter<T>,
+    options: DeleteOptions<THardDelete> = {}
+  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.delete(filter, options);
   }
 
@@ -419,7 +422,10 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async deleteById<THardDelete extends boolean = false>(id: ObjectId, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  async deleteById<THardDelete extends boolean = false>(
+    id: ObjectId,
+    options: DeleteOptions<THardDelete> = {}
+  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.deleteById(id, options);
   }
 

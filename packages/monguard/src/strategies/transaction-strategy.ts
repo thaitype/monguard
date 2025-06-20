@@ -214,7 +214,10 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  async delete<THardDelete extends boolean = false>(filter: Filter<T>, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  async delete<THardDelete extends boolean = false>(
+    filter: Filter<T>,
+    options: DeleteOptions<THardDelete> = {}
+  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -352,7 +355,10 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  async deleteById<THardDelete extends boolean = false>(id: ObjectId, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  async deleteById<THardDelete extends boolean = false>(
+    id: ObjectId,
+    options: DeleteOptions<THardDelete> = {}
+  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 

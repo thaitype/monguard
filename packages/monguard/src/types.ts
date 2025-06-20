@@ -142,8 +142,7 @@ export interface UpdateOptions {
   upsert?: boolean;
 }
 
-export type HardOrSoftDeleteResult<THardDelete extends boolean> =
-  THardDelete extends true
+export type HardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete extends true
   ? DeleteResult
   : UpdateResult;
 

@@ -11,10 +11,17 @@ export interface Document {
 /** Given an object shaped type, return the type of the _id field or default to ObjectId @public */
 export declare type InferIdType<TSchema> = TSchema extends {
   _id: infer IdType;
-} ? Record<any, never> extends IdType ? never : IdType : TSchema extends {
-  _id?: infer IdType;
-} ? unknown extends IdType ? ObjectId : IdType : ObjectId;
-
+}
+  ? Record<any, never> extends IdType
+    ? never
+    : IdType
+  : TSchema extends {
+        _id?: infer IdType;
+      }
+    ? unknown extends IdType
+      ? ObjectId
+      : IdType
+    : ObjectId;
 
 export type InspectFn = (x: unknown, options?: unknown) => string;
 /**
@@ -38,10 +45,10 @@ export interface ObjectId {
   /** Get the timestamp portion of the ObjectId as a Date */
   getTimestamp(): Date;
   /**
- * Converts to a string representation of this Id.
- *
- * @returns return the 24 character hex string representation.
- */
+   * Converts to a string representation of this Id.
+   *
+   * @returns return the 24 character hex string representation.
+   */
   inspect(depth?: number, options?: unknown, inspect?: InspectFn): string;
 }
 
@@ -49,8 +56,8 @@ export interface ObjectId {
  * Constructor interface for ObjectId - identical to mongodb package
  */
 export interface ObjectIdConstructor {
-  new(): ObjectId;
-  new(id: string | ObjectId | Buffer): ObjectId;
+  new (): ObjectId;
+  new (id: string | ObjectId | Buffer): ObjectId;
   /** Check if a value is a valid ObjectId */
   isValid(id: string | ObjectId | Buffer): boolean;
   /** Create ObjectId from hex string */
@@ -105,8 +112,8 @@ export interface RootFilterOperators<TSchema> {
 export type Filter<TSchema> = {
   [P in keyof TSchema]?: TSchema[P] | FilterOperators<TSchema[P]>;
 } & RootFilterOperators<TSchema> & {
-  [key: string]: any;
-};
+    [key: string]: any;
+  };
 
 /**
  * MongoDB update operators - identical to mongodb package
@@ -114,8 +121,8 @@ export type Filter<TSchema> = {
 export interface UpdateFilter<TSchema> {
   /** Update operators */
   $currentDate?:
-  | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
-  | { [key: string]: true | { $type: 'date' | 'timestamp' } };
+    | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
+    | { [key: string]: true | { $type: 'date' | 'timestamp' } };
   $inc?: { [P in keyof TSchema]?: number } | { [key: string]: number };
   $min?: Partial<TSchema>;
   $max?: Partial<TSchema>;

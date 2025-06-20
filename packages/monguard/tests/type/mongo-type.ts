@@ -1,25 +1,28 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ObjectId as MongoObjectId, UpdateResult as MongoUpdateResult, DeleteResult as MongoDeleteResult } from 'mongodb';
+import {
+  ObjectId as MongoObjectId,
+  UpdateResult as MongoUpdateResult,
+  DeleteResult as MongoDeleteResult,
+} from 'mongodb';
 import { ObjectId, UpdateResult } from '../../src/mongodb-types';
 import { MonguardCollection } from '../../src';
 
 export function testObjectId() {
-  const fn = (objectId: ObjectId) => { };
+  const fn = (objectId: ObjectId) => {};
   fn(new MongoObjectId());
 }
 
 export function testUpdateResult() {
-  const fn = (updateResult: MongoUpdateResult) => { };
+  const fn = (updateResult: MongoUpdateResult) => {};
   fn({} as UpdateResult);
 }
 
 export async function hardDeleteResult() {
   const user = new MonguardCollection({} as any, 'users', {} as any);
   // Soft delete result
-  const defaultValue: MongoUpdateResult  = await user.delete({ _id: new MongoObjectId() });
+  const defaultValue: MongoUpdateResult = await user.delete({ _id: new MongoObjectId() });
   // Hard delete result
   const hardDeleteValue: MongoDeleteResult = await user.delete({ _id: new MongoObjectId() }, { hardDelete: true });
-  // Soft delete result 
+  // Soft delete result
   const softDeleteValue: MongoUpdateResult = await user.delete({ _id: new MongoObjectId() }, { hardDelete: false });
-
 }
