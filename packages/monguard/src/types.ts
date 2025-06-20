@@ -2,7 +2,7 @@
  * @fileoverview Type definitions and interfaces for the Monguard package.
  */
 
-import { FindOptions as MongoFindOptions } from './mongodb-types';
+import { DeleteResult, FindOptions as MongoFindOptions, UpdateResult } from './mongodb-types';
 
 /**
  * Configuration interface for handling concurrency in Monguard operations.
@@ -142,16 +142,21 @@ export interface UpdateOptions {
   upsert?: boolean;
 }
 
+export type HardOrSoftDeleteResult<THardDelete extends boolean> =
+  THardDelete extends true
+  ? DeleteResult
+  : UpdateResult;
+
 /**
  * Options for document deletion operations.
  */
-export interface DeleteOptions {
+export interface DeleteOptions<THardDelete extends boolean> {
   /** Whether to skip creating an audit log entry for this operation */
   skipAudit?: boolean;
   /** User context for audit trails and user-based fields */
   userContext?: UserContext;
   /** Whether to permanently delete the document (true) or soft delete (false) */
-  hardDelete?: boolean;
+  hardDelete?: THardDelete;
 }
 
 /**

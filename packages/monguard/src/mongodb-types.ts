@@ -3,6 +3,20 @@
  * These types have identical names and interfaces to MongoDB driver types for compatibility.
  */
 
+/** @public */
+export interface Document {
+  [key: string]: any;
+}
+
+/** Given an object shaped type, return the type of the _id field or default to ObjectId @public */
+export declare type InferIdType<TSchema> = TSchema extends {
+  _id: infer IdType;
+} ? Record<any, never> extends IdType ? never : IdType : TSchema extends {
+  _id?: infer IdType;
+} ? unknown extends IdType ? ObjectId : IdType : ObjectId;
+
+
+export type InspectFn = (x: unknown, options?: unknown) => string;
 /**
  * MongoDB ObjectId interface - identical to mongodb package ObjectId
  * @example
@@ -16,20 +30,27 @@ export interface ObjectId {
   get id(): Uint8Array;
   /** Convert ObjectId to string representation */
   toString(): string;
+  toJSON(): string;
   /** Convert ObjectId to hex string (same as toString) */
   toHexString(): string;
   /** Check if this ObjectId equals another ObjectId or string */
   equals(other: ObjectId | string): boolean;
   /** Get the timestamp portion of the ObjectId as a Date */
   getTimestamp(): Date;
+  /**
+ * Converts to a string representation of this Id.
+ *
+ * @returns return the 24 character hex string representation.
+ */
+  inspect(depth?: number, options?: unknown, inspect?: InspectFn): string;
 }
 
 /**
  * Constructor interface for ObjectId - identical to mongodb package
  */
 export interface ObjectIdConstructor {
-  new (): ObjectId;
-  new (id: string | ObjectId | Buffer): ObjectId;
+  new(): ObjectId;
+  new(id: string | ObjectId | Buffer): ObjectId;
   /** Check if a value is a valid ObjectId */
   isValid(id: string | ObjectId | Buffer): boolean;
   /** Create ObjectId from hex string */
@@ -84,8 +105,8 @@ export interface RootFilterOperators<TSchema> {
 export type Filter<TSchema> = {
   [P in keyof TSchema]?: TSchema[P] | FilterOperators<TSchema[P]>;
 } & RootFilterOperators<TSchema> & {
-    [key: string]: any;
-  };
+  [key: string]: any;
+};
 
 /**
  * MongoDB update operators - identical to mongodb package
@@ -93,8 +114,8 @@ export type Filter<TSchema> = {
 export interface UpdateFilter<TSchema> {
   /** Update operators */
   $currentDate?:
-    | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
-    | { [key: string]: true | { $type: 'date' | 'timestamp' } };
+  | { [P in keyof TSchema]?: true | { $type: 'date' | 'timestamp' } }
+  | { [key: string]: true | { $type: 'date' | 'timestamp' } };
   $inc?: { [P in keyof TSchema]?: number } | { [key: string]: number };
   $min?: Partial<TSchema>;
   $max?: Partial<TSchema>;
@@ -146,7 +167,7 @@ export interface InsertOneResult {
 /**
  * Result of an update operation - identical to mongodb package
  */
-export interface UpdateResult {
+export interface UpdateResult<TSchema extends Document = Document> {
   /** Whether the operation was acknowledged by MongoDB */
   acknowledged: boolean;
   /** Number of documents matched by the filter */
@@ -156,7 +177,7 @@ export interface UpdateResult {
   /** Number of documents upserted */
   upsertedCount: number;
   /** ObjectId of upserted document, if any */
-  upsertedId?: ObjectId | null;
+  upsertedId: InferIdType<TSchema> | null;
 }
 
 /**

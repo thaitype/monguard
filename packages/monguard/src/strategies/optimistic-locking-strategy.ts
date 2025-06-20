@@ -3,7 +3,7 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions } from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, HardOrSoftDeleteResult } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 
 /**
@@ -237,7 +237,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
+  async delete<THardDelete extends boolean = false>(filter: Filter<T>, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
     const result = await this.retryWithBackoff(async () => {
       if (options.hardDelete) {
         // Get documents to delete for audit logging
@@ -334,7 +334,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
+  async deleteById<THardDelete extends boolean = false>(id: ObjectId, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 

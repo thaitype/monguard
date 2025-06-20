@@ -27,6 +27,7 @@ import type {
   UserContext,
   CreateDocument,
   MonguardConcurrencyConfig,
+  HardOrSoftDeleteResult,
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
@@ -398,7 +399,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async delete(filter: Filter<T>, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
+  async delete<THardDelete extends boolean = false>(filter: Filter<T>, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.delete(filter, options);
   }
 
@@ -418,7 +419,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async deleteById(id: ObjectId, options: DeleteOptions = {}): Promise<UpdateResult | DeleteResult> {
+  async deleteById<THardDelete extends boolean = false>(id: ObjectId, options: DeleteOptions<THardDelete> = {}): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.deleteById(id, options);
   }
 
