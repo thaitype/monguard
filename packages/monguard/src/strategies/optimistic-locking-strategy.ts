@@ -323,7 +323,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
       }
     });
 
-    return result;
+    return result as HardOrSoftDeleteResult<THardDelete>;
   }
 
   /**

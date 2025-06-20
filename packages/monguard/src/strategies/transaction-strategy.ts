@@ -336,7 +336,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
         }
       }
 
-      return result!;
+      return result! as HardOrSoftDeleteResult<THardDelete>;
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Delete operation failed');
     } finally {
