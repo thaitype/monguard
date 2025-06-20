@@ -3,6 +3,27 @@
  * These types have identical names and interfaces to MongoDB driver types for compatibility.
  */
 
+/** @public */
+export interface Document {
+  [key: string]: any;
+}
+
+/** Given an object shaped type, return the type of the _id field or default to ObjectId @public */
+export declare type InferIdType<TSchema> = TSchema extends {
+  _id: infer IdType;
+}
+  ? Record<any, never> extends IdType
+    ? never
+    : IdType
+  : TSchema extends {
+        _id?: infer IdType;
+      }
+    ? unknown extends IdType
+      ? ObjectId
+      : IdType
+    : ObjectId;
+
+export type InspectFn = (x: unknown, options?: unknown) => string;
 /**
  * MongoDB ObjectId interface - identical to mongodb package ObjectId
  * @example
@@ -16,12 +37,19 @@ export interface ObjectId {
   get id(): Uint8Array;
   /** Convert ObjectId to string representation */
   toString(): string;
+  toJSON(): string;
   /** Convert ObjectId to hex string (same as toString) */
   toHexString(): string;
   /** Check if this ObjectId equals another ObjectId or string */
   equals(other: ObjectId | string): boolean;
   /** Get the timestamp portion of the ObjectId as a Date */
   getTimestamp(): Date;
+  /**
+   * Converts to a string representation of this Id.
+   *
+   * @returns return the 24 character hex string representation.
+   */
+  inspect(depth?: number, options?: unknown, inspect?: InspectFn): string;
 }
 
 /**
@@ -146,7 +174,7 @@ export interface InsertOneResult {
 /**
  * Result of an update operation - identical to mongodb package
  */
-export interface UpdateResult {
+export interface UpdateResult<TSchema extends Document = Document> {
   /** Whether the operation was acknowledged by MongoDB */
   acknowledged: boolean;
   /** Number of documents matched by the filter */
@@ -156,7 +184,7 @@ export interface UpdateResult {
   /** Number of documents upserted */
   upsertedCount: number;
   /** ObjectId of upserted document, if any */
-  upsertedId?: ObjectId | null;
+  upsertedId: InferIdType<TSchema> | null;
 }
 
 /**

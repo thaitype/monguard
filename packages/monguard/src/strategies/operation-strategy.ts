@@ -3,7 +3,14 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult, Collection } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, MonguardConcurrencyConfig } from '../types';
+import {
+  BaseDocument,
+  CreateOptions,
+  UpdateOptions,
+  DeleteOptions,
+  MonguardConcurrencyConfig,
+  HardOrSoftDeleteResult,
+} from '../types';
 
 /**
  * Interface defining the operations that different concurrency strategies must implement.
@@ -52,7 +59,10 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  delete(filter: Filter<T>, options: DeleteOptions): Promise<UpdateResult | DeleteResult>;
+  delete<THardDelete extends boolean>(
+    filter: Filter<T>,
+    options: DeleteOptions<THardDelete>
+  ): Promise<HardOrSoftDeleteResult<THardDelete>>;
 
   /**
    * Deletes a single document by ID with the strategy's concurrency control approach.
@@ -62,7 +72,10 @@ export interface OperationStrategy<T extends BaseDocument> {
    * @returns Promise resolving to delete/update result information
    * @throws Error if the operation fails
    */
-  deleteById(id: ObjectId, options: DeleteOptions): Promise<UpdateResult | DeleteResult>;
+  deleteById<THardDelete extends boolean = false>(
+    id: ObjectId,
+    options: DeleteOptions<THardDelete>
+  ): Promise<HardOrSoftDeleteResult<THardDelete>>;
 
   /**
    * Restores soft-deleted documents with the strategy's concurrency control approach.
