@@ -3,9 +3,15 @@ import {
   ObjectId as MongoObjectId,
   UpdateResult as MongoUpdateResult,
   DeleteResult as MongoDeleteResult,
+  Db as MongoDb,
 } from 'mongodb';
-import { ObjectId, UpdateResult } from '../../src/mongodb-types';
+import { ObjectId, UpdateResult, Db } from '../../src/mongodb-types';
 import { MonguardCollection } from '../../src';
+
+export function testDb() {
+  const fn = (db: Db) => {};
+  fn({} as MongoDb);
+}
 
 export function testObjectId() {
   const fn = (objectId: ObjectId) => {};
