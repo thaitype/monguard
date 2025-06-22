@@ -1,5 +1,11 @@
 # monguard
 
+## 0.4.2
+
+### Patch Changes
+
+- 0239e47: Fix Db class type
+
 ## 0.4.1
 
 ### Patch Changes
