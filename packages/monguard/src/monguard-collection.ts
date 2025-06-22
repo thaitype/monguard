@@ -102,7 +102,7 @@ export class MonguardCollection<T extends BaseDocument> {
     if (!options.concurrency) {
       throw new Error(
         'MonguardCollectionOptions.config is required. ' +
-        'Must specify { transactionsEnabled: true } for MongoDB or { transactionsEnabled: false } for Cosmos DB.'
+          'Must specify { transactionsEnabled: true } for MongoDB or { transactionsEnabled: false } for Cosmos DB.'
       );
     }
 
@@ -111,7 +111,9 @@ export class MonguardCollection<T extends BaseDocument> {
 
     this.options = merge({}, defaultOptions, options) as MonguardCollectionOptions;
     this.collection = db.collection<T>(collectionName) as Collection<T>;
-    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName!) as Collection<AuditLogDocument>;  // Set by default value
+    this.auditCollection = db.collection<AuditLogDocument>(
+      this.options.auditCollectionName!
+    ) as Collection<AuditLogDocument>; // Set by default value
     this.collectionName = collectionName;
 
     // Create strategy context
