@@ -319,18 +319,15 @@ export interface MongoClient {
 /**
  * MongoDB database interface - identical to mongodb package Db
  */
-export interface Db {
+export interface Db extends Record<string, any> {
   /** Database name */
   databaseName: string;
 
-  /** MongoDB client instance */
-  client: MongoClient;
-
   /** Get a collection */
-  collection<TSchema = any>(name: string): Collection<TSchema>;
+  collection<TSchema = any>(name: string): Record<string, any>;
 
   /** Create a collection */
-  createCollection<TSchema = any>(name: string, options?: any): Promise<Collection<TSchema>>;
+  createCollection<TSchema = any>(name: string, options?: any): Promise<Record<string, any>>;
 
   /** Drop a collection */
   dropCollection(name: string): Promise<boolean>;

@@ -110,8 +110,10 @@ export class MonguardCollection<T extends BaseDocument> {
     StrategyFactory.validateConfig(options.concurrency);
 
     this.options = merge({}, defaultOptions, options) as MonguardCollectionOptions;
-    this.collection = db.collection<T>(collectionName);
-    this.auditCollection = db.collection<AuditLogDocument>(this.options.auditCollectionName!); // Set by default value
+    this.collection = db.collection<T>(collectionName) as Collection<T>;
+    this.auditCollection = db.collection<AuditLogDocument>(
+      this.options.auditCollectionName!
+    ) as Collection<AuditLogDocument>; // Set by default value
     this.collectionName = collectionName;
 
     // Create strategy context
