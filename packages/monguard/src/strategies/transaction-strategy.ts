@@ -268,10 +268,9 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         await session.withTransaction(async () => {
           if (options.hardDelete) {
             // Get documents to delete for audit logging
-            const docsToDelete =
-              this.context.shouldAudit(options.skipAudit)
-                ? await this.context.collection.find(filter, { session }).toArray()
-                : [];
+            const docsToDelete = this.context.shouldAudit(options.skipAudit)
+              ? await this.context.collection.find(filter, { session }).toArray()
+              : [];
 
             result = await this.context.collection.deleteMany(filter, { session });
 
@@ -340,10 +339,9 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         if (transactionError.message?.includes('replica set') || transactionError.message?.includes('Transaction')) {
           if (options.hardDelete) {
             // Get documents to delete for audit logging
-            const docsToDelete =
-              this.context.shouldAudit(options.skipAudit)
-                ? await this.context.collection.find(filter).toArray()
-                : [];
+            const docsToDelete = this.context.shouldAudit(options.skipAudit)
+              ? await this.context.collection.find(filter).toArray()
+              : [];
 
             result = await this.context.collection.deleteMany(filter);
 

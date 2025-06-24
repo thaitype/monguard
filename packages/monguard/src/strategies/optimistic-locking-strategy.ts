@@ -270,10 +270,9 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     const result = await this.retryWithBackoff(async () => {
       if (options.hardDelete) {
         // Get documents to delete for audit logging
-        const docsToDelete =
-          this.context.shouldAudit(options.skipAudit)
-            ? await this.context.collection.find(filter).toArray()
-            : [];
+        const docsToDelete = this.context.shouldAudit(options.skipAudit)
+          ? await this.context.collection.find(filter).toArray()
+          : [];
 
         const deleteResult = await this.context.collection.deleteMany(filter);
 

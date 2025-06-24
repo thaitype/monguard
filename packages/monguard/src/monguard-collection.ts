@@ -196,20 +196,18 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * @example
    * ```typescript
    * const doc = { name: 'John', email: 'john@example.com' };
-   * collection.updateAutoFields(doc, { 
-   *   operation: 'create', 
-   *   userContext: { userId: 'user123' } 
+   * collection.updateAutoFields(doc, {
+   *   operation: 'create',
+   *   userContext: { userId: 'user123' }
    * });
    * ```
    */
-  public updateAutoFields<D extends Record<string, any>>(
-    document: D,
-    options: AutoFieldUpdateOptions<TRefId>
-  ): D {
+  public updateAutoFields<D extends Record<string, any>>(document: D, options: AutoFieldUpdateOptions<TRefId>): D {
     const timestamped = { ...document };
     const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
-    
-    const timestamp = options.customTimestamp || 
+
+    const timestamp =
+      options.customTimestamp ||
       (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
 
     const shouldSetTimestamps = autoFieldConfig.enableAutoTimestamps !== false;
@@ -219,49 +217,49 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
 
     switch (options.operation) {
       case 'create':
-        if (shouldSetTimestamps && (fields.createdAt !== false)) {
+        if (shouldSetTimestamps && fields.createdAt !== false) {
           (timestamped as any).createdAt = timestamp;
         }
-        if (shouldSetTimestamps && (fields.updatedAt !== false)) {
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && (fields.createdBy !== false) && 'createdBy' in timestamped) {
+        if (shouldSetUserFields && fields.createdBy !== false && 'createdBy' in timestamped) {
           (timestamped as any).createdBy = options.userContext!.userId;
         }
-        if (shouldSetUserFields && (fields.updatedBy !== false) && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         break;
 
       case 'update':
-        if (shouldSetTimestamps && (fields.updatedAt !== false)) {
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && (fields.updatedBy !== false) && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         break;
 
       case 'delete':
-        if (shouldSetTimestamps && (fields.deletedAt !== false)) {
+        if (shouldSetTimestamps && fields.deletedAt !== false) {
           (timestamped as any).deletedAt = timestamp;
         }
-        if (shouldSetTimestamps && (fields.updatedAt !== false)) {
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && (fields.deletedBy !== false) && 'deletedBy' in timestamped) {
+        if (shouldSetUserFields && fields.deletedBy !== false && 'deletedBy' in timestamped) {
           (timestamped as any).deletedBy = options.userContext!.userId;
         }
-        if (shouldSetUserFields && (fields.updatedBy !== false) && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         break;
 
       case 'restore':
-        if (shouldSetTimestamps && (fields.updatedAt !== false)) {
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && (fields.updatedBy !== false) && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         delete (timestamped as any).deletedAt;
@@ -303,13 +301,13 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    */
   public setCreatedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
     const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
-    const finalTimestamp = timestamp || 
-      (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
 
     if (autoFieldConfig.enableAutoTimestamps !== false) {
       document.createdAt = finalTimestamp;
     }
-    
+
     if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'createdBy' in document) {
       document.createdBy = userContext.userId;
     }
@@ -325,13 +323,13 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    */
   public setUpdatedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
     const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
-    const finalTimestamp = timestamp || 
-      (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
 
     if (autoFieldConfig.enableAutoTimestamps !== false) {
       document.updatedAt = finalTimestamp;
     }
-    
+
     if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'updatedBy' in document) {
       document.updatedBy = userContext.userId;
     }
@@ -347,14 +345,14 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    */
   public setDeletedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
     const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
-    const finalTimestamp = timestamp || 
-      (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
 
     if (autoFieldConfig.enableAutoTimestamps !== false) {
       document.deletedAt = finalTimestamp;
       document.updatedAt = finalTimestamp;
     }
-    
+
     if (autoFieldConfig.enableAutoUserTracking !== false && userContext) {
       if ('deletedBy' in document) {
         document.deletedBy = userContext.userId;
@@ -376,8 +374,8 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    */
   public clearDeletedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
     const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
-    const finalTimestamp = timestamp || 
-      (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
 
     delete document.deletedAt;
     delete document.deletedBy;
@@ -385,7 +383,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     if (autoFieldConfig.enableAutoTimestamps !== false) {
       document.updatedAt = finalTimestamp;
     }
-    
+
     if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'updatedBy' in document) {
       document.updatedBy = userContext.userId;
     }
@@ -438,7 +436,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     metadata?: ManualAuditOptions<TRefId>
   ): Promise<void> {
     const auditControl = this.options.auditControl || defaultOptions.auditControl!;
-    
+
     if (!auditControl.enableAutoAudit && !auditControl.auditCustomOperations) {
       return;
     }
@@ -453,13 +451,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
       ...(metadata?.customData && { customData: metadata.customData }),
     };
 
-    await this.auditLogger.logOperation(
-      action,
-      this.collectionName,
-      documentId as TRefId,
-      userContext,
-      auditMetadata
-    );
+    await this.auditLogger.logOperation(action, this.collectionName, documentId as TRefId, userContext, auditMetadata);
   }
 
   /**
@@ -489,7 +481,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    */
   public async createAuditLogs(entries: BatchAuditEntry<TRefId>[]): Promise<void> {
     const auditControl = this.options.auditControl || defaultOptions.auditControl!;
-    
+
     if (!auditControl.enableAutoAudit && !auditControl.auditCustomOperations) {
       return;
     }
@@ -532,17 +524,17 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    */
   private shouldAudit(skipAudit?: boolean): boolean {
     const auditControl = this.options.auditControl || defaultOptions.auditControl!;
-    
+
     // If audit logging is globally disabled, never audit
     if (!auditControl.enableAutoAudit) {
       return false;
     }
-    
+
     // If the operation explicitly requests to skip audit, respect that
     if (skipAudit) {
       return false;
     }
-    
+
     return true;
   }
 

@@ -28,29 +28,25 @@ describe('Manual Control Functionality', () => {
     testDb = new TestDatabase();
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
-    
+
     // Clean up collections
     await db.collection('test_documents').deleteMany({});
     await db.collection('audit_logs').deleteMany({});
-    
+
     auditLogger = new MonguardAuditLogger<TestUserReference>(db, 'audit_logs');
-    
-    collection = new MonguardCollection<TestDocument, TestUserReference>(
-      db,
-      'test_documents',
-      {
-        auditLogger,
-        concurrency: { transactionsEnabled: false },
-        autoFieldControl: {
-          enableAutoTimestamps: true,
-          enableAutoUserTracking: true,
-        },
-        auditControl: {
-          enableAutoAudit: true,
-          auditCustomOperations: true,
-        },
-      }
-    );
+
+    collection = new MonguardCollection<TestDocument, TestUserReference>(db, 'test_documents', {
+      auditLogger,
+      concurrency: { transactionsEnabled: false },
+      autoFieldControl: {
+        enableAutoTimestamps: true,
+        enableAutoUserTracking: true,
+      },
+      auditControl: {
+        enableAutoAudit: true,
+        auditCustomOperations: true,
+      },
+    });
   });
 
   afterEach(async () => {
@@ -59,14 +55,14 @@ describe('Manual Control Functionality', () => {
 
   describe('updateAutoFields', () => {
     it('should manually set create fields', () => {
-      const doc: any = { 
-        name: 'John', 
+      const doc: any = {
+        name: 'John',
         email: 'john@example.com',
         createdBy: undefined, // Add fields that will be populated
         updatedBy: undefined,
       };
       const userContext = { userId: 'user123' };
-      
+
       const result = collection.updateAutoFields(doc, {
         operation: 'create',
         userContext,
@@ -81,15 +77,15 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should manually set update fields', () => {
-      const doc: any = { 
-        name: 'John Updated', 
+      const doc: any = {
+        name: 'John Updated',
         email: 'john.updated@example.com',
         createdAt: new Date('2023-01-01'),
         createdBy: 'original_user',
         updatedBy: undefined, // Add field that will be populated
       };
       const userContext = { userId: 'user456' };
-      
+
       const result = collection.updateAutoFields(doc, {
         operation: 'update',
         userContext,
@@ -103,8 +99,8 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should manually set delete fields', () => {
-      const doc: any = { 
-        name: 'John', 
+      const doc: any = {
+        name: 'John',
         email: 'john@example.com',
         createdAt: new Date('2023-01-01'),
         updatedAt: new Date('2023-06-01'),
@@ -112,7 +108,7 @@ describe('Manual Control Functionality', () => {
         updatedBy: undefined,
       };
       const userContext = { userId: 'admin789' };
-      
+
       const result = collection.updateAutoFields(doc, {
         operation: 'delete',
         userContext,
@@ -127,7 +123,7 @@ describe('Manual Control Functionality', () => {
     it('should respect custom timestamp', () => {
       const customTime = new Date('2023-12-25T10:00:00Z');
       const doc: any = { name: 'John', email: 'john@example.com' };
-      
+
       const result = collection.updateAutoFields(doc, {
         operation: 'create',
         customTimestamp: customTime,
@@ -138,14 +134,14 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should respect field-specific control', () => {
-      const doc: any = { 
-        name: 'John', 
+      const doc: any = {
+        name: 'John',
         email: 'john@example.com',
         createdBy: undefined, // Add fields that might be populated
         updatedBy: undefined,
       };
       const userContext = { userId: 'user123' };
-      
+
       const result = collection.updateAutoFields(doc, {
         operation: 'custom',
         userContext,
@@ -166,14 +162,14 @@ describe('Manual Control Functionality', () => {
 
   describe('Individual Field Setters', () => {
     it('should set created fields', () => {
-      const doc: any = { 
-        name: 'John', 
+      const doc: any = {
+        name: 'John',
         email: 'john@example.com',
         createdBy: undefined, // Add field that will be populated
       };
       const userContext = { userId: 'user123' };
       const customTime = new Date('2023-01-01');
-      
+
       collection.setCreatedFields(doc, userContext, customTime);
 
       expect(doc.createdAt).toEqual(customTime);
@@ -181,14 +177,14 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should set updated fields', () => {
-      const doc: any = { 
+      const doc: any = {
         name: 'John Updated',
         createdAt: new Date('2023-01-01'),
         createdBy: 'original_user',
         updatedBy: undefined, // Add field that will be populated
       };
       const userContext = { userId: 'user456' };
-      
+
       collection.setUpdatedFields(doc, userContext);
 
       expect(doc.updatedAt).toBeInstanceOf(Date);
@@ -198,14 +194,14 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should set deleted fields', () => {
-      const doc: any = { 
-        name: 'John', 
+      const doc: any = {
+        name: 'John',
         email: 'john@example.com',
         deletedBy: undefined, // Add fields that will be populated
         updatedBy: undefined,
       };
       const userContext = { userId: 'admin789' };
-      
+
       collection.setDeletedFields(doc, userContext);
 
       expect(doc.deletedAt).toBeInstanceOf(Date);
@@ -215,14 +211,14 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should clear deleted fields', () => {
-      const doc: any = { 
+      const doc: any = {
         name: 'John',
         deletedAt: new Date('2023-06-01'),
         deletedBy: 'admin123',
         updatedBy: undefined, // Add field that will be populated
       };
       const userContext = { userId: 'admin456' };
-      
+
       collection.clearDeletedFields(doc, userContext);
 
       expect(doc.deletedAt).toBeUndefined();
@@ -238,21 +234,16 @@ describe('Manual Control Functionality', () => {
       const userContext = { userId: 'user123' };
       const beforeDoc = { name: 'John', email: 'john@example.com' };
       const afterDoc = { name: 'John Updated', email: 'john.updated@example.com' };
-      
-      await collection.createAuditLog(
-        'custom',
-        docId,
-        userContext,
-        {
-          beforeDocument: beforeDoc,
-          afterDocument: afterDoc,
-          customData: { reason: 'manual_update' },
-        }
-      );
+
+      await collection.createAuditLog('custom', docId, userContext, {
+        beforeDocument: beforeDoc,
+        afterDocument: afterDoc,
+        customData: { reason: 'manual_update' },
+      });
 
       const auditLogs = await auditLogger.getAuditLogs('test_documents', docId);
       expect(auditLogs).toHaveLength(1);
-      
+
       const auditLog = auditLogs[0]!;
       expect(auditLog).toBeTruthy();
       expect(auditLog.action).toBe('custom');
@@ -266,7 +257,7 @@ describe('Manual Control Functionality', () => {
       const doc1Id = new MongoObjectId();
       const doc2Id = new MongoObjectId();
       const userContext = { userId: 'user123' };
-      
+
       await collection.createAuditLogs([
         {
           action: 'create',
@@ -278,7 +269,7 @@ describe('Manual Control Functionality', () => {
           action: 'update',
           documentId: doc2Id,
           userContext,
-          metadata: { 
+          metadata: {
             beforeDocument: { name: 'Doc2 Old' },
             afterDocument: { name: 'Doc2 New' },
           },
@@ -287,11 +278,11 @@ describe('Manual Control Functionality', () => {
 
       const audit1 = await auditLogger.getAuditLogs('test_documents', doc1Id);
       const audit2 = await auditLogger.getAuditLogs('test_documents', doc2Id);
-      
+
       expect(audit1).toHaveLength(1);
       expect(audit1[0]).toBeTruthy();
       expect(audit1[0]!.action).toBe('create');
-      
+
       expect(audit2).toHaveLength(1);
       expect(audit2[0]).toBeTruthy();
       expect(audit2[0]!.action).toBe('update');
@@ -299,24 +290,20 @@ describe('Manual Control Functionality', () => {
 
     it('should respect audit control configuration', async () => {
       // Create collection with audit disabled
-      const disabledCollection = new MonguardCollection<TestDocument, TestUserReference>(
-        db,
-        'test_documents',
-        {
-          auditLogger,
-          concurrency: { transactionsEnabled: false },
-          auditControl: {
-            enableAutoAudit: false,
-            auditCustomOperations: false,
-          },
-        }
-      );
+      const disabledCollection = new MonguardCollection<TestDocument, TestUserReference>(db, 'test_documents', {
+        auditLogger,
+        concurrency: { transactionsEnabled: false },
+        auditControl: {
+          enableAutoAudit: false,
+          auditCustomOperations: false,
+        },
+      });
 
       const docId = new MongoObjectId();
-      
+
       // Should not create audit log when disabled
       await disabledCollection.createAuditLog('custom', docId, { userId: 'user123' });
-      
+
       const auditLogs = await auditLogger.getAuditLogs('test_documents', docId);
       expect(auditLogs).toHaveLength(0);
     });
@@ -324,21 +311,17 @@ describe('Manual Control Functionality', () => {
 
   describe('Configuration Respect', () => {
     it('should respect disabled auto timestamps', () => {
-      const disabledCollection = new MonguardCollection<TestDocument, TestUserReference>(
-        db,
-        'test_documents',
-        {
-          auditLogger,
-          concurrency: { transactionsEnabled: false },
-          autoFieldControl: {
-            enableAutoTimestamps: false,
-            enableAutoUserTracking: true,
-          },
-        }
-      );
+      const disabledCollection = new MonguardCollection<TestDocument, TestUserReference>(db, 'test_documents', {
+        auditLogger,
+        concurrency: { transactionsEnabled: false },
+        autoFieldControl: {
+          enableAutoTimestamps: false,
+          enableAutoUserTracking: true,
+        },
+      });
 
-      const doc: any = { 
-        name: 'John', 
+      const doc: any = {
+        name: 'John',
         email: 'john@example.com',
         createdBy: undefined, // Add field that will be populated
       };
@@ -353,18 +336,14 @@ describe('Manual Control Functionality', () => {
     });
 
     it('should respect disabled auto user tracking', () => {
-      const disabledCollection = new MonguardCollection<TestDocument, TestUserReference>(
-        db,
-        'test_documents',
-        {
-          auditLogger,
-          concurrency: { transactionsEnabled: false },
-          autoFieldControl: {
-            enableAutoTimestamps: true,
-            enableAutoUserTracking: false,
-          },
-        }
-      );
+      const disabledCollection = new MonguardCollection<TestDocument, TestUserReference>(db, 'test_documents', {
+        auditLogger,
+        concurrency: { transactionsEnabled: false },
+        autoFieldControl: {
+          enableAutoTimestamps: true,
+          enableAutoUserTracking: false,
+        },
+      });
 
       const doc: any = { name: 'John', email: 'john@example.com' };
       const result = disabledCollection.updateAutoFields(doc, {
@@ -380,19 +359,15 @@ describe('Manual Control Functionality', () => {
 
     it('should use custom timestamp provider', () => {
       const customTime = new Date('2023-12-25T10:00:00Z');
-      const customCollection = new MonguardCollection<TestDocument, TestUserReference>(
-        db,
-        'test_documents',
-        {
-          auditLogger,
-          concurrency: { transactionsEnabled: false },
-          autoFieldControl: {
-            enableAutoTimestamps: true,
-            enableAutoUserTracking: true,
-            customTimestampProvider: () => customTime,
-          },
-        }
-      );
+      const customCollection = new MonguardCollection<TestDocument, TestUserReference>(db, 'test_documents', {
+        auditLogger,
+        concurrency: { transactionsEnabled: false },
+        autoFieldControl: {
+          enableAutoTimestamps: true,
+          enableAutoUserTracking: true,
+          customTimestampProvider: () => customTime,
+        },
+      });
 
       const doc: any = { name: 'John', email: 'john@example.com' };
       const result = customCollection.updateAutoFields(doc, {
