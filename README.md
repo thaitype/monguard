@@ -99,7 +99,6 @@ const db = client.db('myapp');
 
 // Create a Monguard collection
 const users = new MonguardCollection<User>(db, 'users', {
-  // auditCollectionName: 'audit_logs', // Optional: custom audit collection name
   concurrency: { transactionsEnabled: true }
 });
 
@@ -122,8 +121,10 @@ try {
 
 ### 🔍 **Audit Logging**
 - Automatic tracking of all create, update, and delete operations
-- Customizable audit collection names
+- Customizable audit collection names and logger interfaces
 - Rich metadata including before/after states and field changes
+- Reference ID validation with configurable error handling
+- Support for custom logging services (Winston, Pino, etc.)
 
 ### 🗑️ **Soft Deletes**
 - Safe deletion that preserves data integrity
@@ -151,12 +152,9 @@ try {
 
 ```typescript
 interface MonguardCollectionOptions {
-  // Optional: Audit collection name
-  auditCollectionName?: string;
-  
-  // Optional: Disable audit logging globally for this collection
-  disableAudit?: boolean; // Default: false
-  
+  // Optional: Custom audit logger
+  auditLogger?: AuditLogger; // Optional: Custom audit logger instance
+
   // Required: Concurrency configuration
   concurrency: MonguardConcurrencyConfig;
 }
@@ -173,7 +171,6 @@ interface MonguardConcurrencyConfig {
 #### MongoDB Replica Set/Atlas
 ```typescript
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'user_audit_logs',
   concurrency: { transactionsEnabled: true }
 });
 ```
@@ -181,21 +178,11 @@ const collection = new MonguardCollection<User>(db, 'users', {
 #### MongoDB Standalone/Cosmos DB
 ```typescript
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'user_audit_logs',
   concurrency: { 
     transactionsEnabled: false,
     retryAttempts: 5,
     retryDelayMs: 200
   }
-});
-```
-
-#### Audit Disabled
-```typescript
-const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'audit_logs',
-  disableAudit: true,
-  concurrency: { transactionsEnabled: true }
 });
 ```
 
@@ -391,6 +378,114 @@ interface AuditLogDocument {
 }
 ```
 
+### Custom Audit Logger Configuration
+
+Monguard supports advanced audit logger configuration for custom logging and reference ID validation:
+
+```typescript
+import { MonguardAuditLogger, RefIdConfigs } from 'monguard';
+
+// Custom logger interface
+interface Logger {
+  warn(message: string, ...args: any[]): void;
+  error(message: string, ...args: any[]): void;
+}
+
+// Custom logger implementation
+const customLogger: Logger = {
+  warn: (message, ...args) => {
+    // Send to your logging service
+    myLoggingService.warn(message, ...args);
+  },
+  error: (message, ...args) => {
+    // Send to your error tracking service
+    myErrorTracker.error(message, ...args);
+  }
+};
+
+// Create audit logger with custom configuration
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  refIdConfig: RefIdConfigs.objectId(), // Validate ObjectId types
+  logger: customLogger,                  // Use custom logger
+  strictValidation: true                 // Throw errors on validation failures
+});
+
+// Use with MonguardCollection
+const users = new MonguardCollection<User>(db, 'users', {
+  auditLogger: auditLogger,
+  concurrency: { transactionsEnabled: true }
+});
+```
+
+### Reference ID Validation
+
+Ensure consistent reference ID types in audit logs:
+
+```typescript
+// Pre-configured reference ID validators
+const configs = {
+  objectId: RefIdConfigs.objectId(),  // MongoDB ObjectId validation
+  string: RefIdConfigs.string(),      // String ID validation  
+  number: RefIdConfigs.number()       // Numeric ID validation
+};
+
+// Custom reference ID configuration
+const customRefIdConfig = {
+  validateRefId: (refId: any): refId is string => {
+    return typeof refId === 'string' && refId.length > 0;
+  },
+  typeName: 'non-empty-string',
+  convertRefId: (documentId: any) => documentId.toString()
+};
+
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  refIdConfig: customRefIdConfig,
+  strictValidation: false,  // Warn instead of throwing
+  logger: customLogger
+});
+```
+
+### Strict Validation Modes
+
+Control how reference ID validation failures are handled:
+
+```typescript
+// Strict mode: Throw errors on validation failures
+const strictLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  refIdConfig: RefIdConfigs.objectId(),
+  strictValidation: true,  // Throws errors
+  logger: customLogger
+});
+
+// Lenient mode: Warn on validation failures but continue
+const lenientLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  refIdConfig: RefIdConfigs.objectId(), 
+  strictValidation: false, // Logs warnings (default)
+  logger: customLogger
+});
+
+try {
+  // This will throw an error in strict mode if ID is wrong type
+  await strictLogger.logOperation('create', 'users', 'invalid-objectid');
+} catch (error) {
+  console.error('Validation failed:', error.message);
+  // Error: Invalid reference ID type for audit log. Expected ObjectId, got: string
+}
+```
+
+### Disable audit logging
+
+By default, will not log any audit logs
+
+```typescript
+const users = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true }
+});
+
+// All operations will skip audit logging
+await users.create(userData); // No audit log created
+```
+
 ### Querying Audit Logs
 
 ```typescript
@@ -414,17 +509,9 @@ const recentChanges = await auditCollection.find({
 }).sort({ timestamp: -1 }).toArray();
 ```
 
-### Disabling Audit Logging
+### Skip audit for specific operation
 
 ```typescript
-// Globally disable for collection
-const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'audit_logs',
-  disableAudit: true,
-  concurrency: { transactionsEnabled: true }
-});
-
-// Skip audit for specific operation
 try {
   const user = await collection.create(userData, {
     skipAudit: true,
@@ -628,6 +715,30 @@ const collection = new MonguardCollection<User>(db, 'users', {
 });
 ```
 
+### 5. Audit Logger Configuration
+
+```typescript
+// Use strict validation in production for data integrity
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  refIdConfig: RefIdConfigs.objectId(),
+  strictValidation: process.env.NODE_ENV === 'production', // Strict in production
+  logger: customLogger  // Always use custom logger for better observability
+});
+
+// Custom logger for production monitoring
+const productionLogger = {
+  warn: (message: string, ...args: any[]) => {
+    logger.warn({ message, args, service: 'monguard' });
+    metrics.increment('monguard.validation.warning');
+  },
+  error: (message: string, ...args: any[]) => {
+    logger.error({ message, args, service: 'monguard' });
+    metrics.increment('monguard.audit.error');
+    alerting.notify('audit_logging_failure', { message, args });
+  }
+};
+```
+
 ## Examples
 
 ### E-commerce User Management
@@ -806,7 +917,54 @@ import { MonguardCollection } from 'monguard';
 
 **Problem**: Audit logs contain mixed ID types
 
-**Solution**: Ensure consistent id type across collections sharing audit collection:
+**Solution**: Use strict validation with consistent RefIdConfig:
+
+```typescript
+// Use strict validation to prevent mixed ID types
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  refIdConfig: RefIdConfigs.objectId(),  // Enforce ObjectId consistency
+  strictValidation: true,                // Throw errors on type mismatches
+  logger: customLogger
+});
+
+const users = new MonguardCollection<User>(db, 'users', {
+  auditLogger: auditLogger,
+  concurrency: { transactionsEnabled: true }
+});
+
+// This will throw an error if document ID is not an ObjectId
+try {
+  await users.create(userData, { userContext: { userId: 'admin' } });
+} catch (error) {
+  console.error('ID validation failed:', error.message);
+}
+```
+
+#### Custom Logger Integration Issues
+
+**Problem**: Custom logging service not receiving audit messages
+
+**Solution**: Ensure logger interface is correctly implemented:
+
+```typescript
+// Correct logger implementation
+const logger = {
+  warn: (message: string, ...args: any[]) => {
+    // Make sure your logging service is properly called
+    console.log('AUDIT WARNING:', message, ...args);
+    myLoggingService.warn(message, ...args);
+  },
+  error: (message: string, ...args: any[]) => {
+    console.log('AUDIT ERROR:', message, ...args);
+    myErrorService.error(message, ...args);
+  }
+};
+
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  logger: logger,  // Use custom logger
+  strictValidation: false
+});
+```
 
 #### Performance Issues with Large Collections
 
