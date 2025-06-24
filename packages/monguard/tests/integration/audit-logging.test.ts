@@ -138,7 +138,7 @@ describe('Audit Logging Integration Tests', () => {
 
       // When audit is disabled, getAuditCollection() should return null
       expect(disabledCollection.getAuditCollection()).toBeNull();
-      
+
       // Verify that the audit logger is disabled
       expect(disabledCollection.getAuditLogger().isEnabled()).toBe(false);
     });

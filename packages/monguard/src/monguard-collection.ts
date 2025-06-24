@@ -160,7 +160,6 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     this.strategy = StrategyFactory.create(strategyContext);
   }
 
-
   /**
    * Adds timestamp fields to a document.
    *

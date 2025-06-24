@@ -3,7 +3,15 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, HardOrSoftDeleteResult, UserContext, DefaultReferenceId } from '../types';
+import {
+  BaseDocument,
+  CreateOptions,
+  UpdateOptions,
+  DeleteOptions,
+  HardOrSoftDeleteResult,
+  UserContext,
+  DefaultReferenceId,
+} from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import type { AuditLogMetadata } from '../audit-logger';
 
@@ -14,7 +22,9 @@ import type { AuditLogMetadata } from '../audit-logger';
  * @template T - The document type extending BaseDocument
  * @template TRefId - The type used for document reference IDs in audit logs
  */
-export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferenceId> implements OperationStrategy<T, TRefId> {
+export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferenceId>
+  implements OperationStrategy<T, TRefId>
+{
   /**
    * Creates a new TransactionStrategy instance.
    *
@@ -50,7 +60,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
             const metadata: AuditLogMetadata = {
               after: result,
             };
-            await this.context.auditLogger.logOperation('create', this.context.collectionName, insertResult.insertedId as TRefId, options.userContext, metadata);
+            await this.context.auditLogger.logOperation(
+              'create',
+              this.context.collectionName,
+              insertResult.insertedId as TRefId,
+              options.userContext,
+              metadata
+            );
           }
         });
       } catch (transactionError: any) {
@@ -66,7 +82,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
             const metadata: AuditLogMetadata = {
               after: result,
             };
-            await this.context.auditLogger.logOperation('create', this.context.collectionName, insertResult.insertedId as TRefId, options.userContext, metadata);
+            await this.context.auditLogger.logOperation(
+              'create',
+              this.context.collectionName,
+              insertResult.insertedId as TRefId,
+              options.userContext,
+              metadata
+            );
           }
         } else {
           throw transactionError;
@@ -139,7 +161,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 after: afterDoc,
                 changes,
               };
-              await this.context.auditLogger.logOperation('update', this.context.collectionName, beforeDoc._id as TRefId, options.userContext, metadata);
+              await this.context.auditLogger.logOperation(
+                'update',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         });
@@ -182,7 +210,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 after: afterDoc,
                 changes,
               };
-              await this.context.auditLogger.logOperation('update', this.context.collectionName, beforeDoc._id as TRefId, options.userContext, metadata);
+              await this.context.auditLogger.logOperation(
+                'update',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         } else {
@@ -248,7 +282,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                   hardDelete: true,
                   before: doc,
                 };
-                await this.context.auditLogger.logOperation('delete', this.context.collectionName, doc._id as TRefId, options.userContext, metadata);
+                await this.context.auditLogger.logOperation(
+                  'delete',
+                  this.context.collectionName,
+                  doc._id as TRefId,
+                  options.userContext,
+                  metadata
+                );
               }
             }
           } else {
@@ -285,7 +325,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 softDelete: true,
                 before: beforeDoc,
               };
-              await this.context.auditLogger.logOperation('delete', this.context.collectionName, beforeDoc._id as TRefId, options.userContext, metadata);
+              await this.context.auditLogger.logOperation(
+                'delete',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         });
@@ -308,7 +354,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                   hardDelete: true,
                   before: doc,
                 };
-                await this.context.auditLogger.logOperation('delete', this.context.collectionName, doc._id as TRefId, options.userContext, metadata);
+                await this.context.auditLogger.logOperation(
+                  'delete',
+                  this.context.collectionName,
+                  doc._id as TRefId,
+                  options.userContext,
+                  metadata
+                );
               }
             }
           } else {
@@ -341,7 +393,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 softDelete: true,
                 before: beforeDoc,
               };
-              await this.context.auditLogger.logOperation('delete', this.context.collectionName, beforeDoc._id as TRefId, options.userContext, metadata);
+              await this.context.auditLogger.logOperation(
+                'delete',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         } else {

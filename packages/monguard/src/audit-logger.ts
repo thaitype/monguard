@@ -29,7 +29,7 @@ export interface Logger {
  */
 export const ConsoleLogger: Logger = {
   warn: (message: string, ...args: any[]) => console.warn(message, ...args),
-  error: (message: string, ...args: any[]) => console.error(message, ...args)
+  error: (message: string, ...args: any[]) => console.error(message, ...args),
 };
 
 /**
@@ -65,7 +65,7 @@ export const RefIdConfigs = {
       }
       return false;
     },
-    typeName: 'ObjectId'
+    typeName: 'ObjectId',
   }),
 
   /**
@@ -73,7 +73,7 @@ export const RefIdConfigs = {
    */
   string: (): RefIdConfig<string> => ({
     validateRefId: (refId: any): refId is string => typeof refId === 'string',
-    typeName: 'string'
+    typeName: 'string',
   }),
 
   /**
@@ -81,8 +81,8 @@ export const RefIdConfigs = {
    */
   number: (): RefIdConfig<number> => ({
     validateRefId: (refId: any): refId is number => typeof refId === 'number',
-    typeName: 'number'
-  })
+    typeName: 'number',
+  }),
 };
 
 /**
@@ -124,13 +124,13 @@ export interface AuditLogMetadata {
 /**
  * Abstract base class for audit logging implementations.
  * Provides a consistent interface for tracking document changes with type-safe reference IDs.
- * 
+ *
  * @template TRefId - The type used for document reference IDs (e.g., ObjectId, string)
  */
 export abstract class AuditLogger<TRefId = any> {
   /**
    * Creates an audit log entry for a document operation.
-   * 
+   *
    * @param action - The type of action performed (create, update, delete)
    * @param collectionName - Name of the collection containing the modified document
    * @param documentId - ID of the document that was modified
@@ -148,27 +148,24 @@ export abstract class AuditLogger<TRefId = any> {
 
   /**
    * Retrieves audit logs for a specific document.
-   * 
+   *
    * @param collectionName - Name of the collection containing the document
    * @param documentId - ID of the document to get audit logs for
    * @returns Promise resolving to array of audit log entries
    */
-  abstract getAuditLogs(
-    collectionName: string,
-    documentId: TRefId
-  ): Promise<AuditLogDocument<TRefId>[]>;
+  abstract getAuditLogs(collectionName: string, documentId: TRefId): Promise<AuditLogDocument<TRefId>[]>;
 
   /**
    * Retrieves the audit collection instance.
    * Used for advanced queries and maintenance operations.
-   * 
+   *
    * @returns The audit collection instance or null if not applicable
    */
   abstract getAuditCollection(): Collection<AuditLogDocument<TRefId>> | null;
 
   /**
    * Checks if audit logging is enabled for this logger instance.
-   * 
+   *
    * @returns True if audit logging is enabled, false otherwise
    */
   abstract isEnabled(): boolean;
@@ -177,7 +174,7 @@ export abstract class AuditLogger<TRefId = any> {
 /**
  * MongoDB-based audit logger implementation.
  * Stores audit logs in a MongoDB collection with type-safe reference IDs.
- * 
+ *
  * @template TRefId - The type used for document reference IDs (e.g., ObjectId, string)
  */
 export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
@@ -188,18 +185,16 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
   /**
    * Creates a new MonguardAuditLogger instance.
-   * 
+   *
    * @param db - MongoDB database instance
    * @param collectionName - Name of the collection to store audit logs
    * @param options - Optional configuration for the audit logger
    */
-  constructor(
-    db: Db, 
-    collectionName: string, 
-    options?: MonguardAuditLoggerOptions<TRefId>
-  ) {
+  constructor(db: Db, collectionName: string, options?: MonguardAuditLoggerOptions<TRefId>) {
     super();
-    this.auditCollection = db.collection<AuditLogDocument<TRefId>>(collectionName) as Collection<AuditLogDocument<TRefId>>;
+    this.auditCollection = db.collection<AuditLogDocument<TRefId>>(collectionName) as Collection<
+      AuditLogDocument<TRefId>
+    >;
     this.refIdConfig = options?.refIdConfig;
     this.logger = options?.logger || ConsoleLogger;
     this.strictValidation = options?.strictValidation ?? false;
@@ -208,7 +203,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   /**
    * Creates an audit log entry in the MongoDB collection.
    * Handles errors gracefully to ensure operations continue even if audit logging fails.
-   * 
+   *
    * @param action - The type of action performed (create, update, delete)
    * @param collectionName - Name of the collection containing the modified document
    * @param documentId - ID of the document that was modified
@@ -262,15 +257,12 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
   /**
    * Retrieves audit logs for a specific document from the MongoDB collection.
-   * 
+   *
    * @param collectionName - Name of the collection containing the document
    * @param documentId - ID of the document to get audit logs for
    * @returns Promise resolving to array of audit log entries
    */
-  async getAuditLogs(
-    collectionName: string,
-    documentId: TRefId
-  ): Promise<AuditLogDocument<TRefId>[]> {
+  async getAuditLogs(collectionName: string, documentId: TRefId): Promise<AuditLogDocument<TRefId>[]> {
     try {
       const auditLogs = await this.auditCollection
         .find({
@@ -289,7 +281,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
   /**
    * Returns the MongoDB audit collection instance.
-   * 
+   *
    * @returns The audit collection instance
    */
   getAuditCollection(): Collection<AuditLogDocument<TRefId>> {
@@ -298,7 +290,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
   /**
    * Always returns true since this logger performs audit logging.
-   * 
+   *
    * @returns True indicating audit logging is enabled
    */
   isEnabled(): boolean {
@@ -327,10 +319,7 @@ export class NoOpAuditLogger extends AuditLogger<any> {
   /**
    * Returns empty array since no audit logs are stored.
    */
-  async getAuditLogs(
-    collectionName: string,
-    documentId: any
-  ): Promise<AuditLogDocument<any>[]> {
+  async getAuditLogs(collectionName: string, documentId: any): Promise<AuditLogDocument<any>[]> {
     return [];
   }
 

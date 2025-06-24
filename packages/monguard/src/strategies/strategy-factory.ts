@@ -35,7 +35,9 @@ export class StrategyFactory {
    * });
    * ```
    */
-  static create<T extends BaseDocument, TRefId = DefaultReferenceId>(context: OperationStrategyContext<T, TRefId>): OperationStrategy<T, TRefId> {
+  static create<T extends BaseDocument, TRefId = DefaultReferenceId>(
+    context: OperationStrategyContext<T, TRefId>
+  ): OperationStrategy<T, TRefId> {
     if (context.config.transactionsEnabled) {
       return new TransactionStrategy<T, TRefId>(context);
     } else {

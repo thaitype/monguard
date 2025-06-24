@@ -10,7 +10,7 @@ import {
   RefIdConfigs,
   type Logger,
   type RefIdConfig,
-  ConsoleLogger
+  ConsoleLogger,
 } from '../../src/audit-logger';
 import type { Db, Collection } from '../../src/mongodb-types';
 import type { AuditLogDocument } from '../../src/types';
@@ -21,27 +21,27 @@ const createMockDb = (): Db => {
     insertOne: vi.fn().mockResolvedValue({ insertedId: new MongoObjectId() }),
     find: vi.fn().mockReturnValue({
       sort: vi.fn().mockReturnValue({
-        toArray: vi.fn().mockResolvedValue([])
-      })
-    })
+        toArray: vi.fn().mockResolvedValue([]),
+      }),
+    }),
   } as any;
 
   return {
-    collection: vi.fn().mockReturnValue(mockCollection)
+    collection: vi.fn().mockReturnValue(mockCollection),
   } as any;
 };
 
 // Mock logger for testing
 const createMockLogger = (): Logger => ({
   warn: vi.fn(),
-  error: vi.fn()
+  error: vi.fn(),
 });
 
 describe('RefIdConfigs', () => {
   describe('objectId', () => {
     it('should validate ObjectId strings', () => {
       const config = RefIdConfigs.objectId();
-      
+
       expect(config.validateRefId?.('507f1f77bcf86cd799439011')).toBe(true);
       expect(config.validateRefId?.('invalid-id')).toBe(false);
       expect(config.validateRefId?.('')).toBe(false);
@@ -52,19 +52,19 @@ describe('RefIdConfigs', () => {
     it('should validate ObjectId objects', () => {
       const config = RefIdConfigs.objectId();
       const objectId = new MongoObjectId();
-      
+
       expect(config.validateRefId?.(objectId)).toBe(true);
     });
 
     it('should have correct type name', () => {
       const config = RefIdConfigs.objectId();
-      
+
       expect(config.typeName).toBe('ObjectId');
     });
 
     it('should not include logger or onValidationFailure properties', () => {
       const config = RefIdConfigs.objectId();
-      
+
       expect(config).not.toHaveProperty('logger');
       expect(config).not.toHaveProperty('onValidationFailure');
     });
@@ -73,7 +73,7 @@ describe('RefIdConfigs', () => {
   describe('string', () => {
     it('should validate string values', () => {
       const config = RefIdConfigs.string();
-      
+
       expect(config.validateRefId?.('test-string')).toBe(true);
       expect(config.validateRefId?.('')).toBe(true);
       expect(config.validateRefId?.(123)).toBe(false);
@@ -84,7 +84,7 @@ describe('RefIdConfigs', () => {
 
     it('should have correct type name', () => {
       const config = RefIdConfigs.string();
-      
+
       expect(config.typeName).toBe('string');
     });
   });
@@ -92,7 +92,7 @@ describe('RefIdConfigs', () => {
   describe('number', () => {
     it('should validate number values', () => {
       const config = RefIdConfigs.number();
-      
+
       expect(config.validateRefId?.(123)).toBe(true);
       expect(config.validateRefId?.(0)).toBe(true);
       expect(config.validateRefId?.(-456)).toBe(true);
@@ -105,7 +105,7 @@ describe('RefIdConfigs', () => {
 
     it('should have correct type name', () => {
       const config = RefIdConfigs.number();
-      
+
       expect(config.typeName).toBe('number');
     });
   });
@@ -123,7 +123,7 @@ describe('MonguardAuditLogger', () => {
   describe('constructor', () => {
     it('should create logger with default options', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs');
-      
+
       expect(logger.isEnabled()).toBe(true);
       expect(logger.getAuditCollection()).toBe(mockCollection);
     });
@@ -131,25 +131,25 @@ describe('MonguardAuditLogger', () => {
     it('should accept custom logger', () => {
       const customLogger = createMockLogger();
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
-        logger: customLogger
+        logger: customLogger,
       });
-      
+
       expect(logger.isEnabled()).toBe(true);
     });
 
     it('should accept refIdConfig', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
-        refIdConfig: RefIdConfigs.string()
+        refIdConfig: RefIdConfigs.string(),
       });
-      
+
       expect(logger.isEnabled()).toBe(true);
     });
 
     it('should accept strictValidation setting', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
-        strictValidation: true
+        strictValidation: true,
       });
-      
+
       expect(logger.isEnabled()).toBe(true);
     });
   });
@@ -158,20 +158,20 @@ describe('MonguardAuditLogger', () => {
     it('should create audit log without validation', async () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs');
       const documentId = new MongoObjectId();
-      
+
       await logger.logOperation('create', 'users', documentId);
-      
+
       expect(mockCollection.insertOne).toHaveBeenCalledWith({
         ref: {
           collection: 'users',
-          id: documentId
+          id: documentId,
         },
         action: 'create',
         userId: undefined,
         timestamp: expect.any(Date),
         createdAt: expect.any(Date),
         updatedAt: expect.any(Date),
-        metadata: undefined
+        metadata: undefined,
       });
     });
 
@@ -179,12 +179,12 @@ describe('MonguardAuditLogger', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs');
       const documentId = new MongoObjectId();
       const userId = new MongoObjectId();
-      
+
       await logger.logOperation('update', 'users', documentId, { userId });
-      
+
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          userId: userId
+          userId: userId,
         })
       );
     });
@@ -193,12 +193,12 @@ describe('MonguardAuditLogger', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs');
       const documentId = new MongoObjectId();
       const metadata = { before: { name: 'old' }, after: { name: 'new' } };
-      
+
       await logger.logOperation('update', 'users', documentId, undefined, metadata);
-      
+
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: metadata
+          metadata: metadata,
         })
       );
     });
@@ -206,15 +206,15 @@ describe('MonguardAuditLogger', () => {
     it('should handle database errors gracefully', async () => {
       const customLogger = createMockLogger();
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
-        logger: customLogger
+        logger: customLogger,
       });
-      
+
       const error = new Error('Database connection failed');
       mockCollection.insertOne = vi.fn().mockRejectedValue(error);
-      
+
       // Should not throw error
       await expect(logger.logOperation('create', 'users', new MongoObjectId())).resolves.toBeUndefined();
-      
+
       // Should log error
       expect(customLogger.error).toHaveBeenCalledWith('Failed to create audit log:', error);
     });
@@ -226,18 +226,18 @@ describe('MonguardAuditLogger', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
         refIdConfig: RefIdConfigs.objectId(),
         logger: customLogger,
-        strictValidation: false
+        strictValidation: false,
       });
-      
+
       const invalidId = 'invalid-objectid';
-      
+
       await logger.logOperation('create', 'users', invalidId as any);
-      
+
       expect(customLogger.warn).toHaveBeenCalledWith(
         'Invalid reference ID type for audit log. Expected ObjectId, got: string',
         invalidId
       );
-      
+
       // Should still create audit log
       expect(mockCollection.insertOne).toHaveBeenCalled();
     });
@@ -247,13 +247,13 @@ describe('MonguardAuditLogger', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
         refIdConfig: RefIdConfigs.objectId(),
         logger: customLogger,
-        strictValidation: false
+        strictValidation: false,
       });
-      
+
       const validId = new MongoObjectId();
-      
+
       await logger.logOperation('create', 'users', validId);
-      
+
       expect(customLogger.warn).not.toHaveBeenCalled();
       expect(mockCollection.insertOne).toHaveBeenCalled();
     });
@@ -263,15 +263,15 @@ describe('MonguardAuditLogger', () => {
     it('should throw error on validation failure', async () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
         refIdConfig: RefIdConfigs.objectId(),
-        strictValidation: true
+        strictValidation: true,
       });
-      
+
       const invalidId = 'invalid-objectid';
-      
-      await expect(
-        logger.logOperation('create', 'users', invalidId as any)
-      ).rejects.toThrow('Invalid reference ID type for audit log. Expected ObjectId, got: string');
-      
+
+      await expect(logger.logOperation('create', 'users', invalidId as any)).rejects.toThrow(
+        'Invalid reference ID type for audit log. Expected ObjectId, got: string'
+      );
+
       // Should not create audit log
       expect(mockCollection.insertOne).not.toHaveBeenCalled();
     });
@@ -279,15 +279,13 @@ describe('MonguardAuditLogger', () => {
     it('should succeed with valid reference ID', async () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
         refIdConfig: RefIdConfigs.objectId(),
-        strictValidation: true
+        strictValidation: true,
       });
-      
+
       const validId = new MongoObjectId();
-      
-      await expect(
-        logger.logOperation('create', 'users', validId)
-      ).resolves.toBeUndefined();
-      
+
+      await expect(logger.logOperation('create', 'users', validId)).resolves.toBeUndefined();
+
       expect(mockCollection.insertOne).toHaveBeenCalled();
     });
   });
@@ -297,24 +295,24 @@ describe('MonguardAuditLogger', () => {
       const customConfig: RefIdConfig<string> = {
         validateRefId: (refId: any): refId is string => typeof refId === 'string',
         typeName: 'string',
-        convertRefId: (documentId: any) => documentId.toString()
+        convertRefId: (documentId: any) => documentId.toString(),
       };
-      
+
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
         refIdConfig: customConfig,
-        strictValidation: false
+        strictValidation: false,
       });
-      
+
       const objectId = new MongoObjectId();
-      
+
       await logger.logOperation('create', 'users', objectId as any);
-      
+
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
           ref: {
             collection: 'users',
-            id: objectId.toString() // Should be converted to string
-          }
+            id: objectId.toString(), // Should be converted to string
+          },
         })
       );
     });
@@ -324,42 +322,42 @@ describe('MonguardAuditLogger', () => {
     it('should retrieve audit logs for document', async () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs');
       const documentId = new MongoObjectId();
-      
+
       const mockAuditLogs = [
         { action: 'create', ref: { collection: 'users', id: documentId } },
-        { action: 'update', ref: { collection: 'users', id: documentId } }
+        { action: 'update', ref: { collection: 'users', id: documentId } },
       ];
-      
+
       mockCollection.find = vi.fn().mockReturnValue({
         sort: vi.fn().mockReturnValue({
-          toArray: vi.fn().mockResolvedValue(mockAuditLogs)
-        })
+          toArray: vi.fn().mockResolvedValue(mockAuditLogs),
+        }),
       });
-      
+
       const result = await logger.getAuditLogs('users', documentId);
-      
+
       expect(result).toEqual(mockAuditLogs);
       expect(mockCollection.find).toHaveBeenCalledWith({
         'ref.collection': 'users',
-        'ref.id': documentId
+        'ref.id': documentId,
       });
     });
 
     it('should handle query errors gracefully', async () => {
       const customLogger = createMockLogger();
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs', {
-        logger: customLogger
+        logger: customLogger,
       });
-      
+
       const error = new Error('Query failed');
       mockCollection.find = vi.fn().mockReturnValue({
         sort: vi.fn().mockReturnValue({
-          toArray: vi.fn().mockRejectedValue(error)
-        })
+          toArray: vi.fn().mockRejectedValue(error),
+        }),
       });
-      
+
       const result = await logger.getAuditLogs('users', new MongoObjectId());
-      
+
       expect(result).toEqual([]);
       expect(customLogger.error).toHaveBeenCalledWith('Failed to retrieve audit logs:', error);
     });
@@ -382,9 +380,7 @@ describe('NoOpAuditLogger', () => {
   });
 
   it('should perform no-op for logOperation', async () => {
-    await expect(
-      logger.logOperation('create', 'users', 'test-id')
-    ).resolves.toBeUndefined();
+    await expect(logger.logOperation('create', 'users', 'test-id')).resolves.toBeUndefined();
   });
 
   it('should return empty array for getAuditLogs', async () => {
@@ -397,13 +393,13 @@ describe('ConsoleLogger', () => {
   it('should use console methods', () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     ConsoleLogger.warn('Test warning', { data: 'test' });
     ConsoleLogger.error('Test error', new Error('test'));
-    
+
     expect(consoleSpy).toHaveBeenCalledWith('Test warning', { data: 'test' });
     expect(errorSpy).toHaveBeenCalledWith('Test error', new Error('test'));
-    
+
     consoleSpy.mockRestore();
     errorSpy.mockRestore();
   });

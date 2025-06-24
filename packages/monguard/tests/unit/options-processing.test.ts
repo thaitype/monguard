@@ -265,7 +265,7 @@ describe('Options Processing and Edge Cases', () => {
 
       // When audit is disabled, getAuditCollection() should return null
       expect(collection.getAuditCollection()).toBeNull();
-      
+
       // Verify that the audit logger is disabled
       expect(collection.getAuditLogger().isEnabled()).toBe(false);
     });
@@ -284,7 +284,7 @@ describe('Options Processing and Edge Cases', () => {
 
       // When audit is disabled, getAuditCollection() should return null
       expect(collection.getAuditCollection()).toBeNull();
-      
+
       // Verify that the audit logger is disabled (skipAudit is ignored)
       expect(collection.getAuditLogger().isEnabled()).toBe(false);
     });

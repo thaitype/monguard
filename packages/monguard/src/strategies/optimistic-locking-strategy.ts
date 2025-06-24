@@ -3,7 +3,15 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, HardOrSoftDeleteResult, DefaultReferenceId, UserContext } from '../types';
+import {
+  BaseDocument,
+  CreateOptions,
+  UpdateOptions,
+  DeleteOptions,
+  HardOrSoftDeleteResult,
+  DefaultReferenceId,
+  UserContext,
+} from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import type { AuditLogMetadata } from '../audit-logger';
 
@@ -15,7 +23,9 @@ import type { AuditLogMetadata } from '../audit-logger';
  * @template T - The document type extending BaseDocument
  * @template TRefId - The type used for document reference IDs in audit logs
  */
-export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultReferenceId> implements OperationStrategy<T, TRefId> {
+export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultReferenceId>
+  implements OperationStrategy<T, TRefId>
+{
   /**
    * Creates a new OptimisticLockingStrategy instance.
    *
@@ -117,7 +127,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
       try {
         const metadata: AuditLogMetadata = { after: createdDoc };
-        await this.context.auditLogger.logOperation('create', this.context.collectionName, result.insertedId as TRefId, options.userContext, metadata);
+        await this.context.auditLogger.logOperation(
+          'create',
+          this.context.collectionName,
+          result.insertedId as TRefId,
+          options.userContext,
+          metadata
+        );
       } catch (auditError) {
         // Log audit error but don't fail the operation
         console.error('Failed to create audit log for create operation:', auditError);
@@ -206,7 +222,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               after: afterDoc,
               changes,
             };
-            await this.context.auditLogger.logOperation('update', this.context.collectionName, beforeDoc._id, options.userContext, metadata);
+            await this.context.auditLogger.logOperation(
+              'update',
+              this.context.collectionName,
+              beforeDoc._id,
+              options.userContext,
+              metadata
+            );
           }
         } catch (auditError) {
           console.error('Failed to create audit log for update operation:', auditError);
@@ -249,7 +271,9 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       if (options.hardDelete) {
         // Get documents to delete for audit logging
         const docsToDelete =
-          !options.skipAudit && this.context.auditLogger.isEnabled() ? await this.context.collection.find(filter).toArray() : [];
+          !options.skipAudit && this.context.auditLogger.isEnabled()
+            ? await this.context.collection.find(filter).toArray()
+            : [];
 
         const deleteResult = await this.context.collection.deleteMany(filter);
 
@@ -261,7 +285,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                 hardDelete: true,
                 before: doc,
               };
-              await this.context.auditLogger.logOperation('delete', this.context.collectionName, doc._id, options.userContext, metadata);
+              await this.context.auditLogger.logOperation(
+                'delete',
+                this.context.collectionName,
+                doc._id,
+                options.userContext,
+                metadata
+              );
             }
           } catch (auditError) {
             console.error('Failed to create audit log for hard delete operation:', auditError);
@@ -314,7 +344,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   softDelete: true,
                   before: beforeDoc,
                 };
-                await this.context.auditLogger.logOperation('delete', this.context.collectionName, beforeDoc._id, options.userContext, metadata);
+                await this.context.auditLogger.logOperation(
+                  'delete',
+                  this.context.collectionName,
+                  beforeDoc._id,
+                  options.userContext,
+                  metadata
+                );
               } catch (auditError) {
                 console.error('Failed to create audit log for soft delete operation:', auditError);
               }
@@ -394,10 +430,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           deletedAt: { $exists: true },
         };
 
-        const updateResult = await this.context.collection.updateOne(
-          versionedFilter as Filter<T>,
-          restoreUpdate
-        );
+        const updateResult = await this.context.collection.updateOne(versionedFilter as Filter<T>, restoreUpdate);
 
         if (updateResult.modifiedCount === 0) {
           throw new Error('Version conflict: Document was modified by another operation');
