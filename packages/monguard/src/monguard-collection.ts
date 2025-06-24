@@ -42,7 +42,6 @@ export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
   /**
    * Audit logger instance for tracking document changes.
    * If not provided, audit logging will be disabled (uses NoOpAuditLogger).
-   * @deprecated Use auditLogger instead of auditCollectionName and disableAudit
    */
   auditLogger?: AuditLogger<TRefId>;
   /**
@@ -93,7 +92,7 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
  * });
  *
  * // With audit logging enabled
- * const auditLogger = new MonguardAuditLogger(db.collection('audit_logs'));
+ * const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
  * const usersWithAudit = new MonguardCollection<User>(db, 'users', {
  *   concurrency: { transactionsEnabled: true },
  *   auditLogger
@@ -142,8 +141,8 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     } else {
       // Legacy compatibility: create MonguardAuditLogger with specified collection name
       const auditCollectionName = options.auditCollectionName || 'audit_logs';
-      this.auditCollection = db.collection<AuditLogDocument>(auditCollectionName) as Collection<AuditLogDocument>;
-      this.auditLogger = new MonguardAuditLogger<TRefId>(this.auditCollection);
+      this.auditLogger = new MonguardAuditLogger<TRefId>(db, auditCollectionName);
+      this.auditCollection = this.auditLogger.getAuditCollection() as Collection<AuditLogDocument>;
     }
 
     // Create strategy context

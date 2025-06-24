@@ -2,7 +2,7 @@
  * @fileoverview Audit logging interfaces and implementations for tracking document changes.
  */
 
-import type { Collection, WithoutId } from './mongodb-types';
+import type { Collection, WithoutId, Db } from './mongodb-types';
 import type { AuditLogDocument, AuditAction, UserContext } from './types';
 
 /**
@@ -14,6 +14,19 @@ export interface AuditLoggerOptions<TRefId = any> {
   auditCollectionName?: string;
   /** Custom audit log collection instance */
   auditCollection?: Collection<AuditLogDocument<TRefId>>;
+}
+
+/**
+ * Options for configuring a MonguardAuditLogger instance.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface MonguardAuditLoggerOptions<TRefId = any> {
+  // Reserved for future extensibility
+  // Could include options like:
+  // - Custom timestamp field names
+  // - Custom metadata handling
+  // - Batch logging configuration
+  // - Error handling strategies
 }
 
 /**
@@ -99,11 +112,18 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   /**
    * Creates a new MonguardAuditLogger instance.
    * 
-   * @param auditCollection - MongoDB collection to store audit logs
+   * @param db - MongoDB database instance
+   * @param collectionName - Name of the collection to store audit logs
+   * @param options - Optional configuration for the audit logger
    */
-  constructor(auditCollection: Collection<AuditLogDocument<TRefId>>) {
+  constructor(
+    db: Db, 
+    collectionName: string, 
+    options?: MonguardAuditLoggerOptions<TRefId>
+  ) {
     super();
-    this.auditCollection = auditCollection;
+    this.auditCollection = db.collection<AuditLogDocument<TRefId>>(collectionName) as Collection<AuditLogDocument<TRefId>>;
+    // Future: Handle options if provided
   }
 
   /**
