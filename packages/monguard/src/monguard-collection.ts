@@ -29,6 +29,11 @@ import type {
   MonguardConcurrencyConfig,
   HardOrSoftDeleteResult,
   DefaultReferenceId,
+  AutoFieldControlOptions,
+  AuditControlOptions,
+  AutoFieldUpdateOptions,
+  ManualAuditOptions,
+  BatchAuditEntry,
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
@@ -62,6 +67,16 @@ export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
    * Required - must explicitly set transactionsEnabled to true or false.
    */
   concurrency: MonguardConcurrencyConfig;
+  /**
+   * Configuration options for controlling automatic field management.
+   * Allows external applications to control when and how auto-fields are populated.
+   */
+  autoFieldControl?: AutoFieldControlOptions<TRefId>;
+  /**
+   * Configuration options for controlling audit logging behavior.
+   * Allows external applications to control when audit logs are created.
+   */
+  auditControl?: AuditControlOptions;
 }
 
 /**
@@ -70,6 +85,14 @@ export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
 const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditCollectionName: 'audit_logs',
   disableAudit: false,
+  autoFieldControl: {
+    enableAutoTimestamps: true,
+    enableAutoUserTracking: true,
+  },
+  auditControl: {
+    enableAutoAudit: true,
+    auditCustomOperations: false,
+  },
 };
 
 /**
@@ -151,9 +174,11 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
       auditLogger: this.auditLogger,
       collectionName: this.collectionName,
       config: this.options.concurrency,
+      auditControl: this.options.auditControl || defaultOptions.auditControl!,
       addTimestamps: this.addTimestamps.bind(this),
       mergeSoftDeleteFilter: this.mergeSoftDeleteFilter.bind(this),
       getChangedFields: this.getChangedFields.bind(this),
+      shouldAudit: this.shouldAudit.bind(this),
     };
 
     // Create strategy based on configuration
@@ -161,36 +186,356 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
   }
 
   /**
-   * Adds timestamp fields to a document.
+   * Updates auto-managed fields on a document based on the operation type and configuration.
+   * This method provides external applications with control over when and how auto-fields are populated.
    *
+   * @param document - The document to update with auto-fields
+   * @param options - Configuration options for the auto-field update
+   * @returns The document with updated auto-fields
+   *
+   * @example
+   * ```typescript
+   * const doc = { name: 'John', email: 'john@example.com' };
+   * collection.updateAutoFields(doc, {
+   *   operation: 'create',
+   *   userContext: { userId: 'user123' }
+   * });
+   * ```
+   */
+  public updateAutoFields<D extends Record<string, any>>(document: D, options: AutoFieldUpdateOptions<TRefId>): D {
+    const timestamped = { ...document };
+    const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
+
+    const timestamp =
+      options.customTimestamp ||
+      (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+
+    const shouldSetTimestamps = autoFieldConfig.enableAutoTimestamps !== false;
+    const shouldSetUserFields = autoFieldConfig.enableAutoUserTracking !== false && options.userContext;
+
+    const fields = options.fields || {};
+
+    switch (options.operation) {
+      case 'create':
+        if (shouldSetTimestamps && fields.createdAt !== false) {
+          (timestamped as any).createdAt = timestamp;
+        }
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
+          (timestamped as any).updatedAt = timestamp;
+        }
+        if (shouldSetUserFields && fields.createdBy !== false && 'createdBy' in timestamped) {
+          (timestamped as any).createdBy = options.userContext!.userId;
+        }
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+          (timestamped as any).updatedBy = options.userContext!.userId;
+        }
+        break;
+
+      case 'update':
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
+          (timestamped as any).updatedAt = timestamp;
+        }
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+          (timestamped as any).updatedBy = options.userContext!.userId;
+        }
+        break;
+
+      case 'delete':
+        if (shouldSetTimestamps && fields.deletedAt !== false) {
+          (timestamped as any).deletedAt = timestamp;
+        }
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
+          (timestamped as any).updatedAt = timestamp;
+        }
+        if (shouldSetUserFields && fields.deletedBy !== false && 'deletedBy' in timestamped) {
+          (timestamped as any).deletedBy = options.userContext!.userId;
+        }
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+          (timestamped as any).updatedBy = options.userContext!.userId;
+        }
+        break;
+
+      case 'restore':
+        if (shouldSetTimestamps && fields.updatedAt !== false) {
+          (timestamped as any).updatedAt = timestamp;
+        }
+        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+          (timestamped as any).updatedBy = options.userContext!.userId;
+        }
+        delete (timestamped as any).deletedAt;
+        delete (timestamped as any).deletedBy;
+        break;
+
+      case 'custom':
+        if (fields.createdAt === true && shouldSetTimestamps) {
+          (timestamped as any).createdAt = timestamp;
+        }
+        if (fields.updatedAt === true && shouldSetTimestamps) {
+          (timestamped as any).updatedAt = timestamp;
+        }
+        if (fields.deletedAt === true && shouldSetTimestamps) {
+          (timestamped as any).deletedAt = timestamp;
+        }
+        if (fields.createdBy === true && shouldSetUserFields && 'createdBy' in timestamped) {
+          (timestamped as any).createdBy = options.userContext!.userId;
+        }
+        if (fields.updatedBy === true && shouldSetUserFields && 'updatedBy' in timestamped) {
+          (timestamped as any).updatedBy = options.userContext!.userId;
+        }
+        if (fields.deletedBy === true && shouldSetUserFields && 'deletedBy' in timestamped) {
+          (timestamped as any).deletedBy = options.userContext!.userId;
+        }
+        break;
+    }
+
+    return timestamped;
+  }
+
+  /**
+   * Sets creation-related auto-fields (createdAt, createdBy) on a document.
+   * Provides granular control for external applications.
+   *
+   * @param document - The document to update
+   * @param userContext - Optional user context for createdBy field
+   * @param timestamp - Optional custom timestamp (defaults to current time)
+   */
+  public setCreatedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
+    const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+
+    if (autoFieldConfig.enableAutoTimestamps !== false) {
+      document.createdAt = finalTimestamp;
+    }
+
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'createdBy' in document) {
+      document.createdBy = userContext.userId;
+    }
+  }
+
+  /**
+   * Sets update-related auto-fields (updatedAt, updatedBy) on a document.
+   * Provides granular control for external applications.
+   *
+   * @param document - The document to update
+   * @param userContext - Optional user context for updatedBy field
+   * @param timestamp - Optional custom timestamp (defaults to current time)
+   */
+  public setUpdatedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
+    const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+
+    if (autoFieldConfig.enableAutoTimestamps !== false) {
+      document.updatedAt = finalTimestamp;
+    }
+
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'updatedBy' in document) {
+      document.updatedBy = userContext.userId;
+    }
+  }
+
+  /**
+   * Sets deletion-related auto-fields (deletedAt, deletedBy) on a document for soft delete.
+   * Provides granular control for external applications.
+   *
+   * @param document - The document to update
+   * @param userContext - Optional user context for deletedBy field
+   * @param timestamp - Optional custom timestamp (defaults to current time)
+   */
+  public setDeletedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
+    const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+
+    if (autoFieldConfig.enableAutoTimestamps !== false) {
+      document.deletedAt = finalTimestamp;
+      document.updatedAt = finalTimestamp;
+    }
+
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext) {
+      if ('deletedBy' in document) {
+        document.deletedBy = userContext.userId;
+      }
+      if ('updatedBy' in document) {
+        document.updatedBy = userContext.userId;
+      }
+    }
+  }
+
+  /**
+   * Clears deletion-related auto-fields (deletedAt, deletedBy) on a document for restore operations.
+   * Also updates the updatedAt and updatedBy fields to reflect the restore operation.
+   * Provides granular control for external applications.
+   *
+   * @param document - The document to update
+   * @param userContext - Optional user context for updatedBy field
+   * @param timestamp - Optional custom timestamp (defaults to current time)
+   */
+  public clearDeletedFields(document: any, userContext?: UserContext<TRefId>, timestamp?: Date): void {
+    const autoFieldConfig = this.options.autoFieldControl || defaultOptions.autoFieldControl!;
+    const finalTimestamp =
+      timestamp || (autoFieldConfig.customTimestampProvider ? autoFieldConfig.customTimestampProvider() : new Date());
+
+    delete document.deletedAt;
+    delete document.deletedBy;
+
+    if (autoFieldConfig.enableAutoTimestamps !== false) {
+      document.updatedAt = finalTimestamp;
+    }
+
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'updatedBy' in document) {
+      document.updatedBy = userContext.userId;
+    }
+  }
+
+  /**
+   * Legacy method for backward compatibility. Uses the new updateAutoFields method internally.
    * @private
-   * @template D - The document type
-   * @param document - The document to add timestamps to
-   * @param isUpdate - Whether this is an update operation (false for create)
-   * @param userContext - Optional user context for audit fields
-   * @returns The document with added timestamp fields
+   * @deprecated Use updateAutoFields instead
    */
   private addTimestamps<D extends Record<string, any>>(
     document: D,
     isUpdate: boolean = false,
     userContext?: UserContext<TRefId>
   ): D {
-    const now = new Date();
-    const timestamped = { ...document };
+    return this.updateAutoFields(document, {
+      operation: isUpdate ? 'update' : 'create',
+      userContext,
+    });
+  }
 
-    if (!isUpdate) {
-      (timestamped as any).createdAt = now;
-      if (userContext && 'createdBy' in timestamped) {
-        (timestamped as any).createdBy = userContext.userId;
+  /**
+   * Manually creates an audit log entry for a document operation.
+   * This allows external applications to create audit logs for custom operations or bypass automatic logging.
+   *
+   * @param action - The type of action performed
+   * @param documentId - ID of the document that was affected
+   * @param userContext - Optional user context for the operation
+   * @param metadata - Optional metadata for the audit log entry
+   * @returns Promise that resolves when the audit log is created
+   *
+   * @example
+   * ```typescript
+   * await collection.createAuditLog(
+   *   'custom',
+   *   docId,
+   *   { userId: 'user123' },
+   *   {
+   *     beforeDocument: oldDoc,
+   *     afterDocument: newDoc,
+   *     customData: { reason: 'bulk_import' }
+   *   }
+   * );
+   * ```
+   */
+  public async createAuditLog(
+    action: AuditAction,
+    documentId: ObjectId,
+    userContext?: UserContext<TRefId>,
+    metadata?: ManualAuditOptions<TRefId>
+  ): Promise<void> {
+    const auditControl = this.options.auditControl || defaultOptions.auditControl!;
+
+    if (!auditControl.enableAutoAudit && !auditControl.auditCustomOperations) {
+      return;
+    }
+
+    if (action === 'custom' && !auditControl.auditCustomOperations) {
+      return;
+    }
+
+    const auditMetadata = {
+      before: metadata?.beforeDocument,
+      after: metadata?.afterDocument,
+      ...(metadata?.customData && { customData: metadata.customData }),
+    };
+
+    await this.auditLogger.logOperation(action, this.collectionName, documentId as TRefId, userContext, auditMetadata);
+  }
+
+  /**
+   * Manually creates multiple audit log entries in a batch operation.
+   * This allows external applications to efficiently create multiple audit logs at once.
+   *
+   * @param entries - Array of audit log entries to create
+   * @returns Promise that resolves when all audit logs are created
+   *
+   * @example
+   * ```typescript
+   * await collection.createAuditLogs([
+   *   {
+   *     action: 'create',
+   *     documentId: doc1Id,
+   *     userContext: { userId: 'user123' },
+   *     metadata: { afterDocument: doc1 }
+   *   },
+   *   {
+   *     action: 'update',
+   *     documentId: doc2Id,
+   *     userContext: { userId: 'user123' },
+   *     metadata: { beforeDocument: oldDoc2, afterDocument: newDoc2 }
+   *   }
+   * ]);
+   * ```
+   */
+  public async createAuditLogs(entries: BatchAuditEntry<TRefId>[]): Promise<void> {
+    const auditControl = this.options.auditControl || defaultOptions.auditControl!;
+
+    if (!auditControl.enableAutoAudit && !auditControl.auditCustomOperations) {
+      return;
+    }
+
+    const filteredEntries = entries.filter(entry => {
+      if (!auditControl.enableAutoAudit && !auditControl.auditCustomOperations) {
+        return false;
       }
+      if (entry.action === 'custom' && !auditControl.auditCustomOperations) {
+        return false;
+      }
+      return true;
+    });
+
+    const auditPromises = filteredEntries.map(entry => {
+      const auditMetadata = {
+        before: entry.metadata?.beforeDocument,
+        after: entry.metadata?.afterDocument,
+        ...(entry.metadata?.customData && { customData: entry.metadata.customData }),
+      };
+
+      return this.auditLogger.logOperation(
+        entry.action,
+        this.collectionName,
+        entry.documentId,
+        entry.userContext,
+        auditMetadata
+      );
+    });
+
+    await Promise.all(auditPromises);
+  }
+
+  /**
+   * Determines whether audit logging should be performed based on configuration and operation options.
+   *
+   * @private
+   * @param skipAudit - Whether the operation explicitly requests to skip audit logging
+   * @returns True if audit logging should be performed, false otherwise
+   */
+  private shouldAudit(skipAudit?: boolean): boolean {
+    const auditControl = this.options.auditControl || defaultOptions.auditControl!;
+
+    // If audit logging is globally disabled, never audit
+    if (!auditControl.enableAutoAudit) {
+      return false;
     }
 
-    (timestamped as any).updatedAt = now;
-    if (userContext && 'updatedBy' in timestamped) {
-      (timestamped as any).updatedBy = userContext.userId;
+    // If the operation explicitly requests to skip audit, respect that
+    if (skipAudit) {
+      return false;
     }
 
-    return timestamped;
+    return true;
   }
 
   /**

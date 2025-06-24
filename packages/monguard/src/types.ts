@@ -71,7 +71,7 @@ export interface AuditableDocument<TId = DefaultReferenceId> extends BaseDocumen
 /**
  * Enumeration of possible audit actions that can be logged.
  */
-export type AuditAction = 'create' | 'update' | 'delete';
+export type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'custom';
 
 /**
  * Document structure for audit log entries that track all changes to documents.
@@ -103,6 +103,8 @@ export interface AuditLogDocument<TId = DefaultReferenceId> extends BaseDocument
     softDelete?: boolean;
     /** Whether this was a hard delete operation */
     hardDelete?: boolean;
+    /** Custom data for manual audit logs */
+    customData?: Record<string, any>;
   };
 }
 
@@ -175,4 +177,79 @@ export interface DeleteOptions<THardDelete extends boolean, TUserId = DefaultRef
 export interface FindOptions extends MongoFindOptions {
   /** Whether to include soft-deleted documents in query results */
   includeSoftDeleted?: boolean;
+}
+
+/**
+ * Configuration options for controlling automatic field management.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface AutoFieldControlOptions<TRefId = DefaultReferenceId> {
+  /** Whether to automatically set timestamp fields (createdAt, updatedAt, deletedAt) */
+  enableAutoTimestamps?: boolean;
+  /** Whether to automatically set user tracking fields (createdBy, updatedBy, deletedBy) */
+  enableAutoUserTracking?: boolean;
+  /** Custom function to provide timestamps instead of using new Date() */
+  customTimestampProvider?: () => Date;
+}
+
+/**
+ * Configuration options for controlling audit logging behavior.
+ */
+export interface AuditControlOptions {
+  /** Whether to automatically create audit logs for CRUD operations */
+  enableAutoAudit?: boolean;
+  /** Whether to create audit logs for custom operations */
+  auditCustomOperations?: boolean;
+}
+
+/**
+ * Options for manually updating auto-managed fields on documents.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface AutoFieldUpdateOptions<TRefId = DefaultReferenceId> {
+  /** The type of operation being performed */
+  operation: 'create' | 'update' | 'delete' | 'restore' | 'custom';
+  /** User context for populating user tracking fields */
+  userContext?: UserContext<TRefId>;
+  /** Custom timestamp to use instead of current date/time */
+  customTimestamp?: Date;
+  /** Specific fields to update (if not provided, updates based on operation type) */
+  fields?: Partial<{
+    createdAt: boolean;
+    updatedAt: boolean;
+    deletedAt: boolean;
+    createdBy: boolean;
+    updatedBy: boolean;
+    deletedBy: boolean;
+  }>;
+}
+
+/**
+ * Options for manually creating audit log entries.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface ManualAuditOptions<TRefId = DefaultReferenceId> {
+  /** Document state before the operation */
+  beforeDocument?: any;
+  /** Document state after the operation */
+  afterDocument?: any;
+  /** Custom data to include in the audit log */
+  customData?: Record<string, any>;
+  /** Whether to skip updating auto-managed fields in the audit log document */
+  skipAutoFields?: boolean;
+}
+
+/**
+ * Entry for batch audit log creation.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface BatchAuditEntry<TRefId = DefaultReferenceId> {
+  /** The action that was performed */
+  action: AuditAction;
+  /** ID of the document that was affected */
+  documentId: TRefId;
+  /** User context for the operation */
+  userContext?: UserContext<TRefId>;
+  /** Additional metadata for the audit log */
+  metadata?: ManualAuditOptions<TRefId>;
 }

@@ -2,7 +2,9 @@ import { ObjectId as MongoObjectId } from 'mongodb';
 import { BaseDocument, AuditableDocument, UserContext } from '../src/types';
 import { adaptObjectId } from './mongodb-adapter';
 
-export interface TestUser extends AuditableDocument {
+export type TestUserReference = any;
+
+export interface TestUser extends AuditableDocument<TestUserReference> {
   name: string;
   email: string;
   age?: number;

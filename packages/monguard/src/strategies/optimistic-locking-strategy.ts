@@ -124,7 +124,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     const createdDoc = { ...timestampedDoc, _id: result.insertedId } as T & { _id: ObjectId };
 
     // Create audit log after successful creation
-    if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+    if (this.context.shouldAudit(options.skipAudit)) {
       try {
         const metadata: AuditLogMetadata = { after: createdDoc };
         await this.context.auditLogger.logOperation(
@@ -212,7 +212,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       }
 
       // Create audit log after successful update
-      if (!options.skipAudit && this.context.auditLogger.isEnabled() && updateResult.modifiedCount > 0) {
+      if (this.context.shouldAudit(options.skipAudit) && updateResult.modifiedCount > 0) {
         try {
           const afterDoc = await this.context.collection.findOne({ _id: beforeDoc._id });
           if (afterDoc) {
@@ -270,15 +270,14 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     const result = await this.retryWithBackoff(async () => {
       if (options.hardDelete) {
         // Get documents to delete for audit logging
-        const docsToDelete =
-          !options.skipAudit && this.context.auditLogger.isEnabled()
-            ? await this.context.collection.find(filter).toArray()
-            : [];
+        const docsToDelete = this.context.shouldAudit(options.skipAudit)
+          ? await this.context.collection.find(filter).toArray()
+          : [];
 
         const deleteResult = await this.context.collection.deleteMany(filter);
 
         // Create audit logs after successful deletion
-        if (!options.skipAudit && this.context.auditLogger.isEnabled() && deleteResult.deletedCount > 0) {
+        if (this.context.shouldAudit(options.skipAudit) && deleteResult.deletedCount > 0) {
           try {
             for (const doc of docsToDelete) {
               const metadata: AuditLogMetadata = {
@@ -338,7 +337,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             totalModified += updateResult.modifiedCount;
 
             // Create audit log after successful soft delete
-            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            if (this.context.shouldAudit(options.skipAudit)) {
               try {
                 const metadata: AuditLogMetadata = {
                   softDelete: true,

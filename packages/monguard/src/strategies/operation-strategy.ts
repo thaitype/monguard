@@ -12,6 +12,7 @@ import {
   HardOrSoftDeleteResult,
   UserContext,
   DefaultReferenceId,
+  AuditControlOptions,
 } from '../types';
 import type { AuditLogger } from '../audit-logger';
 
@@ -108,10 +109,14 @@ export interface OperationStrategyContext<T extends BaseDocument, TRefId = Defau
   collectionName: string;
   /** Concurrency configuration determining strategy behavior */
   config: MonguardConcurrencyConfig;
+  /** Audit control configuration determining when to create audit logs */
+  auditControl: AuditControlOptions;
   /** Function to add timestamp fields to documents */
   addTimestamps: (document: any, isUpdate?: boolean, userContext?: UserContext<TRefId>) => any;
   /** Function to merge user filter with soft delete exclusion */
   mergeSoftDeleteFilter: (filter: Filter<T>) => Filter<T>;
   /** Function to detect changed fields between document states */
   getChangedFields: (before: any, after: any) => string[];
+  /** Function to check if audit logging should be performed for the given options */
+  shouldAudit: (skipAudit?: boolean) => boolean;
 }

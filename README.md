@@ -42,7 +42,6 @@ Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging,
 ## Table of Contents
 
 - [Installation](#installation)
-- [Migration Guide](#migration-guide)
 - [Quick Start](#quick-start)
 - [Core Features](#core-features)
 - [Configuration](#configuration)
@@ -51,6 +50,8 @@ Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging,
 - [Audit Logging](#audit-logging)
 - [Soft Deletes](#soft-deletes)
 - [User Tracking](#user-tracking)
+- [Manual Auto-Field Control](#manual-auto-field-control)
+- [Manual Audit Logging](#manual-audit-logging)
 - [Best Practices](#best-practices)
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
@@ -152,17 +153,34 @@ try {
 
 ```typescript
 interface MonguardCollectionOptions {
-  // Optional: Custom audit logger
-  auditLogger?: AuditLogger; // Optional: Custom audit logger instance
+  // Optional: Custom audit logger instance
+  auditLogger?: AuditLogger;
 
   // Required: Concurrency configuration
   concurrency: MonguardConcurrencyConfig;
+
+  // Optional: Auto-field control configuration
+  autoFieldControl?: AutoFieldControlOptions;
+
+  // Optional: Audit control configuration
+  auditControl?: AuditControlOptions;
 }
 
 interface MonguardConcurrencyConfig {
   transactionsEnabled: boolean;
   retryAttempts?: number; // Default: 3 (optimistic strategy only)
   retryDelayMs?: number;  // Default: 100ms (optimistic strategy only)
+}
+
+interface AutoFieldControlOptions {
+  enableAutoTimestamps?: boolean;        // Default: true
+  enableAutoUserTracking?: boolean;      // Default: true
+  customTimestampProvider?: () => Date;  // Default: () => new Date()
+}
+
+interface AuditControlOptions {
+  enableAutoAudit?: boolean;        // Default: true
+  auditCustomOperations?: boolean;  // Default: false
 }
 ```
 
@@ -182,6 +200,54 @@ const collection = new MonguardCollection<User>(db, 'users', {
     transactionsEnabled: false,
     retryAttempts: 5,
     retryDelayMs: 200
+  }
+});
+```
+
+#### With Manual Control Options
+```typescript
+const collection = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  autoFieldControl: {
+    enableAutoTimestamps: true,
+    enableAutoUserTracking: true,
+    customTimestampProvider: () => new Date()
+  },
+  auditControl: {
+    enableAutoAudit: true,
+    auditCustomOperations: true
+  }
+});
+```
+
+#### External System Integration Setup
+```typescript
+// Configuration for external system integration
+const collection = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  autoFieldControl: {
+    enableAutoTimestamps: false,  // Manual control over timestamps
+    enableAutoUserTracking: true
+  },
+  auditControl: {
+    enableAutoAudit: false,       // Manual audit logging only
+    auditCustomOperations: true
+  }
+});
+```
+
+#### Migration-Friendly Configuration
+```typescript
+// Configuration for data migration scenarios
+const collection = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  autoFieldControl: {
+    enableAutoTimestamps: false,  // Preserve original timestamps
+    enableAutoUserTracking: false // Preserve original user fields
+  },
+  auditControl: {
+    enableAutoAudit: false,       // Create custom audit logs
+    auditCustomOperations: true
   }
 });
 ```
@@ -294,6 +360,88 @@ async restore(
   filter: Filter<T>,
   userContext?: UserContext
 ): Promise<UpdateResult>
+```
+
+### Manual Auto-Field Control
+
+```typescript
+// Comprehensive auto-field update
+updateAutoFields<D extends Record<string, any>>(
+  document: D,
+  options: AutoFieldUpdateOptions
+): D
+
+interface AutoFieldUpdateOptions {
+  operation: 'create' | 'update' | 'delete' | 'restore' | 'custom';
+  userContext?: UserContext;
+  customTimestamp?: Date;
+  fields?: Partial<{
+    createdAt: boolean;
+    updatedAt: boolean;
+    deletedAt: boolean;
+    createdBy: boolean;
+    updatedBy: boolean;
+    deletedBy: boolean;
+  }>;
+}
+
+// Individual field setters
+setCreatedFields(
+  document: any,
+  userContext?: UserContext,
+  timestamp?: Date
+): void
+
+setUpdatedFields(
+  document: any,
+  userContext?: UserContext,
+  timestamp?: Date
+): void
+
+setDeletedFields(
+  document: any,
+  userContext?: UserContext,
+  timestamp?: Date
+): void
+
+clearDeletedFields(
+  document: any,
+  userContext?: UserContext,
+  timestamp?: Date
+): void
+```
+
+### Manual Audit Logging
+
+```typescript
+// Create single audit log entry
+async createAuditLog(
+  action: AuditAction,
+  documentId: ObjectId,
+  userContext?: UserContext,
+  metadata?: ManualAuditOptions
+): Promise<void>
+
+// Create multiple audit log entries
+async createAuditLogs(
+  entries: BatchAuditEntry[]
+): Promise<void>
+
+interface ManualAuditOptions {
+  beforeDocument?: any;
+  afterDocument?: any;
+  customData?: Record<string, any>;
+  skipAutoFields?: boolean;
+}
+
+interface BatchAuditEntry {
+  action: AuditAction;
+  documentId: any;
+  userContext?: UserContext;
+  metadata?: ManualAuditOptions;
+}
+
+type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'custom';
 ```
 
 ### Error Handling
@@ -658,6 +806,416 @@ const userContext = {
 };
 ```
 
+## Manual Auto-Field Control
+
+Monguard provides methods that allow external applications to manually control when and how auto-managed fields (timestamps and user tracking) are populated. This is useful for data migration, bulk imports, or when you need precise control over field values.
+
+### Manual Auto-Field Updates
+
+The `updateAutoFields()` method provides comprehensive control over auto-field population:
+
+```typescript
+// Manual creation fields
+const doc = { name: 'John', email: 'john@example.com' };
+const result = collection.updateAutoFields(doc, {
+  operation: 'create',
+  userContext: { userId: 'user123' }
+});
+// Result includes: createdAt, updatedAt, createdBy, updatedBy
+
+// Manual update fields
+const existingDoc = { name: 'John Updated', createdAt: new Date('2023-01-01') };
+const result = collection.updateAutoFields(existingDoc, {
+  operation: 'update',
+  userContext: { userId: 'user456' }
+});
+// Result includes: updatedAt, updatedBy (preserves createdAt, createdBy)
+
+// Manual delete fields (soft delete)
+const result = collection.updateAutoFields(doc, {
+  operation: 'delete',
+  userContext: { userId: 'admin789' }
+});
+// Result includes: deletedAt, deletedBy, updatedAt, updatedBy
+
+// Manual restore fields
+const result = collection.updateAutoFields(deletedDoc, {
+  operation: 'restore',
+  userContext: { userId: 'admin456' }
+});
+// Result removes: deletedAt, deletedBy and updates: updatedAt, updatedBy
+
+// Custom field control
+const result = collection.updateAutoFields(doc, {
+  operation: 'custom',
+  userContext: { userId: 'user123' },
+  fields: {
+    createdAt: true,
+    createdBy: true,
+    updatedAt: false,  // Won't be set
+    updatedBy: false   // Won't be set
+  }
+});
+```
+
+### Custom Timestamps
+
+```typescript
+// Use custom timestamp instead of current time
+const customTime = new Date('2023-12-25T10:00:00Z');
+const result = collection.updateAutoFields(doc, {
+  operation: 'create',
+  customTimestamp: customTime,
+  userContext: { userId: 'user123' }
+});
+// All timestamp fields will use customTime
+```
+
+### Individual Field Setters
+
+For granular control, use individual field setter methods:
+
+```typescript
+// Set creation fields
+collection.setCreatedFields(doc, { userId: 'user123' });
+// Sets: createdAt, createdBy
+
+// Set update fields
+collection.setUpdatedFields(doc, { userId: 'user456' });
+// Sets: updatedAt, updatedBy
+
+// Set deletion fields (soft delete)
+collection.setDeletedFields(doc, { userId: 'admin789' });
+// Sets: deletedAt, deletedBy, updatedAt, updatedBy
+
+// Clear deletion fields (restore)
+collection.clearDeletedFields(doc, { userId: 'admin456' });
+// Removes: deletedAt, deletedBy and sets: updatedAt, updatedBy
+
+// With custom timestamp
+const customTime = new Date('2023-01-01');
+collection.setCreatedFields(doc, { userId: 'user123' }, customTime);
+```
+
+### Auto-Field Configuration
+
+Control auto-field behavior through configuration:
+
+```typescript
+const collection = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  autoFieldControl: {
+    enableAutoTimestamps: true,      // Enable automatic timestamps
+    enableAutoUserTracking: true,    // Enable automatic user tracking
+    customTimestampProvider: () => new Date('2023-01-01') // Custom timestamp function
+  }
+});
+
+// Disable automatic timestamps
+const collectionNoTimestamps = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  autoFieldControl: {
+    enableAutoTimestamps: false,     // Disable timestamps
+    enableAutoUserTracking: true     // Keep user tracking
+  }
+});
+
+// Disable automatic user tracking
+const collectionNoUserTracking = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  autoFieldControl: {
+    enableAutoTimestamps: true,      // Keep timestamps
+    enableAutoUserTracking: false    // Disable user tracking
+  }
+});
+```
+
+### Practical Use Cases
+
+**Data Migration:**
+```typescript
+// Migrate data with preserved timestamps
+const migratedDoc = { 
+  name: 'Legacy User', 
+  email: 'legacy@example.com' 
+};
+
+const result = collection.updateAutoFields(migratedDoc, {
+  operation: 'create',
+  customTimestamp: new Date('2020-01-01'),  // Preserve original date
+  userContext: { userId: 'migration-script' }
+});
+```
+
+**Bulk Import:**
+```typescript
+async function bulkImport(records: any[], importerId: string) {
+  const importTime = new Date();
+  
+  for (const record of records) {
+    const processedRecord = collection.updateAutoFields(record, {
+      operation: 'create',
+      customTimestamp: importTime,
+      userContext: { userId: importerId }
+    });
+    
+    // Now save the processed record to database
+    await collection.create(processedRecord, { skipAudit: true });
+  }
+}
+```
+
+**External System Integration:**
+```typescript
+// When receiving data from external system
+function processExternalUpdate(externalData: any, systemUserId: string) {
+  const updatedDoc = collection.updateAutoFields(externalData, {
+    operation: 'update',
+    userContext: { userId: systemUserId },
+    fields: {
+      updatedAt: true,
+      updatedBy: true,
+      createdAt: false,  // Don't modify creation fields
+      createdBy: false
+    }
+  });
+  
+  return updatedDoc;
+}
+```
+
+## Manual Audit Logging
+
+Monguard provides methods for external applications to manually create audit log entries, giving you complete control over audit trail creation for custom operations or external integrations.
+
+### Manual Single Audit Log
+
+The `createAuditLog()` method creates individual audit log entries:
+
+```typescript
+import { ObjectId } from 'mongodb';
+
+// Create custom audit log entry
+await collection.createAuditLog(
+  'custom',                                    // Action type
+  new ObjectId('60f1e2b3c4d5e6f7a8b9c0d1'), // Document ID
+  { userId: 'user123' },                      // User context
+  {
+    beforeDocument: { name: 'Old Name', status: 'pending' },
+    afterDocument: { name: 'New Name', status: 'approved' },
+    customData: { 
+      reason: 'bulk_approval',
+      batchId: 'batch-001',
+      externalSystemId: 'ext-12345'
+    }
+  }
+);
+
+// Create audit log for manual restore operation
+await collection.createAuditLog(
+  'restore',
+  documentId,
+  { userId: 'admin456' },
+  {
+    beforeDocument: { name: 'John', deletedAt: new Date(), deletedBy: 'old-admin' },
+    afterDocument: { name: 'John', deletedAt: undefined, deletedBy: undefined },
+    customData: { reason: 'data_recovery', ticket: 'SUPPORT-123' }
+  }
+);
+
+// Simple audit log without metadata
+await collection.createAuditLog('create', documentId, { userId: 'system' });
+```
+
+### Manual Batch Audit Logs
+
+The `createAuditLogs()` method efficiently creates multiple audit entries:
+
+```typescript
+// Batch audit log creation
+await collection.createAuditLogs([
+  {
+    action: 'create',
+    documentId: doc1Id,
+    userContext: { userId: 'importer' },
+    metadata: {
+      afterDocument: { name: 'User 1', email: 'user1@example.com' },
+      customData: { source: 'csv_import', line: 1 }
+    }
+  },
+  {
+    action: 'create',
+    documentId: doc2Id,
+    userContext: { userId: 'importer' },
+    metadata: {
+      afterDocument: { name: 'User 2', email: 'user2@example.com' },
+      customData: { source: 'csv_import', line: 2 }
+    }
+  },
+  {
+    action: 'update',
+    documentId: doc3Id,
+    userContext: { userId: 'admin' },
+    metadata: {
+      beforeDocument: { status: 'pending' },
+      afterDocument: { status: 'approved' },
+      customData: { approvalLevel: 'manager' }
+    }
+  }
+]);
+```
+
+### Audit Control Configuration
+
+Control audit logging behavior through configuration:
+
+```typescript
+const collection = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    enableAutoAudit: true,        // Enable automatic audit logs for CRUD operations
+    auditCustomOperations: true   // Enable audit logs for custom operations
+  }
+});
+
+// Disable automatic audit logging
+const collectionNoAutoAudit = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    enableAutoAudit: false,       // Disable automatic audit logs
+    auditCustomOperations: true   // Still allow manual custom audit logs
+  }
+});
+
+// Disable all audit logging
+const collectionNoAudit = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    enableAutoAudit: false,       // No automatic audit logs
+    auditCustomOperations: false  // No custom audit logs
+  }
+});
+```
+
+### Practical Use Cases
+
+**External System Integration:**
+```typescript
+// Audit external system changes
+async function syncFromExternalSystem(externalChanges: any[]) {
+  const auditEntries = externalChanges.map(change => ({
+    action: change.operation as AuditAction,
+    documentId: new ObjectId(change.documentId),
+    userContext: { userId: change.externalUserId },
+    metadata: {
+      beforeDocument: change.before,
+      afterDocument: change.after,
+      customData: {
+        externalSystemId: change.systemId,
+        syncTimestamp: change.timestamp,
+        externalTransactionId: change.transactionId
+      }
+    }
+  }));
+  
+  await collection.createAuditLogs(auditEntries);
+}
+```
+
+**Data Migration Audit Trail:**
+```typescript
+// Create audit trail for migrated data
+async function createMigrationAuditTrail(migratedRecords: any[], migrationId: string) {
+  const auditEntries = migratedRecords.map(record => ({
+    action: 'create' as AuditAction,
+    documentId: record._id,
+    userContext: { userId: 'migration-system' },
+    metadata: {
+      afterDocument: record,
+      customData: {
+        migrationId,
+        originalSystemId: record.legacyId,
+        migrationDate: new Date(),
+        dataSource: 'legacy_system'
+      }
+    }
+  }));
+  
+  await collection.createAuditLogs(auditEntries);
+}
+```
+
+**Approval Workflow Audit:**
+```typescript
+// Audit approval workflow steps
+async function auditApprovalStep(
+  documentId: ObjectId, 
+  step: string, 
+  approverId: string, 
+  decision: 'approved' | 'rejected',
+  comments?: string
+) {
+  await collection.createAuditLog(
+    'custom',
+    documentId,
+    { userId: approverId },
+    {
+      customData: {
+        workflowStep: step,
+        decision,
+        comments,
+        timestamp: new Date(),
+        approvalLevel: getApprovalLevel(approverId)
+      }
+    }
+  );
+}
+```
+
+**Bulk Operation Tracking:**
+```typescript
+// Track bulk operations with detailed audit
+async function performBulkUpdate(
+  filter: any, 
+  updateData: any, 
+  operatorId: string,
+  reason: string
+) {
+  // Get documents before update
+  const beforeDocs = await collection.find(filter);
+  
+  // Perform update
+  const result = await collection.update(filter, updateData, {
+    userContext: { userId: operatorId },
+    skipAudit: true  // Skip automatic audit, we'll create custom ones
+  });
+  
+  // Get documents after update
+  const afterDocs = await collection.find(filter);
+  
+  // Create detailed audit logs
+  const auditEntries = beforeDocs.map((beforeDoc, index) => ({
+    action: 'update' as AuditAction,
+    documentId: beforeDoc._id,
+    userContext: { userId: operatorId },
+    metadata: {
+      beforeDocument: beforeDoc,
+      afterDocument: afterDocs[index],
+      customData: {
+        operationType: 'bulk_update',
+        reason,
+        affectedCount: result.modifiedCount,
+        batchSize: beforeDocs.length
+      }
+    }
+  }));
+  
+  await collection.createAuditLogs(auditEntries);
+  
+  return result;
+}
+```
+
 ## Best Practices
 
 ### 1. Error Handling
@@ -881,6 +1439,452 @@ class TenantUserService {
     } catch (error) {
       throw new Error(`Failed to get tenant audit logs: ${error.message}`);
     }
+  }
+}
+```
+
+### External Application Control Examples
+
+#### Data Migration with Manual Control
+
+```typescript
+import { ObjectId } from 'mongodb';
+import { MonguardCollection } from 'monguard';
+
+interface LegacyUser {
+  id: string;
+  name: string;
+  email: string;
+  created_date: string;
+  modified_date: string;
+  created_by_user: string;
+  modified_by_user: string;
+  is_deleted: boolean;
+  deleted_date?: string;
+  deleted_by_user?: string;
+}
+
+interface User extends AuditableDocument {
+  name: string;
+  email: string;
+  legacyId: string;
+}
+
+class DataMigrationService {
+  private users: MonguardCollection<User>;
+
+  constructor(db: Db) {
+    // Configure for migration - manual control over all fields
+    this.users = new MonguardCollection<User>(db, 'users', {
+      concurrency: { transactionsEnabled: true },
+      autoFieldControl: {
+        enableAutoTimestamps: false,   // Manual timestamp control
+        enableAutoUserTracking: false  // Manual user tracking control
+      },
+      auditControl: {
+        enableAutoAudit: false,        // Manual audit control
+        auditCustomOperations: true
+      }
+    });
+  }
+
+  async migrateLegacyUsers(legacyUsers: LegacyUser[], migrationUserId: string) {
+    const migrationStart = new Date();
+    const migratedUsers = [];
+    const auditEntries = [];
+
+    for (const legacyUser of legacyUsers) {
+      try {
+        // Create new user document
+        const userData = {
+          name: legacyUser.name,
+          email: legacyUser.email,
+          legacyId: legacyUser.id
+        };
+
+        // Manually control auto-fields with preserved timestamps
+        const processedUser = this.users.updateAutoFields(userData, {
+          operation: 'create',
+          customTimestamp: new Date(legacyUser.created_date),
+          userContext: { userId: legacyUser.created_by_user }
+        });
+
+        // Handle soft-deleted legacy users
+        if (legacyUser.is_deleted && legacyUser.deleted_date) {
+          this.users.setDeletedFields(
+            processedUser,
+            { userId: legacyUser.deleted_by_user },
+            new Date(legacyUser.deleted_date)
+          );
+        }
+
+        // Save to database (skip automatic audit)
+        const savedUser = await this.users.create(processedUser, { 
+          skipAudit: true 
+        });
+        migratedUsers.push(savedUser);
+
+        // Create custom audit log for migration
+        auditEntries.push({
+          action: 'create' as AuditAction,
+          documentId: savedUser._id,
+          userContext: { userId: migrationUserId },
+          metadata: {
+            afterDocument: savedUser,
+            customData: {
+              migrationType: 'legacy_migration',
+              originalId: legacyUser.id,
+              migrationTimestamp: migrationStart,
+              preservedCreatedAt: new Date(legacyUser.created_date),
+              preservedCreatedBy: legacyUser.created_by_user
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error(`Failed to migrate user ${legacyUser.id}:`, error.message);
+      }
+    }
+
+    // Create batch audit logs for all migrations
+    await this.users.createAuditLogs(auditEntries);
+
+    return {
+      migrated: migratedUsers.length,
+      total: legacyUsers.length,
+      auditTrail: auditEntries.length
+    };
+  }
+}
+```
+
+#### External System Integration
+
+```typescript
+interface ExternalSystemEvent {
+  eventId: string;
+  operation: 'create' | 'update' | 'delete';
+  entityId: string;
+  userId: string;
+  timestamp: string;
+  data?: any;
+  previousData?: any;
+}
+
+class ExternalSystemIntegration {
+  private collection: MonguardCollection<any>;
+
+  constructor(db: Db, collectionName: string) {
+    // Configure for external system integration
+    this.collection = new MonguardCollection(db, collectionName, {
+      concurrency: { transactionsEnabled: true },
+      autoFieldControl: {
+        enableAutoTimestamps: false,   // External system provides timestamps
+        enableAutoUserTracking: true   // Track integration user
+      },
+      auditControl: {
+        enableAutoAudit: false,        // Manual audit for external events
+        auditCustomOperations: true
+      }
+    });
+  }
+
+  async processExternalEvents(events: ExternalSystemEvent[], integrationUserId: string) {
+    const processedEvents = [];
+    const auditEntries = [];
+
+    for (const event of events) {
+      try {
+        const eventTimestamp = new Date(event.timestamp);
+        let result;
+
+        switch (event.operation) {
+          case 'create':
+            // Manual auto-field control for external creation
+            const createData = this.collection.updateAutoFields(event.data, {
+              operation: 'create',
+              customTimestamp: eventTimestamp,
+              userContext: { userId: integrationUserId }
+            });
+
+            result = await this.collection.create(createData, { skipAudit: true });
+            break;
+
+          case 'update':
+            // Manual auto-field control for external update
+            const updateData = { 
+              $set: this.collection.updateAutoFields(event.data, {
+                operation: 'update',
+                customTimestamp: eventTimestamp,
+                userContext: { userId: integrationUserId }
+              })
+            };
+
+            result = await this.collection.updateById(
+              new ObjectId(event.entityId), 
+              updateData, 
+              { skipAudit: true }
+            );
+            break;
+
+          case 'delete':
+            result = await this.collection.deleteById(
+              new ObjectId(event.entityId),
+              { 
+                userContext: { userId: integrationUserId },
+                skipAudit: true 
+              }
+            );
+            break;
+        }
+
+        processedEvents.push({ eventId: event.eventId, result });
+
+        // Create custom audit log for external event
+        auditEntries.push({
+          action: event.operation as AuditAction,
+          documentId: event.operation === 'create' ? result._id : new ObjectId(event.entityId),
+          userContext: { userId: integrationUserId },
+          metadata: {
+            beforeDocument: event.previousData,
+            afterDocument: event.data,
+            customData: {
+              externalEventId: event.eventId,
+              externalUserId: event.userId,
+              externalTimestamp: event.timestamp,
+              integrationSystem: 'external-crm'
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error(`Failed to process event ${event.eventId}:`, error.message);
+      }
+    }
+
+    // Create batch audit logs for all external events
+    if (auditEntries.length > 0) {
+      await this.collection.createAuditLogs(auditEntries);
+    }
+
+    return {
+      processed: processedEvents.length,
+      total: events.length,
+      auditEntries: auditEntries.length
+    };
+  }
+}
+```
+
+#### Bulk Import with Custom Audit
+
+```typescript
+interface ImportRecord {
+  data: any;
+  source: string;
+  lineNumber: number;
+  externalId?: string;
+}
+
+class BulkImportService {
+  private collection: MonguardCollection<any>;
+
+  constructor(db: Db, collectionName: string) {
+    this.collection = new MonguardCollection(db, collectionName, {
+      concurrency: { transactionsEnabled: true },
+      autoFieldControl: {
+        enableAutoTimestamps: true,
+        enableAutoUserTracking: true
+      },
+      auditControl: {
+        enableAutoAudit: false,        // Manual audit for import tracking
+        auditCustomOperations: true
+      }
+    });
+  }
+
+  async performBulkImport(
+    records: ImportRecord[], 
+    importerId: string, 
+    batchSize: number = 100
+  ) {
+    const importStart = new Date();
+    const importId = `import-${Date.now()}`;
+    const results = { successful: 0, failed: 0, errors: [] };
+    const auditEntries = [];
+
+    // Process in batches
+    for (let i = 0; i < records.length; i += batchSize) {
+      const batch = records.slice(i, i + batchSize);
+      
+      for (const record of batch) {
+        try {
+          // Manual auto-field control for consistent import timestamps
+          const importData = this.collection.updateAutoFields(record.data, {
+            operation: 'create',
+            customTimestamp: importStart,
+            userContext: { userId: importerId }
+          });
+
+          // Create document (skip automatic audit)
+          const created = await this.collection.create(importData, { skipAudit: true });
+          results.successful++;
+
+          // Prepare custom audit entry
+          auditEntries.push({
+            action: 'create' as AuditAction,
+            documentId: created._id,
+            userContext: { userId: importerId },
+            metadata: {
+              afterDocument: created,
+              customData: {
+                importId,
+                importSource: record.source,
+                lineNumber: record.lineNumber,
+                externalId: record.externalId,
+                batchNumber: Math.floor(i / batchSize) + 1,
+                importTimestamp: importStart
+              }
+            }
+          });
+
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            lineNumber: record.lineNumber,
+            error: error.message,
+            data: record.data
+          });
+        }
+      }
+
+      // Create audit logs for this batch
+      if (auditEntries.length >= batchSize) {
+        await this.collection.createAuditLogs(auditEntries.splice(0, batchSize));
+      }
+    }
+
+    // Create audit logs for remaining entries
+    if (auditEntries.length > 0) {
+      await this.collection.createAuditLogs(auditEntries);
+    }
+
+    // Create import summary audit log
+    await this.collection.createAuditLog(
+      'custom',
+      new ObjectId(), // Summary entry, not tied to specific document
+      { userId: importerId },
+      {
+        customData: {
+          importId,
+          importSummary: {
+            totalRecords: records.length,
+            successful: results.successful,
+            failed: results.failed,
+            startTime: importStart,
+            endTime: new Date(),
+            duration: Date.now() - importStart.getTime()
+          }
+        }
+      }
+    );
+
+    return results;
+  }
+}
+```
+
+#### Scheduled Task Automation
+
+```typescript
+class ScheduledTaskService {
+  private collection: MonguardCollection<any>;
+
+  constructor(db: Db, collectionName: string) {
+    this.collection = new MonguardCollection(db, collectionName, {
+      concurrency: { transactionsEnabled: true },
+      auditControl: {
+        enableAutoAudit: true,
+        auditCustomOperations: true
+      }
+    });
+  }
+
+  async performScheduledCleanup(taskId: string, systemUserId: string) {
+    const taskStart = new Date();
+    const cutoffDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90 days ago
+
+    // Find old soft-deleted records
+    const oldDeletedRecords = await this.collection.find({
+      deletedAt: { $lt: cutoffDate }
+    }, { includeSoftDeleted: true });
+
+    const results = {
+      processed: 0,
+      permanentlyDeleted: 0,
+      errors: []
+    };
+
+    for (const record of oldDeletedRecords) {
+      try {
+        // Perform permanent deletion
+        await this.collection.deleteById(record._id, {
+          userContext: { userId: systemUserId },
+          hardDelete: true,
+          skipAudit: true  // We'll create custom audit
+        });
+
+        results.permanentlyDeleted++;
+
+        // Create custom audit log for scheduled cleanup
+        await this.collection.createAuditLog(
+          'delete',
+          record._id,
+          { userId: systemUserId },
+          {
+            beforeDocument: record,
+            customData: {
+              taskType: 'scheduled_cleanup',
+              taskId,
+              originalDeletedAt: record.deletedAt,
+              originalDeletedBy: record.deletedBy,
+              cleanupReason: 'retention_policy',
+              retentionDays: 90
+            }
+          }
+        );
+
+      } catch (error) {
+        results.errors.push({
+          recordId: record._id,
+          error: error.message
+        });
+      }
+
+      results.processed++;
+    }
+
+    // Create task completion audit log
+    await this.collection.createAuditLog(
+      'custom',
+      new ObjectId(), // Task summary
+      { userId: systemUserId },
+      {
+        customData: {
+          taskType: 'scheduled_cleanup_summary',
+          taskId,
+          startTime: taskStart,
+          endTime: new Date(),
+          results: {
+            totalProcessed: results.processed,
+            permanentlyDeleted: results.permanentlyDeleted,
+            errors: results.errors.length
+          }
+        }
+      }
+    );
+
+    return results;
   }
 }
 ```
