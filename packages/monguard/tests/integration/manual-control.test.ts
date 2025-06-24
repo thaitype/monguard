@@ -253,15 +253,13 @@ describe('Manual Control Functionality', () => {
       const auditLogs = await auditLogger.getAuditLogs('test_documents', docId);
       expect(auditLogs).toHaveLength(1);
       
-      const auditLog = auditLogs[0];
-      expect(auditLog).toBeDefined();
-      if (auditLog) {
-        expect(auditLog.action).toBe('custom');
-        expect(auditLog.userId).toBe('user123');
-        expect(auditLog.metadata?.before).toEqual(beforeDoc);
-        expect(auditLog.metadata?.after).toEqual(afterDoc);
-        expect(auditLog.metadata?.customData).toEqual({ reason: 'manual_update' });
-      }
+      const auditLog = auditLogs[0]!;
+      expect(auditLog).toBeTruthy();
+      expect(auditLog.action).toBe('custom');
+      expect(auditLog.userId).toBe('user123');
+      expect(auditLog.metadata?.before).toEqual(beforeDoc);
+      expect(auditLog.metadata?.after).toEqual(afterDoc);
+      expect(auditLog.metadata?.customData).toEqual({ reason: 'manual_update' });
     });
 
     it('should create batch audit logs', async () => {
@@ -291,15 +289,12 @@ describe('Manual Control Functionality', () => {
       const audit2 = await auditLogger.getAuditLogs('test_documents', doc2Id);
       
       expect(audit1).toHaveLength(1);
-      expect(audit1[0]).toBeDefined();
-      if (audit1[0]) {
-        expect(audit1[0].action).toBe('create');
-      }
+      expect(audit1[0]).toBeTruthy();
+      expect(audit1[0]!.action).toBe('create');
+      
       expect(audit2).toHaveLength(1);
-      expect(audit2[0]).toBeDefined();
-      if (audit2[0]) {
-        expect(audit2[0].action).toBe('update');
-      }
+      expect(audit2[0]).toBeTruthy();
+      expect(audit2[0]!.action).toBe('update');
     });
 
     it('should respect audit control configuration', async () => {
