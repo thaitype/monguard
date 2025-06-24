@@ -222,24 +222,24 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     userContext?: UserContext<TRefId>,
     metadata?: AuditLogMetadata
   ): Promise<void> {
+    // Process reference ID through config if available
+    let processedRefId = documentId;
+    if (this.refIdConfig?.convertRefId) {
+      processedRefId = this.refIdConfig.convertRefId(documentId);
+    }
+
+    // Validate reference ID if validation is configured
+    if (this.refIdConfig?.validateRefId && !this.refIdConfig.validateRefId(processedRefId)) {
+      const errorMessage = `Invalid reference ID type for audit log. Expected ${this.refIdConfig.typeName || 'valid type'}, got: ${typeof processedRefId}`;
+
+      if (this.strictValidation) {
+        throw new Error(errorMessage);
+      } else {
+        this.logger.warn(errorMessage, processedRefId);
+      }
+    }
+
     try {
-      // Process reference ID through config if available
-      let processedRefId = documentId;
-      if (this.refIdConfig?.convertRefId) {
-        processedRefId = this.refIdConfig.convertRefId(documentId);
-      }
-
-      // Validate reference ID if validation is configured
-      if (this.refIdConfig?.validateRefId && !this.refIdConfig.validateRefId(processedRefId)) {
-        const errorMessage = `Invalid reference ID type for audit log. Expected ${this.refIdConfig.typeName || 'valid type'}, got: ${typeof processedRefId}`;
-
-        if (this.strictValidation) {
-          throw new Error(errorMessage);
-        } else {
-          this.logger.warn(errorMessage, processedRefId);
-        }
-      }
-
       const auditLog: WithoutId<AuditLogDocument<TRefId>> = {
         ref: {
           collection: collectionName,
@@ -255,11 +255,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
       await this.auditCollection.insertOne(auditLog as any);
     } catch (error) {
-      // Only catch database errors, not validation errors
-      if (error instanceof Error && error.message.includes('Invalid reference ID type')) {
-        throw error; // Re-throw validation errors
-      }
-      // Log error but don't throw to avoid breaking the main operation
+      // Log database errors but don't throw to avoid breaking the main operation
       this.logger.error('Failed to create audit log:', error);
     }
   }
