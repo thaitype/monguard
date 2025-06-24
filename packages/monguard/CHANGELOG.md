@@ -1,5 +1,11 @@
 # monguard
 
+## 0.6.0
+
+### Minor Changes
+
+- 6117a89: feat: add public method for manually control user tracking, auto timestamp and audit log
+
 ## 0.5.0
 
 ### Minor Changes
