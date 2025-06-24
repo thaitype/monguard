@@ -1,5 +1,11 @@
 # monguard
 
+## 0.5.0
+
+### Minor Changes
+
+- 9fec48e: feat: make audit log to dedicated class
+
 ## 0.4.2
 
 ### Patch Changes
