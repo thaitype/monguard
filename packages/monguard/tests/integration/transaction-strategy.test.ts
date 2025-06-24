@@ -44,7 +44,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(findResult!.name).toBe(userData.name);
 
       // Verify audit log was created in same transaction
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(1);
       expect(auditLogs[0]!.action).toBe('create');
       expect(auditLogs[0]!.ref.id.toString()).toBe(result!._id.toString());
@@ -67,7 +67,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(findResult!.name).toBe('Updated Name');
 
       // Verify audit logs for both create and update
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(2);
       expect(auditLogs.map(log => log.action).sort()).toEqual(['create', 'update']);
     });
@@ -90,7 +90,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(findWithDeleted!.deletedAt).toBeInstanceOf(Date);
 
       // Verify audit logs for create and delete
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(2);
       expect(auditLogs.map(log => log.action).sort()).toEqual(['create', 'delete']);
     });
@@ -109,7 +109,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(findResult).toBeNull();
 
       // Verify audit logs for create and hard delete
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(2);
       expect(auditLogs.map(log => log.action).sort()).toEqual(['create', 'delete']);
       expect(auditLogs.find(log => log.action === 'delete')!.metadata?.hardDelete).toBe(true);
@@ -132,7 +132,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(findResult!.deletedAt).toBeUndefined();
 
       // Should have 3 audit logs: create, delete, restore (implicit in update)
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs.length).toBeGreaterThanOrEqual(2);
     });
   });
@@ -143,8 +143,8 @@ describe('Transaction Strategy Integration Tests', () => {
       const userContext = TestDataFactory.createUserContext();
 
       // Mock audit collection to fail
-      const originalInsertOne = collection.getAuditCollection().insertOne;
-      vi.spyOn(collection.getAuditCollection(), 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
+      const originalInsertOne = collection.getAuditCollection()!.insertOne;
+      vi.spyOn(collection.getAuditCollection()!, 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
 
       const result = await collection.create(userData, { userContext });
 
@@ -170,11 +170,11 @@ describe('Transaction Strategy Integration Tests', () => {
       }
 
       // Verify no audit logs were created
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(0);
 
       // Restore original method
-      vi.mocked(collection.getAuditCollection().insertOne).mockRestore();
+      vi.mocked(collection.getAuditCollection()!.insertOne).mockRestore();
     });
 
     it('should rollback transaction when main operation fails', async () => {
@@ -193,11 +193,11 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(allDocsResult).toHaveLength(0);
 
       // Verify no audit logs were created (transaction rolled back)
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(0);
 
       // Restore original method
-      vi.mocked(collection.getCollection().insertOne).mockRestore();
+      vi.mocked(collection.getCollection()!.insertOne).mockRestore();
     });
 
     it('should handle session cleanup properly on errors', async () => {
@@ -241,7 +241,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(allDocsResult).toHaveLength(5);
 
       // Verify all audit logs were created
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(5);
       auditLogs.forEach(log => expect(log.action).toBe('create'));
     });
@@ -273,7 +273,7 @@ describe('Transaction Strategy Integration Tests', () => {
       });
 
       // Verify audit logs: 3 creates + 3 updates = 6 total
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(6);
     });
 
@@ -342,7 +342,7 @@ describe('Transaction Strategy Integration Tests', () => {
       expect(findResult).not.toBeNull();
 
       // Verify no audit log was created
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(0);
     });
 
@@ -365,7 +365,7 @@ describe('Transaction Strategy Integration Tests', () => {
 
       const result = await collection.create(userData, { userContext });
 
-      const auditLog = await collection.getAuditCollection().findOne({});
+      const auditLog = await collection.getAuditCollection()!.findOne({});
       expect(auditLog).not.toBeNull();
       expect(auditLog!.action).toBe('create');
       expect(auditLog!.userId!.toString()).toBe(userContext.userId.toString());
@@ -385,7 +385,7 @@ describe('Transaction Strategy Integration Tests', () => {
       await collection.updateById(createResult._id, { $set: { name: 'Updated', age: 25 } }, { userContext });
 
       // Check update audit log
-      const updateAuditLog = await collection.getAuditCollection().findOne({ action: 'update' });
+      const updateAuditLog = await collection.getAuditCollection()!.findOne({ action: 'update' });
       expect(updateAuditLog).not.toBeNull();
       expect(updateAuditLog!.metadata?.before).toBeDefined();
       expect(updateAuditLog!.metadata?.after).toBeDefined();

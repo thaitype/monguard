@@ -10,7 +10,9 @@
       "Bash(find:*)",
       "Bash(sed:*)",
       "Bash(rg:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm run:*)",
+      "Bash(npm run check-types:*)"
     ],
     "deny": []
   }

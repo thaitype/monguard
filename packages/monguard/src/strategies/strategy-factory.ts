@@ -2,7 +2,7 @@
  * @fileoverview Factory class for creating appropriate operation strategies based on configuration.
  */
 
-import { BaseDocument, MonguardConcurrencyConfig } from '../types';
+import { BaseDocument, MonguardConcurrencyConfig, DefaultReferenceId } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import { TransactionStrategy } from './transaction-strategy';
 import { OptimisticLockingStrategy } from './optimistic-locking-strategy';
@@ -16,6 +16,7 @@ export class StrategyFactory {
    * Creates an operation strategy based on the configuration.
    *
    * @template T - The document type extending BaseDocument
+   * @template TRefId - The type used for document reference IDs in audit logs
    * @param context - The operation strategy context containing configuration and resources
    * @returns TransactionStrategy if transactions are enabled, OptimisticLockingStrategy otherwise
    *
@@ -34,11 +35,11 @@ export class StrategyFactory {
    * });
    * ```
    */
-  static create<T extends BaseDocument>(context: OperationStrategyContext<T>): OperationStrategy<T> {
+  static create<T extends BaseDocument, TRefId = DefaultReferenceId>(context: OperationStrategyContext<T, TRefId>): OperationStrategy<T, TRefId> {
     if (context.config.transactionsEnabled) {
-      return new TransactionStrategy(context);
+      return new TransactionStrategy<T, TRefId>(context);
     } else {
-      return new OptimisticLockingStrategy(context);
+      return new OptimisticLockingStrategy<T, TRefId>(context);
     }
   }
 

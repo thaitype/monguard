@@ -58,8 +58,8 @@ describe('Strategy Comparison Tests', () => {
       TestAssertions.expectUserTracking(optimisticResult, userContext.userId as any);
 
       // Both should create audit logs
-      const transactionAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
-      const optimisticAuditLogs = await optimisticCollection.getAuditCollection().find({}).toArray();
+      const transactionAuditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
+      const optimisticAuditLogs = await optimisticCollection.getAuditCollection()!.find({}).toArray();
 
       expect(transactionAuditLogs).toHaveLength(1);
       expect(optimisticAuditLogs).toHaveLength(1);
@@ -102,8 +102,8 @@ describe('Strategy Comparison Tests', () => {
       expect(optimisticDoc!.age).toBe(30);
 
       // Both should have create + update audit logs
-      const transactionAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
-      const optimisticAuditLogs = await optimisticCollection.getAuditCollection().find({}).toArray();
+      const transactionAuditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
+      const optimisticAuditLogs = await optimisticCollection.getAuditCollection()!.find({}).toArray();
 
       expect(transactionAuditLogs).toHaveLength(2);
       expect(optimisticAuditLogs).toHaveLength(2);
@@ -328,11 +328,11 @@ describe('Strategy Comparison Tests', () => {
 
       // Mock audit failures for both strategies
       const transactionAuditSpy = vi
-        .spyOn(transactionCollection.getAuditCollection(), 'insertOne')
+        .spyOn(transactionCollection.getAuditCollection()!, 'insertOne')
         .mockRejectedValue(new Error('Transaction audit failed'));
 
       const optimisticAuditSpy = vi
-        .spyOn(optimisticCollection.getAuditCollection(), 'insertOne')
+        .spyOn(optimisticCollection.getAuditCollection()!, 'insertOne')
         .mockRejectedValue(new Error('Optimistic audit failed'));
 
       const transactionResult = await transactionCollection.create(userData, { userContext });

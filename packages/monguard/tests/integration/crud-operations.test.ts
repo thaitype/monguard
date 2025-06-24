@@ -461,7 +461,7 @@ describe('CRUD Operations Integration Tests', () => {
       const result = await transactionCollection.create(userData, { userContext });
 
       // Verify audit log was created
-      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      const auditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(1);
       expect(auditLogs[0]!.action).toBe('create');
       expect(auditLogs[0]!.ref.id.toString()).toBe(result._id.toString());
@@ -469,7 +469,7 @@ describe('CRUD Operations Integration Tests', () => {
       // Update and check audit consistency
       await transactionCollection.updateById(result._id, { $set: { name: 'Updated' } }, { userContext });
 
-      const updatedAuditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      const updatedAuditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
       expect(updatedAuditLogs).toHaveLength(2);
       expect(updatedAuditLogs.map(log => log.action).sort()).toEqual(['create', 'update']);
     });

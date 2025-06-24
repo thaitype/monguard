@@ -3,8 +3,9 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, HardOrSoftDeleteResult } from '../types';
+import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, HardOrSoftDeleteResult, DefaultReferenceId, UserContext } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
+import type { AuditLogMetadata } from '../audit-logger';
 
 /**
  * OptimisticLockingStrategy uses version numbers to detect and handle concurrent modifications.
@@ -12,14 +13,15 @@ import { OperationStrategy, OperationStrategyContext } from './operation-strateg
  * by checking document versions before applying updates.
  *
  * @template T - The document type extending BaseDocument
+ * @template TRefId - The type used for document reference IDs in audit logs
  */
-export class OptimisticLockingStrategy<T extends BaseDocument> implements OperationStrategy<T> {
+export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultReferenceId> implements OperationStrategy<T, TRefId> {
   /**
    * Creates a new OptimisticLockingStrategy instance.
    *
    * @param context - The operation strategy context providing shared resources
    */
-  constructor(private context: OperationStrategyContext<T>) {}
+  constructor(private context: OperationStrategyContext<T, TRefId>) {}
 
   /**
    * Gets the default number of retry attempts for version conflicts.
@@ -99,7 +101,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to the created document
    * @throws Error if the operation fails
    */
-  async create(document: any, options: CreateOptions = {}): Promise<T & { _id: ObjectId }> {
+  async create(document: any, options: CreateOptions<TRefId> = {}): Promise<T & { _id: ObjectId }> {
     // Add version field and timestamps for new documents
     const versionedDoc = {
       ...document,
@@ -112,9 +114,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
     const createdDoc = { ...timestampedDoc, _id: result.insertedId } as T & { _id: ObjectId };
 
     // Create audit log after successful creation
-    if (!options.skipAudit && !this.context.disableAudit) {
+    if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
       try {
-        await this.context.createAuditLog('create', result.insertedId, options.userContext, { after: createdDoc });
+        const metadata: AuditLogMetadata = { after: createdDoc };
+        await this.context.auditLogger.logOperation('create', this.context.collectionName, result.insertedId as TRefId, options.userContext, metadata);
       } catch (auditError) {
         // Log audit error but don't fail the operation
         console.error('Failed to create audit log for create operation:', auditError);
@@ -134,7 +137,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
     const result = await this.retryWithBackoff(async () => {
       // Get current document with version
       const beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter));
@@ -193,16 +196,17 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
       }
 
       // Create audit log after successful update
-      if (!options.skipAudit && !this.context.disableAudit && updateResult.modifiedCount > 0) {
+      if (!options.skipAudit && this.context.auditLogger.isEnabled() && updateResult.modifiedCount > 0) {
         try {
           const afterDoc = await this.context.collection.findOne({ _id: beforeDoc._id });
           if (afterDoc) {
             const changes = this.context.getChangedFields(beforeDoc, afterDoc);
-            await this.context.createAuditLog('update', beforeDoc._id, options.userContext, {
+            const metadata: AuditLogMetadata = {
               before: beforeDoc,
               after: afterDoc,
               changes,
-            });
+            };
+            await this.context.auditLogger.logOperation('update', this.context.collectionName, beforeDoc._id, options.userContext, metadata);
           }
         } catch (auditError) {
           console.error('Failed to create audit log for update operation:', auditError);
@@ -224,7 +228,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
@@ -239,24 +243,25 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    */
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
-    options: DeleteOptions<THardDelete> = {}
+    options: DeleteOptions<THardDelete, TRefId> = {}
   ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     const result = await this.retryWithBackoff(async () => {
       if (options.hardDelete) {
         // Get documents to delete for audit logging
         const docsToDelete =
-          !options.skipAudit && !this.context.disableAudit ? await this.context.collection.find(filter).toArray() : [];
+          !options.skipAudit && this.context.auditLogger.isEnabled() ? await this.context.collection.find(filter).toArray() : [];
 
         const deleteResult = await this.context.collection.deleteMany(filter);
 
         // Create audit logs after successful deletion
-        if (!options.skipAudit && !this.context.disableAudit && deleteResult.deletedCount > 0) {
+        if (!options.skipAudit && this.context.auditLogger.isEnabled() && deleteResult.deletedCount > 0) {
           try {
             for (const doc of docsToDelete) {
-              await this.context.createAuditLog('delete', doc._id, options.userContext, {
+              const metadata: AuditLogMetadata = {
                 hardDelete: true,
                 before: doc,
-              });
+              };
+              await this.context.auditLogger.logOperation('delete', this.context.collectionName, doc._id, options.userContext, metadata);
             }
           } catch (auditError) {
             console.error('Failed to create audit log for hard delete operation:', auditError);
@@ -303,12 +308,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
             totalModified += updateResult.modifiedCount;
 
             // Create audit log after successful soft delete
-            if (!options.skipAudit && !this.context.disableAudit) {
+            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
               try {
-                await this.context.createAuditLog('delete', beforeDoc._id, options.userContext, {
+                const metadata: AuditLogMetadata = {
                   softDelete: true,
                   before: beforeDoc,
-                });
+                };
+                await this.context.auditLogger.logOperation('delete', this.context.collectionName, beforeDoc._id, options.userContext, metadata);
               } catch (auditError) {
                 console.error('Failed to create audit log for soft delete operation:', auditError);
               }
@@ -339,7 +345,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    */
   async deleteById<THardDelete extends boolean = false>(
     id: ObjectId,
-    options: DeleteOptions<THardDelete> = {}
+    options: DeleteOptions<THardDelete, TRefId> = {}
   ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
@@ -353,7 +359,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async restore(filter: Filter<T>, userContext?: any): Promise<UpdateResult> {
+  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<UpdateResult> {
     const result = await this.retryWithBackoff(async () => {
       // Find deleted documents to restore
       const deletedDocs = await this.context.collection
@@ -380,7 +386,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
             ...(userContext && { updatedBy: userContext.userId }),
           },
           $inc: { version: 1 },
-        };
+        } as unknown as UpdateFilter<T>;
 
         const versionedFilter = {
           _id: doc._id,
@@ -390,7 +396,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument> implements Operat
 
         const updateResult = await this.context.collection.updateOne(
           versionedFilter as Filter<T>,
-          restoreUpdate as UpdateFilter<T>
+          restoreUpdate
         );
 
         if (updateResult.modifiedCount === 0) {
