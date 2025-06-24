@@ -42,7 +42,6 @@ Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging,
 ## Table of Contents
 
 - [Installation](#installation)
-- [Migration Guide](#migration-guide)
 - [Quick Start](#quick-start)
 - [Core Features](#core-features)
 - [Configuration](#configuration)
