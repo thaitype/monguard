@@ -56,7 +56,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           result = { ...timestampedDoc, _id: insertResult.insertedId } as T & { _id: ObjectId };
 
           // Create audit log within the same transaction
-          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+          if (this.context.shouldAudit(options.skipAudit)) {
             const metadata: AuditLogMetadata = {
               after: result,
             };
@@ -78,7 +78,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           result = { ...timestampedDoc, _id: insertResult.insertedId } as T & { _id: ObjectId };
 
           // Create audit log separately (non-transactional)
-          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+          if (this.context.shouldAudit(options.skipAudit)) {
             const metadata: AuditLogMetadata = {
               after: result,
             };
@@ -125,7 +125,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           let beforeDoc: T | null = null;
 
           // Get before state if auditing
-          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+          if (this.context.shouldAudit(options.skipAudit)) {
             beforeDoc = await this.context.collection.findOne(filter, { session });
           }
 
@@ -177,7 +177,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           let beforeDoc: T | null = null;
 
           // Get before state if auditing
-          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+          if (this.context.shouldAudit(options.skipAudit)) {
             beforeDoc = await this.context.collection.findOne(filter);
           }
 
@@ -269,14 +269,14 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           if (options.hardDelete) {
             // Get documents to delete for audit logging
             const docsToDelete =
-              !options.skipAudit && this.context.auditLogger.isEnabled()
+              this.context.shouldAudit(options.skipAudit)
                 ? await this.context.collection.find(filter, { session }).toArray()
                 : [];
 
             result = await this.context.collection.deleteMany(filter, { session });
 
             // Create audit logs for deleted documents
-            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            if (this.context.shouldAudit(options.skipAudit)) {
               for (const doc of docsToDelete) {
                 const metadata: AuditLogMetadata = {
                   hardDelete: true,
@@ -294,7 +294,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           } else {
             // Soft delete
             let beforeDoc: T | null = null;
-            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            if (this.context.shouldAudit(options.skipAudit)) {
               beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter), {
                 session,
               });
@@ -341,14 +341,14 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           if (options.hardDelete) {
             // Get documents to delete for audit logging
             const docsToDelete =
-              !options.skipAudit && this.context.auditLogger.isEnabled()
+              this.context.shouldAudit(options.skipAudit)
                 ? await this.context.collection.find(filter).toArray()
                 : [];
 
             result = await this.context.collection.deleteMany(filter);
 
             // Create audit logs for deleted documents (non-transactional)
-            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            if (this.context.shouldAudit(options.skipAudit)) {
               for (const doc of docsToDelete) {
                 const metadata: AuditLogMetadata = {
                   hardDelete: true,
@@ -366,7 +366,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
           } else {
             // Soft delete
             let beforeDoc: T | null = null;
-            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            if (this.context.shouldAudit(options.skipAudit)) {
               beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter));
             }
 
