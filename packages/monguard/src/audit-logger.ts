@@ -255,6 +255,10 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
       await this.auditCollection.insertOne(auditLog as any);
     } catch (error) {
+      // Only catch database errors, not validation errors
+      if (error instanceof Error && error.message.includes('Invalid reference ID type')) {
+        throw error; // Re-throw validation errors
+      }
       // Log error but don't throw to avoid breaking the main operation
       this.logger.error('Failed to create audit log:', error);
     }
@@ -282,7 +286,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
       return auditLogs as AuditLogDocument<TRefId>[];
     } catch (error) {
-      console.error('Failed to retrieve audit logs:', error);
+      this.logger.error('Failed to retrieve audit logs:', error);
       return [];
     }
   }
@@ -314,14 +318,23 @@ export class NoOpAuditLogger extends AuditLogger<any> {
   /**
    * No-op implementation that does nothing.
    */
-  async logOperation(): Promise<void> {
+  async logOperation(
+    action: AuditAction,
+    collectionName: string,
+    documentId: any,
+    userContext?: UserContext<any>,
+    metadata?: AuditLogMetadata
+  ): Promise<void> {
     // Intentionally empty - no audit logging performed
   }
 
   /**
    * Returns empty array since no audit logs are stored.
    */
-  async getAuditLogs(): Promise<AuditLogDocument<any>[]> {
+  async getAuditLogs(
+    collectionName: string,
+    documentId: any
+  ): Promise<AuditLogDocument<any>[]> {
     return [];
   }
 
