@@ -2,7 +2,7 @@
  * @fileoverview Audit logging interfaces and implementations for tracking document changes.
  */
 
-import type { Collection, WithoutId, Db } from './mongodb-types';
+import type { Collection, WithoutId, Db, ObjectId } from './mongodb-types';
 import type { AuditLogDocument, AuditAction, UserContext } from './types';
 
 /**
@@ -53,7 +53,7 @@ export const RefIdConfigs = {
    * Configuration for ObjectId reference IDs with validation-only approach.
    * Does not perform conversion - users must handle conversion themselves.
    */
-  objectId: (): RefIdConfig<any> => ({
+  objectId: (): RefIdConfig<ObjectId> => ({
     validateRefId: (refId: any): refId is any => {
       // Validate ObjectId without importing mongodb driver
       // Check for ObjectId-like structure: 12-byte hex string or object with toHexString method
