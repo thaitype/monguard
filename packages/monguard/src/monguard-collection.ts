@@ -28,23 +28,33 @@ import type {
   CreateDocument,
   MonguardConcurrencyConfig,
   HardOrSoftDeleteResult,
+  DefaultReferenceId,
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
+import { AuditLogger, NoOpAuditLogger, MonguardAuditLogger } from './audit-logger';
 
 /**
  * Configuration options for MonguardCollection initialization.
+ * @template TRefId - The type used for document reference IDs in audit logs
  */
-export interface MonguardCollectionOptions {
+export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
+  /**
+   * Audit logger instance for tracking document changes.
+   * If not provided, audit logging will be disabled (uses NoOpAuditLogger).
+   */
+  auditLogger?: AuditLogger<TRefId>;
   /**
    * Audit collection name.
    * If not provided, defaults to 'audit_logs'.
+   * @deprecated Use auditLogger instead
    */
   auditCollectionName?: string;
   /**
    * Globally disable audit logging for this collection.
    * When true, no audit logs will be created regardless of skipAudit options.
    * If not provided, defaults to false.
+   * @deprecated Use auditLogger instead
    */
   disableAudit?: boolean;
   /**
@@ -67,6 +77,7 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
  * audit logging, soft delete functionality, and concurrency control.
  *
  * @template T - The document type that extends BaseDocument
+ * @template TRefId - The type used for document reference IDs in audit logs
  *
  * @example
  * ```typescript
@@ -75,19 +86,28 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
  *   email: string;
  * }
  *
+ * // With audit logging disabled (default)
  * const users = new MonguardCollection<User>(db, 'users', {
  *   concurrency: { transactionsEnabled: true }
+ * });
+ *
+ * // With audit logging enabled
+ * const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
+ * const usersWithAudit = new MonguardCollection<User>(db, 'users', {
+ *   concurrency: { transactionsEnabled: true },
+ *   auditLogger
  * });
  *
  * const result = await users.create({ name: 'John', email: 'john@example.com' });
  * ```
  */
-export class MonguardCollection<T extends BaseDocument> {
+export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenceId> {
   private collection: Collection<T>;
-  private auditCollection: Collection<AuditLogDocument>;
+  private auditCollection?: Collection<AuditLogDocument>;
   private collectionName: string;
-  private options: MonguardCollectionOptions;
-  private strategy: OperationStrategy<T>;
+  private options: MonguardCollectionOptions<TRefId>;
+  private strategy: OperationStrategy<T, TRefId>;
+  private auditLogger: AuditLogger<TRefId>;
 
   /**
    * Creates a new MonguardCollection instance.
@@ -97,7 +117,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * @param options - Configuration options for the collection
    * @throws {Error} When concurrency configuration is missing or invalid
    */
-  constructor(db: Db, collectionName: string, options: MonguardCollectionOptions) {
+  constructor(db: Db, collectionName: string, options: MonguardCollectionOptions<TRefId>) {
     // Validate that config is provided
     if (!options.concurrency) {
       throw new Error(
@@ -109,21 +129,28 @@ export class MonguardCollection<T extends BaseDocument> {
     // Validate configuration
     StrategyFactory.validateConfig(options.concurrency);
 
-    this.options = merge({}, defaultOptions, options) as MonguardCollectionOptions;
+    this.options = merge({}, defaultOptions, options) as MonguardCollectionOptions<TRefId>;
     this.collection = db.collection<T>(collectionName) as Collection<T>;
-    this.auditCollection = db.collection<AuditLogDocument>(
-      this.options.auditCollectionName!
-    ) as Collection<AuditLogDocument>; // Set by default value
     this.collectionName = collectionName;
 
+    // Initialize audit logger - prefer new auditLogger option, fallback to legacy options
+    if (options.auditLogger) {
+      this.auditLogger = options.auditLogger;
+    } else if (options.disableAudit) {
+      this.auditLogger = new NoOpAuditLogger();
+    } else {
+      // Legacy compatibility: create MonguardAuditLogger with specified collection name
+      const auditCollectionName = options.auditCollectionName || 'audit_logs';
+      this.auditLogger = new MonguardAuditLogger<TRefId>(db, auditCollectionName);
+      this.auditCollection = this.auditLogger.getAuditCollection() as Collection<AuditLogDocument>;
+    }
+
     // Create strategy context
-    const strategyContext: OperationStrategyContext<T> = {
+    const strategyContext: OperationStrategyContext<T, TRefId> = {
       collection: this.collection,
-      auditCollection: this.auditCollection,
+      auditLogger: this.auditLogger,
       collectionName: this.collectionName,
       config: this.options.concurrency,
-      disableAudit: this.options.disableAudit || false,
-      createAuditLog: this.createAuditLog.bind(this),
       addTimestamps: this.addTimestamps.bind(this),
       mergeSoftDeleteFilter: this.mergeSoftDeleteFilter.bind(this),
       getChangedFields: this.getChangedFields.bind(this),
@@ -131,46 +158,6 @@ export class MonguardCollection<T extends BaseDocument> {
 
     // Create strategy based on configuration
     this.strategy = StrategyFactory.create(strategyContext);
-  }
-
-  /**
-   * Creates an audit log entry for a document operation.
-   *
-   * @private
-   * @param action - The type of action performed (create, update, delete)
-   * @param documentId - ID of the document that was modified
-   * @param userContext - Optional user context for the operation
-   * @param metadata - Additional metadata about the operation
-   */
-  private async createAuditLog(
-    action: AuditAction,
-    documentId: ObjectId,
-    userContext?: UserContext,
-    metadata?: Record<string, any>
-  ): Promise<void> {
-    // Return early if audit logging is globally disabled
-    if (this.options.disableAudit) {
-      return;
-    }
-
-    try {
-      const auditLog: WithoutId<AuditLogDocument> = {
-        ref: {
-          collection: this.collectionName,
-          id: documentId,
-        },
-        action,
-        userId: userContext?.userId,
-        timestamp: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metadata,
-      };
-
-      await this.auditCollection.insertOne(auditLog as any);
-    } catch (error) {
-      console.error('Failed to create audit log:', error);
-    }
   }
 
   /**
@@ -186,7 +173,7 @@ export class MonguardCollection<T extends BaseDocument> {
   private addTimestamps<D extends Record<string, any>>(
     document: D,
     isUpdate: boolean = false,
-    userContext?: UserContext
+    userContext?: UserContext<TRefId>
   ): D {
     const now = new Date();
     const timestamped = { ...document };
@@ -246,7 +233,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async create(document: CreateDocument<T>, options: CreateOptions = {}): Promise<T & { _id: ObjectId }> {
+  async create(document: CreateDocument<T>, options: CreateOptions<TRefId> = {}): Promise<T & { _id: ObjectId }> {
     return this.strategy.create(document, options);
   }
 
@@ -352,7 +339,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
     return this.strategy.update(filter, update, options);
   }
 
@@ -374,7 +361,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
     return this.strategy.updateById(id, update, options);
   }
 
@@ -403,7 +390,7 @@ export class MonguardCollection<T extends BaseDocument> {
    */
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
-    options: DeleteOptions<THardDelete> = {}
+    options: DeleteOptions<THardDelete, TRefId> = {}
   ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.delete(filter, options);
   }
@@ -426,7 +413,7 @@ export class MonguardCollection<T extends BaseDocument> {
    */
   async deleteById<THardDelete extends boolean = false>(
     id: ObjectId,
-    options: DeleteOptions<THardDelete> = {}
+    options: DeleteOptions<THardDelete, TRefId> = {}
   ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.deleteById(id, options);
   }
@@ -447,7 +434,7 @@ export class MonguardCollection<T extends BaseDocument> {
    * );
    * ```
    */
-  async restore(filter: Filter<T>, userContext?: UserContext): Promise<UpdateResult> {
+  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<UpdateResult> {
     return this.strategy.restore(filter, userContext);
   }
 
@@ -514,9 +501,18 @@ export class MonguardCollection<T extends BaseDocument> {
   /**
    * Gets the audit log collection instance.
    *
-   * @returns The MongoDB collection instance for audit logs
+   * @returns The MongoDB collection instance for audit logs, or null if audit logging is disabled
    */
-  getAuditCollection(): Collection<AuditLogDocument> {
-    return this.auditCollection;
+  getAuditCollection(): Collection<AuditLogDocument<TRefId>> | null {
+    return this.auditLogger.getAuditCollection();
+  }
+
+  /**
+   * Gets the audit logger instance used by this collection.
+   *
+   * @returns The audit logger instance
+   */
+  getAuditLogger(): AuditLogger<TRefId> {
+    return this.auditLogger;
   }
 }

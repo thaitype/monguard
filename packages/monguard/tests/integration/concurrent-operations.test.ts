@@ -46,7 +46,7 @@ describe('Concurrent Operations Integration Tests', () => {
       expect(allUsers).toHaveLength(10);
 
       // Verify all audit logs were created
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(10);
     });
 
@@ -61,7 +61,7 @@ describe('Concurrent Operations Integration Tests', () => {
       // All operations should succeed
 
       // Verify each document has correct user tracking
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(5);
 
       // Verify all expected user IDs are present in audit logs
@@ -113,7 +113,7 @@ describe('Concurrent Operations Integration Tests', () => {
       });
 
       // Verify all audit logs were created
-      const updateAuditLogs = await collection.getAuditCollection().find({ action: 'update' }).toArray();
+      const updateAuditLogs = await collection.getAuditCollection()!.find({ action: 'update' }).toArray();
       expect(updateAuditLogs).toHaveLength(5);
     });
 
@@ -140,7 +140,7 @@ describe('Concurrent Operations Integration Tests', () => {
 
       // Verify audit logs match successful operations
       const auditLogs = await collection
-        .getAuditCollection()
+        .getAuditCollection()!
         .find({
           action: 'update',
           'ref.id': targetUser!._id,
@@ -226,7 +226,7 @@ describe('Concurrent Operations Integration Tests', () => {
       expect(remainingUsers).toHaveLength(0);
 
       // Verify audit logs were created
-      const deleteAuditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
+      const deleteAuditLogs = await collection.getAuditCollection()!.find({ action: 'delete' }).toArray();
       expect(deleteAuditLogs).toHaveLength(5);
     });
 
@@ -249,7 +249,7 @@ describe('Concurrent Operations Integration Tests', () => {
 
       // Only one audit log should be created
       const auditLogs = await collection
-        .getAuditCollection()
+        .getAuditCollection()!
         .find({
           action: 'delete',
           'ref.id': targetUser!._id,
@@ -347,7 +347,7 @@ describe('Concurrent Operations Integration Tests', () => {
       const successfulOps = results;
 
       // Verify audit logs match successful operations
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
 
       // Should have audit logs for at least the 5 initial creates
       // Note: Some concurrent operations may fail due to version conflicts
@@ -447,7 +447,7 @@ describe('Concurrent Operations Integration Tests', () => {
       expect(duration).toBeLessThan(10000); // Should complete within 10 seconds
 
       // Verify all operations were logged
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(concurrentOps);
 
       console.log(`Completed ${concurrentOps} concurrent operations in ${duration}ms`);
@@ -484,7 +484,7 @@ describe('Concurrent Operations Integration Tests', () => {
       expect(allDocs).toHaveLength(10);
 
       // Verify all audit logs were created atomically
-      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      const auditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(10);
       auditLogs.forEach(log => expect(log.action).toBe('create'));
 
@@ -520,7 +520,7 @@ describe('Concurrent Operations Integration Tests', () => {
       });
 
       // Verify audit logs: 5 creates + 5 updates = 10 total
-      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      const auditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(10);
       const actions = auditLogs.map(log => log.action).sort();
       expect(actions.filter(action => action === 'create')).toHaveLength(5);
@@ -536,17 +536,17 @@ describe('Concurrent Operations Integration Tests', () => {
 
       // Mock one audit operation to fail
       let failureCount = 0;
-      const originalInsertOne = transactionCollection.getAuditCollection().insertOne;
+      const originalInsertOne = transactionCollection.getAuditCollection()!.insertOne;
       const mockInsertOne = vi.fn().mockImplementation(async (...args) => {
         failureCount++;
         if (failureCount === 2) {
           // Fail the second audit log
           throw new Error('Simulated audit failure');
         }
-        return originalInsertOne.apply(transactionCollection.getAuditCollection(), args as any);
+        return originalInsertOne.apply(transactionCollection.getAuditCollection()!, args as any);
       });
 
-      vi.spyOn(transactionCollection.getAuditCollection(), 'insertOne').mockImplementation(mockInsertOne);
+      vi.spyOn(transactionCollection.getAuditCollection()!, 'insertOne').mockImplementation(mockInsertOne);
 
       // Concurrent operations, one should fail due to audit failure
       const operations = [
@@ -566,7 +566,7 @@ describe('Concurrent Operations Integration Tests', () => {
       // In true transaction mode, we'd expect failures > 0
 
       // Verify audit log consistency
-      const auditLogs = await transactionCollection.getAuditCollection().find({}).toArray();
+      const auditLogs = await transactionCollection.getAuditCollection()!.find({}).toArray();
       // In fallback mode: might have 1 create + some successful updates despite audit mock failure
       // In true transaction mode: would have 1 create + successful updates only
       // At minimum should have the initial create operation

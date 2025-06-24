@@ -36,7 +36,7 @@ describe('Audit Logging Integration Tests', () => {
 
       const doc = await collection.create(userData, { userContext });
 
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
@@ -57,7 +57,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.updateById(createdDoc._id, { $set: { name: 'Updated Name', age: 35 } }, { userContext });
 
-      const auditLogs = await collection.getAuditCollection().find({ action: 'update' }).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({ action: 'update' }).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
@@ -79,7 +79,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.deleteById(createdDoc._id, { userContext });
 
-      const auditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({ action: 'delete' }).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
@@ -99,7 +99,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.deleteById(createdDoc._id, { userContext, hardDelete: true });
 
-      const auditLogs = await collection.getAuditCollection().find({ action: 'delete' }).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({ action: 'delete' }).toArray();
       expect(auditLogs).toHaveLength(1);
 
       const auditLog = auditLogs[0];
@@ -116,7 +116,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.create(userData, { skipAudit: true });
 
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(0);
     });
 
@@ -136,14 +136,17 @@ describe('Audit Logging Integration Tests', () => {
 
       await disabledCollection.deleteById(createdDoc._id, { userContext });
 
-      const auditLogs = await disabledCollection.getAuditCollection().find({}).toArray();
-      expect(auditLogs).toHaveLength(0);
+      // When audit is disabled, getAuditCollection() should return null
+      expect(disabledCollection.getAuditCollection()).toBeNull();
+
+      // Verify that the audit logger is disabled
+      expect(disabledCollection.getAuditLogger().isEnabled()).toBe(false);
     });
 
     it('should handle audit log creation failure gracefully', async () => {
       // Mock the audit collection to throw an error
-      const originalInsertOne = collection.getAuditCollection().insertOne;
-      vi.spyOn(collection.getAuditCollection(), 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
+      const originalInsertOne = collection.getAuditCollection()!.insertOne;
+      vi.spyOn(collection.getAuditCollection()!, 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
 
       const userData = TestDataFactory.createUser();
 
@@ -151,7 +154,7 @@ describe('Audit Logging Integration Tests', () => {
       await collection.create(userData);
 
       // Restore original method
-      collection.getAuditCollection().insertOne = originalInsertOne;
+      (collection.getAuditCollection()! as any).insertOne = originalInsertOne;
     });
   });
 
@@ -162,7 +165,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.create(userData, { userContext });
 
-      const auditLog = await collection.getAuditCollection().findOne({});
+      const auditLog = await collection.getAuditCollection()!.findOne({});
       expect(auditLog).not.toBeNull();
       expect(auditLog!.userId).toBe('507f1f77bcf86cd799439011');
     });
@@ -174,7 +177,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.create(userData, { userContext });
 
-      const auditLog = await collection.getAuditCollection().findOne({});
+      const auditLog = await collection.getAuditCollection()!.findOne({});
       expect(auditLog).not.toBeNull();
       expect(auditLog!.userId).toEqual(userId);
     });
@@ -190,7 +193,7 @@ describe('Audit Logging Integration Tests', () => {
 
       await collection.updateById(createdDoc._id, { $set: { name: 'Jane Doe', age: 31 } });
 
-      const auditLog = await collection.getAuditCollection().findOne({ action: 'update' });
+      const auditLog = await collection.getAuditCollection()!.findOne({ action: 'update' });
       expect(auditLog).not.toBeNull();
 
       // Check before state
@@ -220,7 +223,7 @@ describe('Audit Logging Integration Tests', () => {
         $set: { 'profile.preferences.theme': 'dark' },
       });
 
-      const auditLog = await collection.getAuditCollection().findOne({ action: 'update' });
+      const auditLog = await collection.getAuditCollection()!.findOne({ action: 'update' });
       expect(auditLog).not.toBeNull();
 
       expect(auditLog!.metadata?.before.profile.preferences.theme).toBe('light');
@@ -250,7 +253,7 @@ describe('Audit Logging Integration Tests', () => {
       await collection.deleteById(createdDoc._id, { userContext, hardDelete: true });
 
       const auditLogs = await collection
-        .getAuditCollection()
+        .getAuditCollection()!
         .find({ 'ref.id': createdDoc._id })
         .sort({ timestamp: 1 })
         .toArray();
@@ -282,7 +285,7 @@ describe('Audit Logging Integration Tests', () => {
       await Promise.all(updatePromises);
 
       // Verify all audit logs were created correctly
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(10); // 5 creates + 5 updates
 
       const createLogs = auditLogs.filter(log => log.action === 'create');
@@ -312,7 +315,7 @@ describe('Audit Logging Integration Tests', () => {
       // Bulk delete (soft delete)
       await collection.delete({ name: { $regex: /^User / } }, { userContext });
 
-      const auditLogs = await collection.getAuditCollection().find({}).sort({ timestamp: 1 }).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).sort({ timestamp: 1 }).toArray();
       expect(auditLogs).toHaveLength(6); // 3 creates + 3 deletes
 
       const deleteLogs = auditLogs.filter(log => log.action === 'delete');
@@ -381,13 +384,13 @@ describe('Audit Logging Integration Tests', () => {
       expect(result.modifiedCount).toBe(0);
 
       // No audit log should be created since no document was modified
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(0);
     });
 
     it('should handle corrupted audit collection gracefully', async () => {
       // Insert invalid audit log document
-      await collection.getAuditCollection().insertOne({
+      await collection.getAuditCollection()!.insertOne({
         invalid: 'document',
       } as any);
 
@@ -397,7 +400,7 @@ describe('Audit Logging Integration Tests', () => {
       await collection.create(userData);
 
       const validAuditLogs = await collection
-        .getAuditCollection()
+        .getAuditCollection()!
         .find({
           action: { $exists: true },
         })

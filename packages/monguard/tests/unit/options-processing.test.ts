@@ -29,7 +29,7 @@ describe('Options Processing and Edge Cases', () => {
         concurrency: { transactionsEnabled: false },
       });
 
-      expect(collection.getAuditCollection().collectionName).toBe('audit_logs');
+      expect(collection.getAuditCollection()!.collectionName).toBe('audit_logs');
     });
 
     it('should use custom audit collection name', () => {
@@ -38,7 +38,7 @@ describe('Options Processing and Edge Cases', () => {
         concurrency: { transactionsEnabled: false },
       });
 
-      expect(collection.getAuditCollection().collectionName).toBe('custom_audit');
+      expect(collection.getAuditCollection()!.collectionName).toBe('custom_audit');
     });
 
     it('should handle disableAudit option', () => {
@@ -59,7 +59,7 @@ describe('Options Processing and Edge Cases', () => {
         // disableAudit should default to false
       });
 
-      expect(collection.getAuditCollection().collectionName).toBe('my_audit');
+      expect(collection.getAuditCollection()!.collectionName).toBe('my_audit');
     });
 
     it('should require config in options', () => {
@@ -135,7 +135,7 @@ describe('Options Processing and Edge Cases', () => {
         expect(result._id).toBeDefined();
 
         // Verify no audit log was created
-        const auditLogs = await collection.getAuditCollection().find({}).toArray();
+        const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
         expect(auditLogs).toHaveLength(0);
       });
 
@@ -177,7 +177,7 @@ describe('Options Processing and Edge Cases', () => {
         await collection.updateById(createdDoc._id, { $set: { name: 'Updated' } }, { skipAudit: true, userContext });
 
         // Verify only create audit log exists (not update)
-        const auditLogs = await collection.getAuditCollection().find({}).toArray();
+        const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
         expect(auditLogs).toHaveLength(1);
         expect(auditLogs[0]!.action).toBe('create');
       });
@@ -203,7 +203,7 @@ describe('Options Processing and Edge Cases', () => {
         });
 
         // Verify only create audit log exists (not delete)
-        const auditLogs = await collection.getAuditCollection().find({}).toArray();
+        const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
         expect(auditLogs).toHaveLength(1);
         expect(auditLogs[0]!.action).toBe('create');
       });
@@ -263,9 +263,11 @@ describe('Options Processing and Edge Cases', () => {
       await collection.updateById(createdDoc._id, { $set: { name: 'Updated' } }, { userContext });
       await collection.deleteById(createdDoc._id, { userContext });
 
-      // Verify no audit logs were created
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
-      expect(auditLogs).toHaveLength(0);
+      // When audit is disabled, getAuditCollection() should return null
+      expect(collection.getAuditCollection()).toBeNull();
+
+      // Verify that the audit logger is disabled
+      expect(collection.getAuditLogger().isEnabled()).toBe(false);
     });
 
     it('should ignore skipAudit when globally disabled', async () => {
@@ -280,9 +282,11 @@ describe('Options Processing and Edge Cases', () => {
       // skipAudit: false should be ignored due to global disable
       await collection.create(userData, { skipAudit: false });
 
-      // Verify no audit logs were created despite skipAudit: false
-      const auditLogs = await collection.getAuditCollection().find({}).toArray();
-      expect(auditLogs).toHaveLength(0);
+      // When audit is disabled, getAuditCollection() should return null
+      expect(collection.getAuditCollection()).toBeNull();
+
+      // Verify that the audit logger is disabled (skipAudit is ignored)
+      expect(collection.getAuditLogger().isEnabled()).toBe(false);
     });
   });
 

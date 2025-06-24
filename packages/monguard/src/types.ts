@@ -32,11 +32,17 @@ export interface MonguardConcurrencyConfig {
 export type ReferenceId = any;
 
 /**
+ * Default reference ID type used when no specific type is provided.
+ * Uses ReferenceId to maintain backward compatibility.
+ */
+export type DefaultReferenceId = ReferenceId;
+
+/**
  * Base document interface that all Monguard-managed documents should extend.
  * Provides standard timestamp fields and soft delete functionality.
  * @template TId - The type of the document's ID field
  */
-export interface BaseDocument<TId = ReferenceId> {
+export interface BaseDocument<TId = DefaultReferenceId> {
   /** Document unique identifier */
   _id: TId;
   /** Timestamp when the document was created */
@@ -53,7 +59,7 @@ export interface BaseDocument<TId = ReferenceId> {
  * Extends BaseDocument with audit trail fields to track which user performed each action.
  * @template TId - The type of the document's ID field and user ID field
  */
-export interface AuditableDocument<TId = ReferenceId> extends BaseDocument<TId> {
+export interface AuditableDocument<TId = DefaultReferenceId> extends BaseDocument<TId> {
   /** ID of the user who created the document */
   createdBy?: TId;
   /** ID of the user who last updated the document */
@@ -71,7 +77,7 @@ export type AuditAction = 'create' | 'update' | 'delete';
  * Document structure for audit log entries that track all changes to documents.
  * @template TId - The type of the document's ID field and user ID field
  */
-export interface AuditLogDocument<TId = ReferenceId> extends BaseDocument<TId> {
+export interface AuditLogDocument<TId = DefaultReferenceId> extends BaseDocument<TId> {
   /** Reference to the document that was modified */
   ref: {
     /** Name of the collection containing the modified document */
@@ -105,19 +111,20 @@ export interface AuditLogDocument<TId = ReferenceId> extends BaseDocument<TId> {
  * Used for audit trails and user-based field updates.
  * @template TUserId - The type of the user ID
  */
-export interface UserContext<TUserId = ReferenceId> {
+export interface UserContext<TUserId = DefaultReferenceId> {
   /** ID of the user performing the operation */
   userId: TUserId;
 }
 
 /**
  * Options for document creation operations.
+ * @template TUserId - The type of the user ID
  */
-export interface CreateOptions {
+export interface CreateOptions<TUserId = DefaultReferenceId> {
   /** Whether to skip creating an audit log entry for this operation */
   skipAudit?: boolean;
   /** User context for audit trails and user-based fields */
-  userContext?: UserContext;
+  userContext?: UserContext<TUserId>;
 }
 
 /**
@@ -132,12 +139,13 @@ export type CreateDocument<T extends BaseDocument> = Omit<
 
 /**
  * Options for document update operations.
+ * @template TUserId - The type of the user ID
  */
-export interface UpdateOptions {
+export interface UpdateOptions<TUserId = DefaultReferenceId> {
   /** Whether to skip creating an audit log entry for this operation */
   skipAudit?: boolean;
   /** User context for audit trails and user-based fields */
-  userContext?: UserContext;
+  userContext?: UserContext<TUserId>;
   /** Whether to create the document if it doesn't exist */
   upsert?: boolean;
 }
@@ -148,12 +156,14 @@ export type HardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete ex
 
 /**
  * Options for document deletion operations.
+ * @template THardDelete - Whether this is a hard delete operation
+ * @template TUserId - The type of the user ID
  */
-export interface DeleteOptions<THardDelete extends boolean> {
+export interface DeleteOptions<THardDelete extends boolean, TUserId = DefaultReferenceId> {
   /** Whether to skip creating an audit log entry for this operation */
   skipAudit?: boolean;
   /** User context for audit trails and user-based fields */
-  userContext?: UserContext;
+  userContext?: UserContext<TUserId>;
   /** Whether to permanently delete the document (true) or soft delete (false) */
   hardDelete?: THardDelete;
 }

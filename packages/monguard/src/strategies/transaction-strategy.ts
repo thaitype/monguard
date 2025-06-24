@@ -3,22 +3,34 @@
  */
 
 import type { ObjectId, Filter, UpdateFilter, UpdateResult, DeleteResult } from '../mongodb-types';
-import { BaseDocument, CreateOptions, UpdateOptions, DeleteOptions, HardOrSoftDeleteResult } from '../types';
+import {
+  BaseDocument,
+  CreateOptions,
+  UpdateOptions,
+  DeleteOptions,
+  HardOrSoftDeleteResult,
+  UserContext,
+  DefaultReferenceId,
+} from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
+import type { AuditLogMetadata } from '../audit-logger';
 
 /**
  * TransactionStrategy uses MongoDB transactions to ensure ACID properties for operations.
  * When transactions are not supported, it gracefully falls back to non-transactional operations.
  *
  * @template T - The document type extending BaseDocument
+ * @template TRefId - The type used for document reference IDs in audit logs
  */
-export class TransactionStrategy<T extends BaseDocument> implements OperationStrategy<T> {
+export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferenceId>
+  implements OperationStrategy<T, TRefId>
+{
   /**
    * Creates a new TransactionStrategy instance.
    *
    * @param context - The operation strategy context providing shared resources
    */
-  constructor(private context: OperationStrategyContext<T>) {}
+  constructor(private context: OperationStrategyContext<T, TRefId>) {}
 
   /**
    * Creates a new document within a transaction when possible.
@@ -29,7 +41,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @returns Promise resolving to the created document
    * @throws Error if the operation fails
    */
-  async create(document: any, options: CreateOptions = {}): Promise<T & { _id: ObjectId }> {
+  async create(document: any, options: CreateOptions<TRefId> = {}): Promise<T & { _id: ObjectId }> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -44,10 +56,17 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           result = { ...timestampedDoc, _id: insertResult.insertedId } as T & { _id: ObjectId };
 
           // Create audit log within the same transaction
-          if (!options.skipAudit && !this.context.disableAudit) {
-            await this.context.createAuditLog('create', insertResult.insertedId, options.userContext, {
+          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            const metadata: AuditLogMetadata = {
               after: result,
-            });
+            };
+            await this.context.auditLogger.logOperation(
+              'create',
+              this.context.collectionName,
+              insertResult.insertedId as TRefId,
+              options.userContext,
+              metadata
+            );
           }
         });
       } catch (transactionError: any) {
@@ -59,10 +78,17 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           result = { ...timestampedDoc, _id: insertResult.insertedId } as T & { _id: ObjectId };
 
           // Create audit log separately (non-transactional)
-          if (!options.skipAudit && !this.context.disableAudit) {
-            await this.context.createAuditLog('create', insertResult.insertedId, options.userContext, {
+          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
+            const metadata: AuditLogMetadata = {
               after: result,
-            });
+            };
+            await this.context.auditLogger.logOperation(
+              'create',
+              this.context.collectionName,
+              insertResult.insertedId as TRefId,
+              options.userContext,
+              metadata
+            );
           }
         } else {
           throw transactionError;
@@ -87,7 +113,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -99,7 +125,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           let beforeDoc: T | null = null;
 
           // Get before state if auditing
-          if (!options.skipAudit && !this.context.disableAudit) {
+          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
             beforeDoc = await this.context.collection.findOne(filter, { session });
           }
 
@@ -121,7 +147,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           // Create audit log if document was modified
           if (
             !options.skipAudit &&
-            !this.context.disableAudit &&
+            this.context.auditLogger.isEnabled() &&
             'modifiedCount' in result &&
             result.modifiedCount > 0 &&
             beforeDoc
@@ -130,11 +156,18 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
 
             if (afterDoc) {
               const changes = this.context.getChangedFields(beforeDoc, afterDoc);
-              await this.context.createAuditLog('update', beforeDoc._id, options.userContext, {
+              const metadata: AuditLogMetadata = {
                 before: beforeDoc,
                 after: afterDoc,
                 changes,
-              });
+              };
+              await this.context.auditLogger.logOperation(
+                'update',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         });
@@ -144,7 +177,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           let beforeDoc: T | null = null;
 
           // Get before state if auditing
-          if (!options.skipAudit && !this.context.disableAudit) {
+          if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
             beforeDoc = await this.context.collection.findOne(filter);
           }
 
@@ -163,7 +196,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           // Create audit log if document was modified (non-transactional)
           if (
             !options.skipAudit &&
-            !this.context.disableAudit &&
+            this.context.auditLogger.isEnabled() &&
             'modifiedCount' in result &&
             result.modifiedCount > 0 &&
             beforeDoc
@@ -172,11 +205,18 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
 
             if (afterDoc) {
               const changes = this.context.getChangedFields(beforeDoc, afterDoc);
-              await this.context.createAuditLog('update', beforeDoc._id, options.userContext, {
+              const metadata: AuditLogMetadata = {
                 before: beforeDoc,
                 after: afterDoc,
                 changes,
-              });
+              };
+              await this.context.auditLogger.logOperation(
+                'update',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         } else {
@@ -201,7 +241,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions = {}): Promise<UpdateResult> {
+  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
@@ -216,7 +256,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    */
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
-    options: DeleteOptions<THardDelete> = {}
+    options: DeleteOptions<THardDelete, TRefId> = {}
   ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     const session = (this.context.collection.db as any).client.startSession();
 
@@ -229,25 +269,32 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           if (options.hardDelete) {
             // Get documents to delete for audit logging
             const docsToDelete =
-              !options.skipAudit && !this.context.disableAudit
+              !options.skipAudit && this.context.auditLogger.isEnabled()
                 ? await this.context.collection.find(filter, { session }).toArray()
                 : [];
 
             result = await this.context.collection.deleteMany(filter, { session });
 
             // Create audit logs for deleted documents
-            if (!options.skipAudit && !this.context.disableAudit) {
+            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
               for (const doc of docsToDelete) {
-                await this.context.createAuditLog('delete', doc._id, options.userContext, {
+                const metadata: AuditLogMetadata = {
                   hardDelete: true,
                   before: doc,
-                });
+                };
+                await this.context.auditLogger.logOperation(
+                  'delete',
+                  this.context.collectionName,
+                  doc._id as TRefId,
+                  options.userContext,
+                  metadata
+                );
               }
             }
           } else {
             // Soft delete
             let beforeDoc: T | null = null;
-            if (!options.skipAudit && !this.context.disableAudit) {
+            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
               beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter), {
                 session,
               });
@@ -269,15 +316,22 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
             // Create audit log for soft delete
             if (
               !options.skipAudit &&
-              !this.context.disableAudit &&
+              this.context.auditLogger.isEnabled() &&
               beforeDoc &&
               'modifiedCount' in result &&
               result.modifiedCount > 0
             ) {
-              await this.context.createAuditLog('delete', beforeDoc._id, options.userContext, {
+              const metadata: AuditLogMetadata = {
                 softDelete: true,
                 before: beforeDoc,
-              });
+              };
+              await this.context.auditLogger.logOperation(
+                'delete',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         });
@@ -287,25 +341,32 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
           if (options.hardDelete) {
             // Get documents to delete for audit logging
             const docsToDelete =
-              !options.skipAudit && !this.context.disableAudit
+              !options.skipAudit && this.context.auditLogger.isEnabled()
                 ? await this.context.collection.find(filter).toArray()
                 : [];
 
             result = await this.context.collection.deleteMany(filter);
 
             // Create audit logs for deleted documents (non-transactional)
-            if (!options.skipAudit && !this.context.disableAudit) {
+            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
               for (const doc of docsToDelete) {
-                await this.context.createAuditLog('delete', doc._id, options.userContext, {
+                const metadata: AuditLogMetadata = {
                   hardDelete: true,
                   before: doc,
-                });
+                };
+                await this.context.auditLogger.logOperation(
+                  'delete',
+                  this.context.collectionName,
+                  doc._id as TRefId,
+                  options.userContext,
+                  metadata
+                );
               }
             }
           } else {
             // Soft delete
             let beforeDoc: T | null = null;
-            if (!options.skipAudit && !this.context.disableAudit) {
+            if (!options.skipAudit && this.context.auditLogger.isEnabled()) {
               beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter));
             }
 
@@ -323,15 +384,22 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
             // Create audit log for soft delete (non-transactional)
             if (
               !options.skipAudit &&
-              !this.context.disableAudit &&
+              this.context.auditLogger.isEnabled() &&
               beforeDoc &&
               'modifiedCount' in result &&
               result.modifiedCount > 0
             ) {
-              await this.context.createAuditLog('delete', beforeDoc._id, options.userContext, {
+              const metadata: AuditLogMetadata = {
                 softDelete: true,
                 before: beforeDoc,
-              });
+              };
+              await this.context.auditLogger.logOperation(
+                'delete',
+                this.context.collectionName,
+                beforeDoc._id as TRefId,
+                options.userContext,
+                metadata
+              );
             }
           }
         } else {
@@ -357,7 +425,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    */
   async deleteById<THardDelete extends boolean = false>(
     id: ObjectId,
-    options: DeleteOptions<THardDelete> = {}
+    options: DeleteOptions<THardDelete, TRefId> = {}
   ): Promise<HardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
@@ -371,7 +439,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async restore(filter: Filter<T>, userContext?: any): Promise<UpdateResult> {
+  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<UpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -390,7 +458,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
 
           result = await this.context.collection.updateMany(
             { ...filter, deletedAt: { $exists: true } } as Filter<T>,
-            restoreUpdate as UpdateFilter<T>,
+            restoreUpdate as unknown as UpdateFilter<T>,
             { session }
           );
         });
@@ -407,7 +475,7 @@ export class TransactionStrategy<T extends BaseDocument> implements OperationStr
 
           result = await this.context.collection.updateMany(
             { ...filter, deletedAt: { $exists: true } } as Filter<T>,
-            restoreUpdate as UpdateFilter<T>
+            restoreUpdate as unknown as UpdateFilter<T>
           );
         } else {
           throw transactionError;

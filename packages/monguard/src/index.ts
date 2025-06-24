@@ -11,3 +11,8 @@ export * from './monguard-collection';
  * Exports all public type definitions and interfaces.
  */
 export * from './types';
+
+/**
+ * Exports audit logger classes and interfaces.
+ */
+export * from './audit-logger';
