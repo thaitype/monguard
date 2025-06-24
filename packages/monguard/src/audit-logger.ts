@@ -17,16 +17,90 @@ export interface AuditLoggerOptions<TRefId = any> {
 }
 
 /**
+ * Logger interface for configurable error and warning handling.
+ */
+export interface Logger {
+  warn(message: string, ...args: any[]): void;
+  error(message: string, ...args: any[]): void;
+}
+
+/**
+ * Default console-based logger implementation.
+ */
+export const ConsoleLogger: Logger = {
+  warn: (message: string, ...args: any[]) => console.warn(message, ...args),
+  error: (message: string, ...args: any[]) => console.error(message, ...args)
+};
+
+/**
+ * Configuration for reference ID validation and conversion.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface RefIdConfig<TRefId = any> {
+  /** Function to validate if a value is of the expected reference ID type */
+  validateRefId?: (refId: any) => refId is TRefId;
+  /** Human-readable type name for error messages */
+  typeName?: string;
+  /** Function to convert document IDs to reference ID type (user-controlled) */
+  convertRefId?: (documentId: any) => TRefId;
+}
+
+/**
+ * Pre-configured RefIdConfig instances for common types.
+ */
+export const RefIdConfigs = {
+  /**
+   * Configuration for ObjectId reference IDs with validation-only approach.
+   * Does not perform conversion - users must handle conversion themselves.
+   */
+  objectId: (): RefIdConfig<any> => ({
+    validateRefId: (refId: any): refId is any => {
+      // Validate ObjectId without importing mongodb driver
+      // Check for ObjectId-like structure: 12-byte hex string or object with toHexString method
+      if (typeof refId === 'string' && /^[0-9a-fA-F]{24}$/.test(refId)) {
+        return true;
+      }
+      if (refId && typeof refId === 'object' && typeof refId.toHexString === 'function') {
+        return true;
+      }
+      return false;
+    },
+    typeName: 'ObjectId'
+  }),
+
+  /**
+   * Configuration for string reference IDs.
+   */
+  string: (): RefIdConfig<string> => ({
+    validateRefId: (refId: any): refId is string => typeof refId === 'string',
+    typeName: 'string'
+  }),
+
+  /**
+   * Configuration for number reference IDs.
+   */
+  number: (): RefIdConfig<number> => ({
+    validateRefId: (refId: any): refId is number => typeof refId === 'number',
+    typeName: 'number'
+  })
+};
+
+/**
  * Options for configuring a MonguardAuditLogger instance.
  * @template TRefId - The type used for document reference IDs
  */
 export interface MonguardAuditLoggerOptions<TRefId = any> {
+  /** Configuration for reference ID validation and conversion */
+  refIdConfig?: RefIdConfig<TRefId>;
+  /** Custom logger for error and warning messages */
+  logger?: Logger;
+  /** If true, validation failures throw errors; if false, they warn (default: false) */
+  strictValidation?: boolean;
   // Reserved for future extensibility
   // Could include options like:
   // - Custom timestamp field names
   // - Custom metadata handling
   // - Batch logging configuration
-  // - Error handling strategies
 }
 
 /**
@@ -108,6 +182,9 @@ export abstract class AuditLogger<TRefId = any> {
  */
 export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   private auditCollection: Collection<AuditLogDocument<TRefId>>;
+  private refIdConfig?: RefIdConfig<TRefId>;
+  private logger: Logger;
+  private strictValidation: boolean;
 
   /**
    * Creates a new MonguardAuditLogger instance.
@@ -123,7 +200,9 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   ) {
     super();
     this.auditCollection = db.collection<AuditLogDocument<TRefId>>(collectionName) as Collection<AuditLogDocument<TRefId>>;
-    // Future: Handle options if provided
+    this.refIdConfig = options?.refIdConfig;
+    this.logger = options?.logger || ConsoleLogger;
+    this.strictValidation = options?.strictValidation ?? false;
   }
 
   /**
@@ -144,10 +223,27 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     metadata?: AuditLogMetadata
   ): Promise<void> {
     try {
+      // Process reference ID through config if available
+      let processedRefId = documentId;
+      if (this.refIdConfig?.convertRefId) {
+        processedRefId = this.refIdConfig.convertRefId(documentId);
+      }
+
+      // Validate reference ID if validation is configured
+      if (this.refIdConfig?.validateRefId && !this.refIdConfig.validateRefId(processedRefId)) {
+        const errorMessage = `Invalid reference ID type for audit log. Expected ${this.refIdConfig.typeName || 'valid type'}, got: ${typeof processedRefId}`;
+
+        if (this.strictValidation) {
+          throw new Error(errorMessage);
+        } else {
+          this.logger.warn(errorMessage, processedRefId);
+        }
+      }
+
       const auditLog: WithoutId<AuditLogDocument<TRefId>> = {
         ref: {
           collection: collectionName,
-          id: documentId,
+          id: processedRefId,
         },
         action,
         userId: userContext?.userId,
@@ -160,7 +256,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
       await this.auditCollection.insertOne(auditLog as any);
     } catch (error) {
       // Log error but don't throw to avoid breaking the main operation
-      console.error('Failed to create audit log:', error);
+      this.logger.error('Failed to create audit log:', error);
     }
   }
 
