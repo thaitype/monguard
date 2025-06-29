@@ -1,5 +1,11 @@
 # monguard
 
+## 0.7.0
+
+### Minor Changes
+
+- 1f6d706: Remove deprecated auditLogger options, disable audit log by default, fix auto-field issue
+
 ## 0.6.0
 
 ### Minor Changes
