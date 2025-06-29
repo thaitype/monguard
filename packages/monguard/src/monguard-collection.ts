@@ -50,19 +50,6 @@ export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
    */
   auditLogger?: AuditLogger<TRefId>;
   /**
-   * Audit collection name.
-   * If not provided, defaults to 'audit_logs'.
-   * @deprecated Use auditLogger instead
-   */
-  auditCollectionName?: string;
-  /**
-   * Globally disable audit logging for this collection.
-   * When true, no audit logs will be created regardless of skipAudit options.
-   * If not provided, defaults to false.
-   * @deprecated Use auditLogger instead
-   */
-  disableAudit?: boolean;
-  /**
    * Monguard configuration for concurrency handling.
    * Required - must explicitly set transactionsEnabled to true or false.
    */
@@ -83,8 +70,6 @@ export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
  * Default configuration options for MonguardCollection.
  */
 const defaultOptions: Partial<MonguardCollectionOptions> = {
-  auditCollectionName: 'audit_logs',
-  disableAudit: false,
   autoFieldControl: {
     enableAutoTimestamps: true,
     enableAutoUserTracking: true,
@@ -109,7 +94,7 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
  *   email: string;
  * }
  *
- * // With audit logging disabled (default)
+ * // With audit logging disabled (default - no auditLogger provided)
  * const users = new MonguardCollection<User>(db, 'users', {
  *   concurrency: { transactionsEnabled: true }
  * });
@@ -126,7 +111,6 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
  */
 export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenceId> {
   private collection: Collection<T>;
-  private auditCollection?: Collection<AuditLogDocument>;
   private collectionName: string;
   private options: MonguardCollectionOptions<TRefId>;
   private strategy: OperationStrategy<T, TRefId>;
@@ -156,16 +140,12 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     this.collection = db.collection<T>(collectionName) as Collection<T>;
     this.collectionName = collectionName;
 
-    // Initialize audit logger - prefer new auditLogger option, fallback to legacy options
+    // Initialize audit logger - use provided auditLogger or disable by default
     if (options.auditLogger) {
       this.auditLogger = options.auditLogger;
-    } else if (options.disableAudit) {
-      this.auditLogger = new NoOpAuditLogger();
     } else {
-      // Legacy compatibility: create MonguardAuditLogger with specified collection name
-      const auditCollectionName = options.auditCollectionName || 'audit_logs';
-      this.auditLogger = new MonguardAuditLogger<TRefId>(db, auditCollectionName);
-      this.auditCollection = this.auditLogger.getAuditCollection() as Collection<AuditLogDocument>;
+      // No audit logger provided - disable audit logging
+      this.auditLogger = new NoOpAuditLogger();
     }
 
     // Create strategy context

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
+import { MonguardAuditLogger } from '../../src/audit-logger';
 import { AuditLogDocument } from '../../src/types';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
@@ -19,7 +20,7 @@ describe('Audit Logging Integration Tests', () => {
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
-      auditCollectionName: 'audit_logs',
+      auditLogger: new MonguardAuditLogger(db, 'audit_logs'),
       concurrency: { transactionsEnabled: false },
     });
   });
@@ -122,8 +123,6 @@ describe('Audit Logging Integration Tests', () => {
 
     it('should not create audit logs when globally disabled', async () => {
       const disabledCollection = new MonguardCollection<TestUser>(db, 'test_users_disabled', {
-        auditCollectionName: 'audit_logs',
-        disableAudit: true,
         concurrency: { transactionsEnabled: false },
       });
 
@@ -332,7 +331,7 @@ describe('Audit Logging Integration Tests', () => {
   describe('Custom Audit Collection', () => {
     it('should use custom audit collection name', async () => {
       const customCollection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'custom_audit_logs',
+        auditLogger: new MonguardAuditLogger(db, 'custom_audit_logs'),
         concurrency: { transactionsEnabled: false },
       });
 
@@ -350,11 +349,11 @@ describe('Audit Logging Integration Tests', () => {
 
     it('should isolate audit logs between different collection instances', async () => {
       const collection1 = new MonguardCollection<TestUser>(db, 'users1', {
-        auditCollectionName: 'audit1',
+        auditLogger: new MonguardAuditLogger(db, 'audit1'),
         concurrency: { transactionsEnabled: false },
       });
       const collection2 = new MonguardCollection<TestUser>(db, 'users2', {
-        auditCollectionName: 'audit2',
+        auditLogger: new MonguardAuditLogger(db, 'audit2'),
         concurrency: { transactionsEnabled: false },
       });
 

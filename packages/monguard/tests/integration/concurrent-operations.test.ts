@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
+import { MonguardAuditLogger } from '../../src/audit-logger';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
@@ -18,7 +19,7 @@ describe('Concurrent Operations Integration Tests', () => {
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
-      auditCollectionName: 'audit_logs',
+      auditLogger: new MonguardAuditLogger(db, 'audit_logs'),
       concurrency: { transactionsEnabled: false },
     });
   });
@@ -460,7 +461,7 @@ describe('Concurrent Operations Integration Tests', () => {
     beforeEach(async () => {
       // Create a collection using transaction strategy
       transactionCollection = new MonguardCollection<TestUser>(db, 'transaction_concurrent_users', {
-        auditCollectionName: 'transaction_concurrent_audit_logs',
+        auditLogger: new MonguardAuditLogger(db, 'transaction_concurrent_audit_logs'),
         concurrency: { transactionsEnabled: true },
       });
     });

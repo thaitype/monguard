@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
+import { MonguardAuditLogger, NoOpAuditLogger } from '../../src/audit-logger';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { adaptDb } from '../mongodb-adapter';
@@ -25,38 +26,41 @@ describe('Options Processing and Edge Cases', () => {
   describe('MonguardCollectionOptions', () => {
     it('should use default options with explicit config', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'audit_logs',
         concurrency: { transactionsEnabled: false },
       });
 
-      expect(collection.getAuditCollection()!.collectionName).toBe('audit_logs');
+      // No auditLogger provided, should use NoOpAuditLogger by default
+      expect(collection.getAuditLogger()).toBeInstanceOf(NoOpAuditLogger);
+      expect(collection.getAuditCollection()).toBeNull();
     });
 
-    it('should use custom audit collection name', () => {
+    it('should use provided audit logger', () => {
+      const auditLogger = new MonguardAuditLogger(db, 'custom_audit');
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'custom_audit',
+        auditLogger,
         concurrency: { transactionsEnabled: false },
       });
 
+      expect(collection.getAuditLogger()).toBe(auditLogger);
       expect(collection.getAuditCollection()!.collectionName).toBe('custom_audit');
     });
 
-    it('should handle disableAudit option', () => {
+    it('should disable audit when no auditLogger provided', () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'audit_logs',
-        disableAudit: true,
         concurrency: { transactionsEnabled: false },
       });
 
-      // We can't directly test the private options, but we can test the behavior
-      expect(collection).toBeInstanceOf(MonguardCollection);
+      expect(collection.getAuditLogger()).toBeInstanceOf(NoOpAuditLogger);
+      expect(collection.getAuditLogger().isEnabled()).toBe(false);
+      expect(collection.getAuditCollection()).toBeNull();
     });
 
     it('should merge partial options with defaults', () => {
+      const auditLogger = new MonguardAuditLogger(db, 'my_audit');
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'my_audit',
+        auditLogger,
         concurrency: { transactionsEnabled: false },
-        // disableAudit should default to false
+        // autoFieldControl and auditControl should use defaults
       });
 
       expect(collection.getAuditCollection()!.collectionName).toBe('my_audit');
@@ -65,16 +69,13 @@ describe('Options Processing and Edge Cases', () => {
     it('should require config in options', () => {
       expect(() => {
         // @ts-expect-error Testing invalid config
-        new MonguardCollection<TestUser>(db, 'test_users', {
-          auditCollectionName: 'audit_logs',
-        });
+        new MonguardCollection<TestUser>(db, 'test_users', {});
       }).toThrow('MonguardCollectionOptions.config is required');
     });
 
     it('should validate transactionsEnabled is explicitly set', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
-          auditCollectionName: 'audit_logs',
           // @ts-expect-error Testing invalid config
           concurrency: {},
         });
@@ -84,7 +85,6 @@ describe('Options Processing and Edge Cases', () => {
     it('should accept transaction-enabled config', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
-          auditCollectionName: 'audit_logs',
           concurrency: { transactionsEnabled: true },
         });
       }).not.toThrow();
@@ -93,7 +93,6 @@ describe('Options Processing and Edge Cases', () => {
     it('should accept transaction-disabled config', () => {
       expect(() => {
         new MonguardCollection<TestUser>(db, 'test_users', {
-          auditCollectionName: 'audit_logs',
           concurrency: { transactionsEnabled: false },
         });
       }).not.toThrow();
@@ -102,10 +101,12 @@ describe('Options Processing and Edge Cases', () => {
 
   describe('Operation Options Edge Cases', () => {
     let collection: MonguardCollection<TestUser>;
+    let auditLogger: MonguardAuditLogger<any>;
 
     beforeEach(() => {
+      auditLogger = new MonguardAuditLogger(db, 'audit_logs');
       collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'audit_logs',
+        auditLogger,
         concurrency: { transactionsEnabled: false },
       });
     });
@@ -246,11 +247,9 @@ describe('Options Processing and Edge Cases', () => {
     });
   });
 
-  describe('Global Audit Disable', () => {
-    it('should not create audit logs when globally disabled', async () => {
+  describe('Audit Logger Configuration', () => {
+    it('should not create audit logs when no auditLogger provided', async () => {
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'audit_logs',
-        disableAudit: true,
         concurrency: { transactionsEnabled: false },
       });
 
@@ -263,29 +262,49 @@ describe('Options Processing and Edge Cases', () => {
       await collection.updateById(createdDoc._id, { $set: { name: 'Updated' } }, { userContext });
       await collection.deleteById(createdDoc._id, { userContext });
 
-      // When audit is disabled, getAuditCollection() should return null
+      // When no audit logger is provided, getAuditCollection() should return null
       expect(collection.getAuditCollection()).toBeNull();
 
       // Verify that the audit logger is disabled
       expect(collection.getAuditLogger().isEnabled()).toBe(false);
     });
 
-    it('should ignore skipAudit when globally disabled', async () => {
+    it('should create audit logs when auditLogger is provided', async () => {
+      const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
       const collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'audit_logs',
-        disableAudit: true,
+        auditLogger,
+        concurrency: { transactionsEnabled: false },
+      });
+
+      const userData = TestDataFactory.createUser();
+      const userContext = TestDataFactory.createUserContext();
+
+      // Perform operations that create audit logs
+      const createdDoc = await collection.create(userData, { userContext });
+
+      // Verify audit logger is enabled and logs are created
+      expect(collection.getAuditLogger().isEnabled()).toBe(true);
+      expect(collection.getAuditCollection()).not.toBeNull();
+
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
+      expect(auditLogs).toHaveLength(1);
+      expect(auditLogs[0]!.action).toBe('create');
+    });
+
+    it('should ignore skipAudit when no auditLogger provided', async () => {
+      const collection = new MonguardCollection<TestUser>(db, 'test_users', {
         concurrency: { transactionsEnabled: false },
       });
 
       const userData = TestDataFactory.createUser();
 
-      // skipAudit: false should be ignored due to global disable
+      // skipAudit: false should be ignored when no auditLogger is provided
       await collection.create(userData, { skipAudit: false });
 
-      // When audit is disabled, getAuditCollection() should return null
+      // When no audit logger is provided, getAuditCollection() should return null
       expect(collection.getAuditCollection()).toBeNull();
 
-      // Verify that the audit logger is disabled (skipAudit is ignored)
+      // Verify that the audit logger is disabled (skipAudit is irrelevant)
       expect(collection.getAuditLogger().isEnabled()).toBe(false);
     });
   });
@@ -294,8 +313,9 @@ describe('Options Processing and Edge Cases', () => {
     let collection: MonguardCollection<TestUser>;
 
     beforeEach(() => {
+      const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
       collection = new MonguardCollection<TestUser>(db, 'test_users', {
-        auditCollectionName: 'audit_logs',
+        auditLogger,
         concurrency: { transactionsEnabled: false },
       });
     });

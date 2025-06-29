@@ -1267,8 +1267,10 @@ const config = process.env.NODE_ENV === 'production'
   ? { transactionsEnabled: true }  // Atlas/Replica Set
   : { transactionsEnabled: false }; // Local development
 
+// Enable audit logging
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'audit_logs',
+  auditLogger,
   concurrency: config
 });
 ```
@@ -1322,8 +1324,9 @@ class UserService {
   private users: MonguardCollection<User>;
 
   constructor(db: Db) {
+    const auditLogger = new MonguardAuditLogger(db, 'user_audit_logs');
     this.users = new MonguardCollection<User>(db, 'users', {
-      auditCollectionName: 'user_audit_logs',
+      auditLogger,
       concurrency: { transactionsEnabled: true }
     });
   }
@@ -1397,8 +1400,9 @@ class TenantUserService {
   private users: MonguardCollection<User>;
 
   constructor(db: Db) {
+    const auditLogger = new MonguardAuditLogger(db, 'tenant_audit_logs');
     this.users = new MonguardCollection<User>(db, 'users', {
-      auditCollectionName: 'tenant_audit_logs',
+      auditLogger,
       concurrency: { transactionsEnabled: true }
     });
   }
@@ -1900,8 +1904,9 @@ class ScheduledTaskService {
 **Solution**: Use optimistic locking strategy for standalone MongoDB:
 
 ```typescript
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'audit_logs',
+  auditLogger,
   concurrency: { transactionsEnabled: false } // Disable transactions
 });
 ```
@@ -2046,9 +2051,9 @@ async function bulkUpdateUsers(userIds: ObjectId[], updateData: any, userContext
 
 1. **Enable audit logging temporarily**:
 ```typescript
+const auditLogger = new MonguardAuditLogger(db, 'debug_audit_logs');
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditCollectionName: 'debug_audit_logs',
-  disableAudit: false, // Ensure auditing is enabled
+  auditLogger, // Enable auditing with debug collection
   concurrency: { transactionsEnabled: true }
 });
 ```

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
+import { MonguardAuditLogger } from '../../src/audit-logger';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
@@ -18,7 +19,7 @@ describe('Transaction Strategy Integration Tests', () => {
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
-      auditCollectionName: 'audit_logs',
+      auditLogger: new MonguardAuditLogger(db, 'audit_logs'),
       concurrency: { transactionsEnabled: true }, // Test transaction strategy
     });
   });

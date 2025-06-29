@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
+import { MonguardAuditLogger } from '../../src/audit-logger';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestAssertions, TestHelpers } from '../test-utils';
@@ -21,12 +22,12 @@ describe('Strategy Comparison Tests', () => {
 
     // Create collections with different strategies
     transactionCollection = new MonguardCollection<TestUser>(db, 'transaction_users', {
-      auditCollectionName: 'transaction_audit_logs',
+      auditLogger: new MonguardAuditLogger(db, 'transaction_audit_logs'),
       concurrency: { transactionsEnabled: true },
     });
 
     optimisticCollection = new MonguardCollection<TestUser>(db, 'optimistic_users', {
-      auditCollectionName: 'optimistic_audit_logs',
+      auditLogger: new MonguardAuditLogger(db, 'optimistic_audit_logs'),
       concurrency: { transactionsEnabled: false },
     });
   });
