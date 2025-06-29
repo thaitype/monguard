@@ -223,10 +223,10 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && fields.createdBy !== false && 'createdBy' in timestamped) {
+        if (shouldSetUserFields && fields.createdBy !== false) {
           (timestamped as any).createdBy = options.userContext!.userId;
         }
-        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         break;
@@ -235,7 +235,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         break;
@@ -247,10 +247,10 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && fields.deletedBy !== false && 'deletedBy' in timestamped) {
+        if (shouldSetUserFields && fields.deletedBy !== false) {
           (timestamped as any).deletedBy = options.userContext!.userId;
         }
-        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         break;
@@ -259,7 +259,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         if (shouldSetTimestamps && fields.updatedAt !== false) {
           (timestamped as any).updatedAt = timestamp;
         }
-        if (shouldSetUserFields && fields.updatedBy !== false && 'updatedBy' in timestamped) {
+        if (shouldSetUserFields && fields.updatedBy !== false) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
         delete (timestamped as any).deletedAt;
@@ -276,13 +276,13 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         if (fields.deletedAt === true && shouldSetTimestamps) {
           (timestamped as any).deletedAt = timestamp;
         }
-        if (fields.createdBy === true && shouldSetUserFields && 'createdBy' in timestamped) {
+        if (fields.createdBy === true && shouldSetUserFields) {
           (timestamped as any).createdBy = options.userContext!.userId;
         }
-        if (fields.updatedBy === true && shouldSetUserFields && 'updatedBy' in timestamped) {
+        if (fields.updatedBy === true && shouldSetUserFields) {
           (timestamped as any).updatedBy = options.userContext!.userId;
         }
-        if (fields.deletedBy === true && shouldSetUserFields && 'deletedBy' in timestamped) {
+        if (fields.deletedBy === true && shouldSetUserFields) {
           (timestamped as any).deletedBy = options.userContext!.userId;
         }
         break;
@@ -308,7 +308,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
       document.createdAt = finalTimestamp;
     }
 
-    if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'createdBy' in document) {
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext) {
       document.createdBy = userContext.userId;
     }
   }
@@ -330,7 +330,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
       document.updatedAt = finalTimestamp;
     }
 
-    if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'updatedBy' in document) {
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext) {
       document.updatedBy = userContext.userId;
     }
   }
@@ -354,12 +354,8 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     }
 
     if (autoFieldConfig.enableAutoUserTracking !== false && userContext) {
-      if ('deletedBy' in document) {
-        document.deletedBy = userContext.userId;
-      }
-      if ('updatedBy' in document) {
-        document.updatedBy = userContext.userId;
-      }
+      document.deletedBy = userContext.userId;
+      document.updatedBy = userContext.userId;
     }
   }
 
@@ -384,7 +380,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
       document.updatedAt = finalTimestamp;
     }
 
-    if (autoFieldConfig.enableAutoUserTracking !== false && userContext && 'updatedBy' in document) {
+    if (autoFieldConfig.enableAutoUserTracking !== false && userContext) {
       document.updatedBy = userContext.userId;
     }
   }

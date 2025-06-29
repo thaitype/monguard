@@ -153,14 +153,14 @@ describe('MonguardCollection Internal Methods', () => {
       expect(result.createdAt).toBeUndefined();
     });
 
-    it('should not add user fields if document does not have them', () => {
+    it('should add user fields even if document does not have them initially', () => {
       const document = { name: 'John', email: 'john@example.com' };
       const userContext = TestDataFactory.createUserContext();
 
       const result = collection.testAddTimestamps(document, false, userContext);
 
-      expect(result.createdBy).toBeUndefined();
-      expect(result.updatedBy).toBeUndefined();
+      expect(result.createdBy).toBeDefined();
+      expect(result.updatedBy).toBeDefined();
     });
 
     it('should handle string userId in user context', () => {
