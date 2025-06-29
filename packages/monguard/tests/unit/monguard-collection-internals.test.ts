@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
+import { MonguardAuditLogger } from '../../src/audit-logger';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestHelpers } from '../test-utils';
@@ -38,8 +39,9 @@ describe('MonguardCollection Internal Methods', () => {
     testDb = new TestDatabase();
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
+    const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
     collection = new TestableMonguardCollection<TestUser>(db, 'test_users', {
-      auditCollectionName: 'audit_logs',
+      auditLogger,
       concurrency: { transactionsEnabled: false },
     });
   });
