@@ -13,6 +13,7 @@
       "cache": false,
       "persistent": true
     },
+    "test:ci":{},
     "lint:check": {
       "dependsOn": ["@monguard/vitest-config#build", "^lint:check"]
     },

@@ -253,3 +253,29 @@ export interface BatchAuditEntry<TRefId = DefaultReferenceId> {
   /** Additional metadata for the audit log */
   metadata?: ManualAuditOptions<TRefId>;
 }
+
+/**
+ * Extended UpdateResult that includes the new version number for version-aware operations.
+ * This enables safe multi-phase workflows by providing the updated version without requiring additional queries.
+ */
+export interface ExtendedUpdateResult extends UpdateResult {
+  /** The new version number after the update operation, only present when document was modified and version was incremented */
+  newVersion?: number;
+}
+
+/**
+ * Extended DeleteResult that includes the new version number for soft delete operations.
+ * This enables safe multi-phase workflows by providing the updated version without requiring additional queries.
+ */
+export interface ExtendedDeleteResult extends UpdateResult {
+  /** The new version number after the soft delete operation, only present when document was modified and version was incremented */
+  newVersion?: number;
+}
+
+/**
+ * Conditional type that determines the result type based on whether it's a hard delete or soft delete operation.
+ * For hard deletes, returns standard DeleteResult. For soft deletes, returns ExtendedDeleteResult with newVersion.
+ */
+export type ExtendedHardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete extends true
+  ? DeleteResult
+  : ExtendedDeleteResult;

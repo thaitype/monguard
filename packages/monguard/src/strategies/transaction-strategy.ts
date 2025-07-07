@@ -11,6 +11,8 @@ import {
   HardOrSoftDeleteResult,
   UserContext,
   DefaultReferenceId,
+  ExtendedUpdateResult,
+  ExtendedHardOrSoftDeleteResult,
 } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import type { AuditLogMetadata } from '../audit-logger';
@@ -113,7 +115,11 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
+  async update(
+    filter: Filter<T>,
+    update: UpdateFilter<T>,
+    options: UpdateOptions<TRefId> = {}
+  ): Promise<ExtendedUpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -224,7 +230,8 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         }
       }
 
-      return result!;
+      // TransactionStrategy doesn't currently track versions, so newVersion is undefined
+      return { ...result!, newVersion: undefined };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Update operation failed');
     } finally {
@@ -241,7 +248,11 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
+  async updateById(
+    id: ObjectId,
+    update: UpdateFilter<T>,
+    options: UpdateOptions<TRefId> = {}
+  ): Promise<ExtendedUpdateResult> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
@@ -257,7 +268,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
     options: DeleteOptions<THardDelete, TRefId> = {}
-  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  ): Promise<ExtendedHardOrSoftDeleteResult<THardDelete>> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -405,7 +416,9 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         }
       }
 
-      return result! as HardOrSoftDeleteResult<THardDelete>;
+      // TransactionStrategy doesn't currently track versions, so newVersion is undefined
+      // For hard deletes, return standard DeleteResult; for soft deletes, return with newVersion undefined
+      return { ...result!, newVersion: undefined } as ExtendedHardOrSoftDeleteResult<THardDelete>;
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Delete operation failed');
     } finally {
@@ -424,7 +437,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
   async deleteById<THardDelete extends boolean = false>(
     id: ObjectId,
     options: DeleteOptions<THardDelete, TRefId> = {}
-  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  ): Promise<ExtendedHardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 
@@ -437,7 +450,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
    * @returns Promise resolving to update result information
    * @throws Error if the operation fails
    */
-  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<UpdateResult> {
+  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<ExtendedUpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();
 
     try {
@@ -480,7 +493,8 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         }
       }
 
-      return result!;
+      // TransactionStrategy doesn't currently track versions, so newVersion is undefined
+      return { ...result!, newVersion: undefined };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Restore operation failed');
     } finally {

@@ -11,6 +11,8 @@ import {
   HardOrSoftDeleteResult,
   DefaultReferenceId,
   UserContext,
+  ExtendedUpdateResult,
+  ExtendedHardOrSoftDeleteResult,
 } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
 import type { AuditLogMetadata } from '../audit-logger';
@@ -150,10 +152,14 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    * @param filter - MongoDB filter criteria
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information
+   * @returns Promise resolving to update result information with newVersion when applicable
    * @throws Error if the operation fails
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
+  async update(
+    filter: Filter<T>,
+    update: UpdateFilter<T>,
+    options: UpdateOptions<TRefId> = {}
+  ): Promise<ExtendedUpdateResult> {
     const result = await this.retryWithBackoff(async () => {
       // Get current document with version
       const beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter));
@@ -175,7 +181,9 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             },
           };
 
-          return await this.context.collection.updateMany(filter, timestampedUpdate, { upsert: true });
+          const updateResult = await this.context.collection.updateMany(filter, timestampedUpdate, { upsert: true });
+          // For upsert that creates a new document, return version 1
+          return { ...updateResult, newVersion: updateResult.upsertedCount > 0 ? 1 : undefined };
         }
 
         // No document to update
@@ -183,6 +191,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       }
 
       const currentVersion = beforeDoc.version || 1;
+      const newVersion = currentVersion + 1;
 
       // Create version-controlled update
       const timestampedUpdate = {
@@ -235,7 +244,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         }
       }
 
-      return updateResult;
+      // Return result with newVersion only if document was actually modified
+      return { ...updateResult, newVersion: updateResult.modifiedCount > 0 ? newVersion : undefined };
     });
 
     return result;
@@ -247,10 +257,14 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information
+   * @returns Promise resolving to update result information with newVersion when applicable
    * @throws Error if the operation fails
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
+  async updateById(
+    id: ObjectId,
+    update: UpdateFilter<T>,
+    options: UpdateOptions<TRefId> = {}
+  ): Promise<ExtendedUpdateResult> {
     return this.update({ _id: id } as Filter<T>, update, options);
   }
 
@@ -260,13 +274,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information
+   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
    * @throws Error if the operation fails
    */
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
     options: DeleteOptions<THardDelete, TRefId> = {}
-  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  ): Promise<ExtendedHardOrSoftDeleteResult<THardDelete>> {
     const result = await this.retryWithBackoff(async () => {
       if (options.hardDelete) {
         // Get documents to delete for audit logging
@@ -307,6 +321,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         }
 
         let totalModified = 0;
+        let newVersion: number | undefined;
 
         // Process each document individually for version control
         for (const beforeDoc of beforeDocs) {
@@ -335,6 +350,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
           if (updateResult.modifiedCount > 0) {
             totalModified += updateResult.modifiedCount;
+            // For single document operation, track the new version
+            if (beforeDocs.length === 1) {
+              newVersion = currentVersion + 1;
+            }
 
             // Create audit log after successful soft delete
             if (this.context.shouldAudit(options.skipAudit)) {
@@ -363,11 +382,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           upsertedCount: 0,
           upsertedId: null,
           matchedCount: beforeDocs.length,
+          // Only return newVersion for single document soft deletes
+          newVersion: totalModified > 0 && beforeDocs.length === 1 ? newVersion : undefined,
         };
       }
     });
 
-    return result as HardOrSoftDeleteResult<THardDelete>;
+    return result as ExtendedHardOrSoftDeleteResult<THardDelete>;
   }
 
   /**
@@ -375,13 +396,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information
+   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
    * @throws Error if the operation fails
    */
   async deleteById<THardDelete extends boolean = false>(
     id: ObjectId,
     options: DeleteOptions<THardDelete, TRefId> = {}
-  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  ): Promise<ExtendedHardOrSoftDeleteResult<THardDelete>> {
     return this.delete({ _id: id } as Filter<T>, options);
   }
 
@@ -391,10 +412,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    *
    * @param filter - MongoDB filter criteria for documents to restore
    * @param userContext - Optional user context for audit trails
-   * @returns Promise resolving to update result information
+   * @returns Promise resolving to update result information with newVersion when applicable
    * @throws Error if the operation fails
    */
-  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<UpdateResult> {
+  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<ExtendedUpdateResult> {
     const result = await this.retryWithBackoff(async () => {
       // Find deleted documents to restore
       const deletedDocs = await this.context.collection
@@ -410,6 +431,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
       // Restore each document with version control
       let totalModified = 0;
+      let newVersion: number | undefined;
 
       for (const doc of deletedDocs) {
         const currentVersion = doc.version || 1;
@@ -436,6 +458,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         }
 
         totalModified += updateResult.modifiedCount;
+        // For single document operation, track the new version
+        if (deletedDocs.length === 1) {
+          newVersion = currentVersion + 1;
+        }
       }
 
       return {
@@ -444,6 +470,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         upsertedCount: 0,
         upsertedId: null,
         matchedCount: deletedDocs.length,
+        // Only return newVersion for single document restores
+        newVersion: totalModified > 0 && deletedDocs.length === 1 ? newVersion : undefined,
       };
     });
 
