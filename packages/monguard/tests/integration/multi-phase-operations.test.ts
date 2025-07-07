@@ -1,9 +1,9 @@
 /**
  * @fileoverview Integration tests demonstrating multi-phase operations using the newVersion feature
- * 
+ *
  * This test suite showcases how to safely perform multi-phase document operations
  * using the newVersion feature to avoid extra database queries and ensure consistency.
- * 
+ *
  * Key scenarios tested:
  * 1. Multi-phase order processing workflow
  * 2. Document lifecycle management with version tracking
@@ -101,17 +101,17 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       // Phase 2: Update using explicit version-based filtering
       // This demonstrates the proper pattern for using newVersion to prevent conflicts
       let currentVersion = order.version;
-      
+
       const phase2Result = await optimisticCollection.update(
-        { 
-          _id: order._id, 
-          version: currentVersion // Use version in filter to prevent conflicts
+        {
+          _id: order._id,
+          version: currentVersion, // Use version in filter to prevent conflicts
         },
-        { 
-          $set: { 
+        {
+          $set: {
             status: 'processing',
-            metadata: { ...orderData.metadata, phase: 2, processedAt: new Date() }
-          }
+            metadata: { ...orderData.metadata, phase: 2, processedAt: new Date() },
+          },
         },
         { userContext }
       );
@@ -122,15 +122,15 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
       // Phase 3: Continue chaining with the newVersion from phase 2
       const phase3Result = await optimisticCollection.update(
-        { 
-          _id: order._id, 
-          version: currentVersion // Use newVersion from previous operation
+        {
+          _id: order._id,
+          version: currentVersion, // Use newVersion from previous operation
         },
-        { 
-          $set: { 
+        {
+          $set: {
             status: 'completed',
-            metadata: { ...orderData.metadata, phase: 3, completedAt: new Date() }
-          }
+            metadata: { ...orderData.metadata, phase: 3, completedAt: new Date() },
+          },
         },
         { userContext }
       );
@@ -146,9 +146,9 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
       // Demonstrate that using wrong version would fail
       const wrongVersionResult = await optimisticCollection.update(
-        { 
-          _id: order._id, 
-          version: 1 // Wrong version - should not modify anything
+        {
+          _id: order._id,
+          version: 1, // Wrong version - should not modify anything
         },
         { $set: { status: 'cancelled' } },
         { userContext }
@@ -378,7 +378,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
       // The key behavior we want to test is that newVersion is available when documents are modified
       expect(multiUpdateResult.modifiedCount).toBeGreaterThanOrEqual(1);
-      
+
       // Our implementation returns newVersion for single document updates, undefined for multi-document
       if (multiUpdateResult.modifiedCount === 1) {
         // Single document updated - newVersion should be available
@@ -503,7 +503,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
       expect(concurrentUpdate.newVersion).toBe(3);
 
-      // Now if first user tries to continue with stale version, 
+      // Now if first user tries to continue with stale version,
       // they can detect the conflict by checking the current document
       const currentDoc = await optimisticCollection.findById(order._id);
       expect(currentDoc!.version).toBe(3); // Version has moved beyond what first user expects
@@ -569,10 +569,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       const order = await optimisticCollection.create(orderData, { userContext });
 
       // Hard delete - should not return newVersion since document is removed
-      const hardDeleteResult = await optimisticCollection.deleteById(
-        order._id,
-        { hardDelete: true, userContext }
-      );
+      const hardDeleteResult = await optimisticCollection.deleteById(order._id, { hardDelete: true, userContext });
 
       expect(hardDeleteResult.acknowledged).toBe(true);
       expect(hardDeleteResult.deletedCount).toBe(1);
@@ -617,15 +614,15 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
           // Attempt version-safe update
           const updateResult = await optimisticCollection.update(
             { _id: order._id, version: currentVersion },
-            { 
-              $set: { 
+            {
+              $set: {
                 status: 'processing',
-                metadata: { 
-                  retryCount, 
+                metadata: {
+                  retryCount,
                   processedAt: new Date(),
-                  processor: userContext.userId
-                }
-              }
+                  processor: userContext.userId,
+                },
+              },
             },
             { userContext }
           );
@@ -637,14 +634,14 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
             // Version conflict - retry
             retryCount++;
             console.log(`Retry ${retryCount} due to version conflict`);
-            
+
             // Small delay to reduce contention
             await new Promise(resolve => setTimeout(resolve, 10));
           }
         } catch (error) {
           retryCount++;
           console.log(`Retry ${retryCount} due to error: ${(error as Error).message}`);
-          
+
           if (retryCount >= maxRetries) {
             throw error;
           }
@@ -731,17 +728,9 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
         optimisticOrders.push(order);
 
         // Multi-phase update
-        await optimisticCollection.updateById(
-          order._id,
-          { $set: { status: 'processing' } },
-          { userContext }
-        );
+        await optimisticCollection.updateById(order._id, { $set: { status: 'processing' } }, { userContext });
 
-        await optimisticCollection.updateById(
-          order._id,
-          { $set: { status: 'completed' } },
-          { userContext }
-        );
+        await optimisticCollection.updateById(order._id, { $set: { status: 'completed' } }, { userContext });
       }
 
       const optimisticTime = Date.now() - optimisticStart;
@@ -762,17 +751,9 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
         transactionOrders.push(order);
 
         // Multi-phase update
-        await transactionCollection.updateById(
-          order._id,
-          { $set: { status: 'processing' } },
-          { userContext }
-        );
+        await transactionCollection.updateById(order._id, { $set: { status: 'processing' } }, { userContext });
 
-        await transactionCollection.updateById(
-          order._id,
-          { $set: { status: 'completed' } },
-          { userContext }
-        );
+        await transactionCollection.updateById(order._id, { $set: { status: 'completed' } }, { userContext });
       }
 
       const transactionTime = Date.now() - transactionStart;
@@ -815,9 +796,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
         amount: 79.99,
         metadata: {
           customerId: 'CUST-12345',
-          items: [
-            { sku: 'ITEM-001', quantity: 2, price: 39.99 }
-          ],
+          items: [{ sku: 'ITEM-001', quantity: 2, price: 39.99 }],
         },
       };
 
@@ -982,7 +961,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
         title: 'Important Policy Document',
         content: 'This document contains important policy information.',
         tags: ['policy', 'draft'],
-        metadata: { department: 'HR', priority: 'high' }
+        metadata: { department: 'HR', priority: 'high' },
       };
 
       const doc = await docCollection.create(docData, { userContext: author });
@@ -999,8 +978,8 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
               status: 'submitted',
               submittedBy: author.userId,
               submittedAt: new Date(),
-            }
-          }
+            },
+          },
         },
         { userContext: author }
       );
@@ -1022,8 +1001,8 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
               reviewedBy: reviewer.userId,
               reviewedAt: new Date(),
               reviewComments: 'Document looks good, ready for approval',
-            }
-          }
+            },
+          },
         },
         { userContext: reviewer }
       );
@@ -1047,8 +1026,8 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
               reviewComments: 'Document looks good, ready for approval',
               approvedBy: approver.userId,
               approvedAt: new Date(),
-            }
-          }
+            },
+          },
         },
         { userContext: approver }
       );
@@ -1074,9 +1053,9 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
               approvedAt: new Date(),
               publishedBy: publisher.userId,
               publishedAt: new Date(),
-              publicUrl: 'https://company.com/policies/important-policy'
-            }
-          }
+              publicUrl: 'https://company.com/policies/important-policy',
+            },
+          },
         },
         { userContext: publisher }
       );
