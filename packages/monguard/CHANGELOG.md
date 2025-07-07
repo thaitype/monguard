@@ -1,5 +1,11 @@
 # monguard
 
+## 0.8.0
+
+### Minor Changes
+
+- 0e8a973: Add `newVersion` to Versioned Update Results
+
 ## 0.7.0
 
 ### Minor Changes
