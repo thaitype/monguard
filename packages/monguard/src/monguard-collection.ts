@@ -34,6 +34,8 @@ import type {
   AutoFieldUpdateOptions,
   ManualAuditOptions,
   BatchAuditEntry,
+  ExtendedUpdateResult,
+  ExtendedHardOrSoftDeleteResult,
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
@@ -648,7 +650,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * @param filter - MongoDB filter criteria to select documents
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information
+   * @returns Promise resolving to update result information with newVersion when applicable
    * @throws Error if the operation fails
    *
    * @example
@@ -658,9 +660,21 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { $set: { status: 'active' } },
    *   { userContext: { userId: 'user123' } }
    * );
+   *
+   * // For version-aware operations, use the newVersion for subsequent updates
+   * if (result.newVersion) {
+   *   await collection.update(
+   *     { _id: documentId, version: result.newVersion },
+   *     { $set: { processed: true } }
+   *   );
+   * }
    * ```
    */
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
+  async update(
+    filter: Filter<T>,
+    update: UpdateFilter<T>,
+    options: UpdateOptions<TRefId> = {}
+  ): Promise<ExtendedUpdateResult> {
     return this.strategy.update(filter, update, options);
   }
 
@@ -670,7 +684,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information
+   * @returns Promise resolving to update result information with newVersion when applicable
    * @throws Error if the operation fails
    *
    * @example
@@ -680,9 +694,22 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { $set: { name: 'Jane' } },
    *   { userContext: { userId: 'user123' } }
    * );
+   *
+   * // Use the newVersion for safe multi-phase operations
+   * if (result.newVersion) {
+   *   await collection.updateById(
+   *     documentId,
+   *     { $set: { status: 'processed' } },
+   *     { userContext: { userId: 'user123' } }
+   *   );
+   * }
    * ```
    */
-  async updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId> = {}): Promise<UpdateResult> {
+  async updateById(
+    id: ObjectId,
+    update: UpdateFilter<T>,
+    options: UpdateOptions<TRefId> = {}
+  ): Promise<ExtendedUpdateResult> {
     return this.strategy.updateById(id, update, options);
   }
 
@@ -691,19 +718,24 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *
    * @param filter - MongoDB filter criteria to select documents
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information
+   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
    * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * // Soft delete
+   * // Soft delete with newVersion tracking
    * const result = await collection.delete(
    *   { status: 'inactive' },
    *   { userContext: { userId: 'user123' } }
    * );
    *
-   * // Hard delete
-   * const result = await collection.delete(
+   * // For single document soft deletes, use newVersion for subsequent operations
+   * if (result.newVersion) {
+   *   console.log(`Document soft deleted with version ${result.newVersion}`);
+   * }
+   *
+   * // Hard delete (no version tracking)
+   * const hardResult = await collection.delete(
    *   { status: 'inactive' },
    *   { hardDelete: true }
    * );
@@ -712,7 +744,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
     options: DeleteOptions<THardDelete, TRefId> = {}
-  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  ): Promise<ExtendedHardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.delete(filter, options);
   }
 
@@ -721,7 +753,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information
+   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
    * @throws Error if the operation fails
    *
    * @example
@@ -730,12 +762,18 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   documentId,
    *   { userContext: { userId: 'user123' } }
    * );
+   *
+   * // For soft deletes, use the newVersion for subsequent operations
+   * if (result.newVersion) {
+   *   console.log(`Document soft deleted with version ${result.newVersion}`);
+   *   // This document can now be safely restored using the known version
+   * }
    * ```
    */
   async deleteById<THardDelete extends boolean = false>(
     id: ObjectId,
     options: DeleteOptions<THardDelete, TRefId> = {}
-  ): Promise<HardOrSoftDeleteResult<THardDelete>> {
+  ): Promise<ExtendedHardOrSoftDeleteResult<THardDelete>> {
     return this.strategy.deleteById(id, options);
   }
 
@@ -744,7 +782,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *
    * @param filter - MongoDB filter criteria to select documents to restore
    * @param userContext - Optional user context for audit trails
-   * @returns Promise resolving to update result information
+   * @returns Promise resolving to update result information with newVersion when applicable
    * @throws Error if the operation fails
    *
    * @example
@@ -753,9 +791,15 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { _id: documentId },
    *   { userId: 'user123' }
    * );
+   *
+   * // For single document restores, use the newVersion for subsequent operations
+   * if (result.newVersion) {
+   *   console.log(`Document restored with version ${result.newVersion}`);
+   *   // Safe to perform additional updates with known version
+   * }
    * ```
    */
-  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<UpdateResult> {
+  async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<ExtendedUpdateResult> {
     return this.strategy.restore(filter, userContext);
   }
 
