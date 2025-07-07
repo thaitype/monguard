@@ -14,7 +14,8 @@
       "Bash(pnpm run:*)",
       "Bash(npm run check-types:*)",
       "Bash(pnpm build:*)",
-      "Bash(pnpm tsc:*)"
+      "Bash(pnpm tsc:*)",
+      "Bash(npx vitest run:*)"
     ],
     "deny": []
   }
