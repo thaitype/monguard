@@ -82,6 +82,84 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
   describe('Multi-Phase Order Processing Workflow', () => {
     /**
+     * Demonstrates version-based operation chaining where newVersion from one operation
+     * is used in subsequent operations to prevent version conflicts.
+     */
+    it('should use newVersion for safe operation chaining and conflict prevention', async () => {
+      const userContext: UserContext = { userId: 'chain-processor' };
+      const orderData = {
+        orderNumber: 'ORD-VERSION-CHAIN-001',
+        status: 'pending' as const,
+        amount: 149.99,
+        metadata: { priority: 'high' },
+      };
+
+      // Phase 1: Create initial order
+      const order = await optimisticCollection.create(orderData, { userContext });
+      expect(order.version).toBe(1);
+
+      // Phase 2: Update using explicit version-based filtering
+      // This demonstrates the proper pattern for using newVersion to prevent conflicts
+      let currentVersion = order.version;
+      
+      const phase2Result = await optimisticCollection.update(
+        { 
+          _id: order._id, 
+          version: currentVersion // Use version in filter to prevent conflicts
+        },
+        { 
+          $set: { 
+            status: 'processing',
+            metadata: { ...orderData.metadata, phase: 2, processedAt: new Date() }
+          }
+        },
+        { userContext }
+      );
+
+      expect(phase2Result.modifiedCount).toBe(1);
+      expect(phase2Result.newVersion).toBe(2);
+      currentVersion = phase2Result.newVersion!;
+
+      // Phase 3: Continue chaining with the newVersion from phase 2
+      const phase3Result = await optimisticCollection.update(
+        { 
+          _id: order._id, 
+          version: currentVersion // Use newVersion from previous operation
+        },
+        { 
+          $set: { 
+            status: 'completed',
+            metadata: { ...orderData.metadata, phase: 3, completedAt: new Date() }
+          }
+        },
+        { userContext }
+      );
+
+      expect(phase3Result.modifiedCount).toBe(1);
+      expect(phase3Result.newVersion).toBe(3);
+
+      // Verify final state
+      const finalOrder = await optimisticCollection.findById(order._id);
+      expect(finalOrder!.status).toBe('completed');
+      expect(finalOrder!.version).toBe(3);
+      expect(finalOrder!.metadata?.phase).toBe(3);
+
+      // Demonstrate that using wrong version would fail
+      const wrongVersionResult = await optimisticCollection.update(
+        { 
+          _id: order._id, 
+          version: 1 // Wrong version - should not modify anything
+        },
+        { $set: { status: 'cancelled' } },
+        { userContext }
+      );
+
+      // With wrong version, no documents should be modified
+      expect(wrongVersionResult.modifiedCount).toBe(0);
+      expect(wrongVersionResult.newVersion).toBeUndefined();
+    });
+
+    /**
      * Demonstrates a complete order processing workflow using newVersion
      * to safely chain multiple operations without extra database queries.
      */
@@ -326,6 +404,70 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
   describe('Version Conflict Handling and Error Scenarios', () => {
     /**
+     * Demonstrates proper version-based conflict detection and prevention
+     * using newVersion in filter conditions
+     */
+    it('should prevent conflicts using version-based filtering', async () => {
+      const userContext1: UserContext = { userId: 'user-concurrent-1' };
+      const userContext2: UserContext = { userId: 'user-concurrent-2' };
+      const orderData = {
+        orderNumber: 'ORD-CONFLICT-PREVENTION',
+        status: 'pending' as const,
+        amount: 299.99,
+      };
+
+      // Create initial order
+      const order = await optimisticCollection.create(orderData, { userContext: userContext1 });
+      expect(order.version).toBe(1);
+
+      // User 1 starts a multi-phase operation
+      const user1Phase1 = await optimisticCollection.update(
+        { _id: order._id, version: 1 }, // Use version filter for safety
+        { $set: { status: 'processing', metadata: { processor: 'user1' } } },
+        { userContext: userContext1 }
+      );
+
+      expect(user1Phase1.modifiedCount).toBe(1);
+      expect(user1Phase1.newVersion).toBe(2);
+
+      // User 2 tries to update using the same version (should fail)
+      const user2Conflict = await optimisticCollection.update(
+        { _id: order._id, version: 1 }, // Same version - should fail
+        { $set: { status: 'cancelled', metadata: { processor: 'user2' } } },
+        { userContext: userContext2 }
+      );
+
+      expect(user2Conflict.modifiedCount).toBe(0); // No modification due to version conflict
+      expect(user2Conflict.newVersion).toBeUndefined();
+
+      // User 1 continues with correct version
+      const user1Phase2 = await optimisticCollection.update(
+        { _id: order._id, version: user1Phase1.newVersion }, // Use newVersion from phase 1
+        { $set: { status: 'completed', metadata: { processor: 'user1', completed: true } } },
+        { userContext: userContext1 }
+      );
+
+      expect(user1Phase2.modifiedCount).toBe(1);
+      expect(user1Phase2.newVersion).toBe(3);
+
+      // Verify final state
+      const finalOrder = await optimisticCollection.findById(order._id);
+      expect(finalOrder!.status).toBe('completed');
+      expect(finalOrder!.version).toBe(3);
+      expect(finalOrder!.metadata?.processor).toBe('user1');
+
+      // User 2 can now update with the current version if needed
+      const user2Recovery = await optimisticCollection.update(
+        { _id: order._id, version: 3 }, // Use current version
+        { $set: { metadata: { processor: 'user1', completed: true, reviewedBy: 'user2' } } },
+        { userContext: userContext2 }
+      );
+
+      expect(user2Recovery.modifiedCount).toBe(1);
+      expect(user2Recovery.newVersion).toBe(4);
+    });
+
+    /**
      * Demonstrates how version conflicts are detected and handled
      * when concurrent modifications occur during multi-phase operations
      */
@@ -439,6 +581,86 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       // Verify document is completely removed
       const deletedDoc = await optimisticCollection.findById(order._id, { includeSoftDeleted: true });
       expect(deletedDoc).toBeNull();
+    });
+
+    /**
+     * Demonstrates retry patterns with version-based recovery
+     * when conflicts occur during multi-phase operations
+     */
+    it('should handle retry patterns with version-based recovery', async () => {
+      const userContext: UserContext = { userId: 'retry-processor' };
+      const orderData = {
+        orderNumber: 'ORD-RETRY-PATTERN',
+        status: 'pending' as const,
+        amount: 199.99,
+      };
+
+      // Create initial order
+      const order = await optimisticCollection.create(orderData, { userContext });
+      let currentVersion = order.version;
+
+      // Simulate a retry loop with version-based recovery
+      let retryCount = 0;
+      const maxRetries = 3;
+      let finalResult: any = null;
+
+      while (retryCount < maxRetries) {
+        try {
+          // Get current document state
+          const currentDoc = await optimisticCollection.findById(order._id);
+          if (!currentDoc) {
+            throw new Error('Document not found');
+          }
+
+          currentVersion = currentDoc.version;
+
+          // Attempt version-safe update
+          const updateResult = await optimisticCollection.update(
+            { _id: order._id, version: currentVersion },
+            { 
+              $set: { 
+                status: 'processing',
+                metadata: { 
+                  retryCount, 
+                  processedAt: new Date(),
+                  processor: userContext.userId
+                }
+              }
+            },
+            { userContext }
+          );
+
+          if (updateResult.modifiedCount > 0) {
+            finalResult = updateResult;
+            break; // Success!
+          } else {
+            // Version conflict - retry
+            retryCount++;
+            console.log(`Retry ${retryCount} due to version conflict`);
+            
+            // Small delay to reduce contention
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+        } catch (error) {
+          retryCount++;
+          console.log(`Retry ${retryCount} due to error: ${error.message}`);
+          
+          if (retryCount >= maxRetries) {
+            throw error;
+          }
+        }
+      }
+
+      // Verify successful completion
+      expect(finalResult).toBeDefined();
+      expect(finalResult.newVersion).toBeDefined();
+      expect(finalResult.modifiedCount).toBe(1);
+
+      // Verify final state
+      const finalOrder = await optimisticCollection.findById(order._id);
+      expect(finalOrder!.status).toBe('processing');
+      expect(finalOrder!.metadata?.processor).toBe(userContext.userId);
+      expect(finalOrder!.version).toBe(finalResult.newVersion);
     });
   });
 
@@ -601,9 +823,10 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
       // Step 1: Customer service validates the order
       const order = await optimisticCollection.create(orderData, { userContext: customerService });
-      
-      const validationResult = await optimisticCollection.updateById(
-        order._id,
+      let currentVersion = order.version;
+
+      const validationResult = await optimisticCollection.update(
+        { _id: order._id, version: currentVersion }, // Use version for safe handoff
         {
           $set: {
             status: 'processing',
@@ -618,10 +841,11 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       );
 
       expect(validationResult.newVersion).toBe(2);
+      currentVersion = validationResult.newVersion!;
 
       // Step 2: Warehouse picks and packs the order (using newVersion from validation)
-      const packingResult = await optimisticCollection.updateById(
-        order._id,
+      const packingResult = await optimisticCollection.update(
+        { _id: order._id, version: currentVersion }, // Use newVersion from validation
         {
           $set: {
             metadata: {
@@ -638,10 +862,11 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       );
 
       expect(packingResult.newVersion).toBe(3);
+      currentVersion = packingResult.newVersion!;
 
       // Step 3: Billing processes payment and completes order (using newVersion from packing)
-      const completionResult = await optimisticCollection.updateById(
-        order._id,
+      const completionResult = await optimisticCollection.update(
+        { _id: order._id, version: currentVersion }, // Use newVersion from packing
         {
           $set: {
             status: 'completed',
@@ -740,6 +965,149 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       expect(recoveredOrder!.status).toBe('pending');
       expect(recoveredOrder!.metadata?.errorRecovery).toBe(true);
       expect(recoveredOrder!.version).toBe(4);
+    });
+
+    /**
+     * Demonstrates document approval workflow with version-safe transitions
+     * showing how multiple approvers can safely process documents
+     */
+    it('should demonstrate document approval workflow with version-safe transitions', async () => {
+      const author: UserContext = { userId: 'author-001' };
+      const reviewer: UserContext = { userId: 'reviewer-001' };
+      const approver: UserContext = { userId: 'approver-001' };
+      const publisher: UserContext = { userId: 'publisher-001' };
+
+      // Create initial document
+      const docData = {
+        title: 'Important Policy Document',
+        content: 'This document contains important policy information.',
+        tags: ['policy', 'draft'],
+        metadata: { department: 'HR', priority: 'high' }
+      };
+
+      const doc = await docCollection.create(docData, { userContext: author });
+      let currentVersion = doc.version;
+
+      // Phase 1: Author submits for review
+      const submitResult = await docCollection.update(
+        { _id: doc._id, version: currentVersion },
+        {
+          $set: {
+            tags: ['policy', 'pending-review'],
+            metadata: {
+              ...docData.metadata,
+              status: 'submitted',
+              submittedBy: author.userId,
+              submittedAt: new Date(),
+            }
+          }
+        },
+        { userContext: author }
+      );
+
+      expect(submitResult.newVersion).toBe(2);
+      currentVersion = submitResult.newVersion!;
+
+      // Phase 2: Reviewer reviews and approves
+      const reviewResult = await docCollection.update(
+        { _id: doc._id, version: currentVersion },
+        {
+          $set: {
+            tags: ['policy', 'reviewed'],
+            metadata: {
+              ...docData.metadata,
+              status: 'reviewed',
+              submittedBy: author.userId,
+              submittedAt: new Date(),
+              reviewedBy: reviewer.userId,
+              reviewedAt: new Date(),
+              reviewComments: 'Document looks good, ready for approval',
+            }
+          }
+        },
+        { userContext: reviewer }
+      );
+
+      expect(reviewResult.newVersion).toBe(3);
+      currentVersion = reviewResult.newVersion!;
+
+      // Phase 3: Approver gives final approval
+      const approvalResult = await docCollection.update(
+        { _id: doc._id, version: currentVersion },
+        {
+          $set: {
+            tags: ['policy', 'approved'],
+            metadata: {
+              ...docData.metadata,
+              status: 'approved',
+              submittedBy: author.userId,
+              submittedAt: new Date(),
+              reviewedBy: reviewer.userId,
+              reviewedAt: new Date(),
+              reviewComments: 'Document looks good, ready for approval',
+              approvedBy: approver.userId,
+              approvedAt: new Date(),
+            }
+          }
+        },
+        { userContext: approver }
+      );
+
+      expect(approvalResult.newVersion).toBe(4);
+      currentVersion = approvalResult.newVersion!;
+
+      // Phase 4: Publisher publishes the document
+      const publishResult = await docCollection.update(
+        { _id: doc._id, version: currentVersion },
+        {
+          $set: {
+            tags: ['policy', 'published'],
+            metadata: {
+              ...docData.metadata,
+              status: 'published',
+              submittedBy: author.userId,
+              submittedAt: new Date(),
+              reviewedBy: reviewer.userId,
+              reviewedAt: new Date(),
+              reviewComments: 'Document looks good, ready for approval',
+              approvedBy: approver.userId,
+              approvedAt: new Date(),
+              publishedBy: publisher.userId,
+              publishedAt: new Date(),
+              publicUrl: 'https://company.com/policies/important-policy'
+            }
+          }
+        },
+        { userContext: publisher }
+      );
+
+      expect(publishResult.newVersion).toBe(5);
+
+      // Verify the complete approval workflow
+      const finalDoc = await docCollection.findById(doc._id);
+      expect(finalDoc!.tags).toContain('published');
+      expect(finalDoc!.version).toBe(5);
+      expect(finalDoc!.metadata?.status).toBe('published');
+      expect(finalDoc!.metadata?.submittedBy).toBe(author.userId);
+      expect(finalDoc!.metadata?.reviewedBy).toBe(reviewer.userId);
+      expect(finalDoc!.metadata?.approvedBy).toBe(approver.userId);
+      expect(finalDoc!.metadata?.publishedBy).toBe(publisher.userId);
+
+      // Demonstrate that workflow is conflict-safe
+      // If someone tries to update with an old version, it should fail
+      const oldVersionUpdate = await docCollection.update(
+        { _id: doc._id, version: 2 }, // Old version
+        { $set: { tags: ['policy', 'outdated'] } },
+        { userContext: author }
+      );
+
+      expect(oldVersionUpdate.modifiedCount).toBe(0);
+      expect(oldVersionUpdate.newVersion).toBeUndefined();
+
+      // Document should remain unchanged
+      const unchangedDoc = await docCollection.findById(doc._id);
+      expect(unchangedDoc!.version).toBe(5);
+      expect(unchangedDoc!.tags).toContain('published');
     });
   });
 });
