@@ -371,7 +371,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
 
       // Multiple document update - use a filter that will match multiple documents
       const multiUpdateResult = await docCollection.update(
-        { tags: 'test' }, // All 3 documents still have 'test' tag
+        { title: { $regex: '^Doc' } }, // All 3 documents have titles starting with 'Doc'
         { $set: { metadata: { batchUpdated: true } } },
         { userContext }
       );
@@ -395,7 +395,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       expect(singleDeleteResult.newVersion).toBe(2);
 
       // Multiple document soft delete - newVersion should be undefined
-      const multiDeleteResult = await docCollection.delete({ tags: 'test' }, { userContext });
+      const multiDeleteResult = await docCollection.delete({ title: { $regex: '^Doc' } }, { userContext });
 
       expect(multiDeleteResult.modifiedCount).toBeGreaterThan(0);
       expect(multiDeleteResult.newVersion).toBeUndefined(); // No version for multi-document ops
@@ -643,7 +643,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
           }
         } catch (error) {
           retryCount++;
-          console.log(`Retry ${retryCount} due to error: ${error.message}`);
+          console.log(`Retry ${retryCount} due to error: ${(error as Error).message}`);
           
           if (retryCount >= maxRetries) {
             throw error;
