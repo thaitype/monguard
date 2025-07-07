@@ -46,6 +46,7 @@ Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging,
 - [Core Features](#core-features)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
+- [Multi-Phase Operations](#multi-phase-operations)
 - [Concurrency Strategies](#concurrency-strategies)
 - [Audit Logging](#audit-logging)
 - [Soft Deletes](#soft-deletes)
@@ -251,6 +252,136 @@ const collection = new MonguardCollection<User>(db, 'users', {
   }
 });
 ```
+
+## Multi-Phase Operations
+
+Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. MonGuard's `newVersion` feature enables safe, conflict-free multi-phase operations using version-based optimistic locking.
+
+### Basic Version-Safe Chaining
+
+```typescript
+// Safe multi-phase operation using newVersion
+async function processOrder(orders: MonguardCollection, orderId: ObjectId) {
+  const customerService = { userId: 'cs-001' };
+  const warehouse = { userId: 'warehouse-001' };
+  
+  // Phase 1: Customer service validates
+  const validation = await orders.update(
+    { _id: orderId, status: 'pending' },
+    { $set: { status: 'processing' } },
+    { userContext: customerService }
+  );
+  
+  if (!validation.newVersion) {
+    throw new Error('Validation failed or version conflict');
+  }
+  
+  // Phase 2: Warehouse processes using newVersion from Phase 1
+  const processing = await orders.update(
+    { _id: orderId, version: validation.newVersion }, // Use newVersion for safety
+    { $set: { status: 'shipped' } },
+    { userContext: warehouse }
+  );
+  
+  return processing.newVersion;
+}
+```
+
+### When `newVersion` is Available
+
+| Condition | `newVersion` Value | Safe to Chain? |
+|-----------|-------------------|----------------|
+| Single document modified | `currentVersion + 1` | ✅ Yes |
+| No documents modified | `undefined` | ❌ Operation failed |
+| Multi-document operation | `undefined` | ❌ Ambiguous state |
+| Hard delete operation | `undefined` | ❌ Document removed |
+
+### Conflict Detection and Recovery
+
+```typescript
+async function retryableUpdate(collection: MonguardCollection, docId: ObjectId) {
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  while (retryCount < maxRetries) {
+    try {
+      // Get current document state
+      const currentDoc = await collection.findById(docId);
+      if (!currentDoc) throw new Error('Document not found');
+      
+      // Attempt version-safe update
+      const result = await collection.update(
+        { _id: docId, version: currentDoc.version },
+        { $set: { processed: true } },
+        { userContext: { userId: 'processor' } }
+      );
+      
+      if (result.modifiedCount > 0) {
+        return result.newVersion; // Success!
+      }
+      
+      // Version conflict - retry
+      retryCount++;
+      await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+      
+    } catch (error) {
+      retryCount++;
+      if (retryCount >= maxRetries) throw error;
+    }
+  }
+}
+```
+
+### Real-World Use Cases
+
+**Document Approval Workflow:**
+```typescript
+// Author → Reviewer → Approver → Publisher
+const submission = await docs.update(
+  { _id: docId, version: 1 },
+  { $set: { status: 'submitted' } },
+  { userContext: author }
+);
+
+const review = await docs.update(
+  { _id: docId, version: submission.newVersion },
+  { $set: { status: 'reviewed' } },
+  { userContext: reviewer }
+);
+
+const approval = await docs.update(
+  { _id: docId, version: review.newVersion },
+  { $set: { status: 'approved' } },
+  { userContext: approver }
+);
+```
+
+**E-Commerce Order Fulfillment:**
+```typescript
+// Validation → Packing → Billing → Completion
+const phases = [
+  { status: 'processing', user: customerService },
+  { status: 'shipped', user: warehouse },
+  { status: 'completed', user: billing }
+];
+
+let currentVersion = order.version;
+for (const phase of phases) {
+  const result = await orders.update(
+    { _id: orderId, version: currentVersion },
+    { $set: { status: phase.status } },
+    { userContext: phase.user }
+  );
+  
+  if (!result.newVersion) {
+    throw new Error(`Phase failed: ${phase.status}`);
+  }
+  
+  currentVersion = result.newVersion;
+}
+```
+
+For comprehensive documentation on multi-phase operations, including error handling patterns, performance considerations, and advanced use cases, see: [Multi-Phase Operations Guide](./docs/multi-phase-operations.md).
 
 ## API Reference
 
