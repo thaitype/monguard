@@ -980,6 +980,46 @@ describe('MonguardCollection Internal Methods', () => {
         // This bypasses the early return and exercises the filter logic including line 469
         await expect(collectionWithMixedAudit.testCreateAuditLogs(entries)).resolves.toBeUndefined();
       });
+
+      it('should hit line 469 filter condition when both audit controls are disabled in filter function', async () => {
+        const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
+        // Create a collection that bypasses early return (line 464) but triggers line 469
+        const collectionWithSpecificConfig = new TestableMonguardCollection<TestUser>(db, 'test_users', {
+          auditLogger,
+          concurrency: { transactionsEnabled: false },
+          auditControl: {
+            enableAutoAudit: true, // This prevents early return at line 464
+            auditCustomOperations: false,
+          },
+        });
+
+        // Create entries that will make it past the early return but need filtering
+        const entries = [{
+          action: 'create',
+          documentId: TestDataFactory.createObjectId(),
+          userContext: TestDataFactory.createUserContext(),
+        }, {
+          action: 'update', 
+          documentId: TestDataFactory.createObjectId(),
+          userContext: TestDataFactory.createUserContext(),
+        }];
+
+        // Temporarily disable both audit controls after collection creation
+        // to trigger the filter condition at line 469
+        const originalAuditControl = (collectionWithSpecificConfig as any).options.auditControl;
+        (collectionWithSpecificConfig as any).options.auditControl = {
+          enableAutoAudit: false,
+          auditCustomOperations: false,
+        };
+
+        try {
+          // This should exercise line 469 in the filter function
+          await expect(collectionWithSpecificConfig.testCreateAuditLogs(entries)).resolves.toBeUndefined();
+        } finally {
+          // Restore original config
+          (collectionWithSpecificConfig as any).options.auditControl = originalAuditControl;
+        }
+      });
     });
 
     describe('createAuditLog method', () => {

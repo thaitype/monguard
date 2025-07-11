@@ -255,7 +255,7 @@ const collection = new MonguardCollection<User>(db, 'users', {
 
 ## Multi-Phase Operations
 
-Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. MonGuard's `newVersion` feature enables safe, conflict-free multi-phase operations using version-based optimistic locking.
+Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `newVersion` feature enables safe, conflict-free multi-phase operations using version-based optimistic locking.
 
 ### Basic Version-Safe Chaining
 

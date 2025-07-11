@@ -1,8 +1,8 @@
-# Multi-Phase Operations with MonGuard
+# Multi-Phase Operations with Monguard
 
 ## Overview
 
-Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. MonGuard's `newVersion` feature enables safe, conflict-free multi-phase operations by providing version-based optimistic locking that prevents race conditions and ensures data consistency.
+Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `newVersion` feature enables safe, conflict-free multi-phase operations by providing version-based optimistic locking that prevents race conditions and ensures data consistency.
 
 ### Why Multi-Phase Operations Matter
 
@@ -23,7 +23,7 @@ Traditional approaches often suffer from:
 
 ### Version-Based Optimistic Locking
 
-MonGuard uses document versioning to prevent conflicts during multi-phase operations:
+Monguard uses document versioning to prevent conflicts during multi-phase operations:
 
 ```typescript
 interface VersionedDocument {
@@ -37,7 +37,7 @@ interface VersionedDocument {
 
 ### The `newVersion` Feature
 
-When operations succeed, MonGuard returns the updated version number:
+When operations succeed, Monguard returns the updated version number:
 
 ```typescript
 interface ExtendedUpdateResult extends UpdateResult {
@@ -1253,7 +1253,7 @@ async function loggedMultiPhaseOperation(
 
 ## Conclusion
 
-Multi-phase operations with MonGuard's `newVersion` feature enable safe, conflict-free workflows in complex business scenarios. By following the patterns and best practices outlined in this guide, you can build robust systems that handle concurrent modifications, recover from failures, and maintain data consistency throughout multi-step processes.
+Multi-phase operations with Monguard's `newVersion` feature enable safe, conflict-free workflows in complex business scenarios. By following the patterns and best practices outlined in this guide, you can build robust systems that handle concurrent modifications, recover from failures, and maintain data consistency throughout multi-step processes.
 
 Key takeaways:
 
@@ -1268,4 +1268,4 @@ Key takeaways:
 For more information, see:
 - [Transaction Strategy Testing Documentation](./transaction-strategy-testing.md)
 - [Dual Mode Concurrency Design](../memory-bank/DUAL_MODE_CONCURRENCY_DESIGN.md)
-- [MonGuard Collection API Reference](../packages/monguard/src/monguard-collection.ts)
+- [Monguard Collection API Reference](../packages/monguard/src/monguard-collection.ts)

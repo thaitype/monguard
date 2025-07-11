@@ -1,6 +1,6 @@
-## ✅ **MonGuard Production Test Checklist**
+## ✅ **Monguard Production Test Checklist**
 
-This checklist outlines all **critical test areas** required to harden MonGuard for **real-world production deployment** — especially under load, failures, and scale.
+This checklist outlines all **critical test areas** required to harden Monguard for **real-world production deployment** — especially under load, failures, and scale.
 
 ---
 
