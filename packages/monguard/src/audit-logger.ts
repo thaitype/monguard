@@ -3,7 +3,8 @@
  */
 
 import type { Collection, WithoutId, Db, ObjectId } from './mongodb-types';
-import type { AuditLogDocument, AuditAction, UserContext } from './types';
+import type { AuditLogDocument, AuditAction, UserContext, AuditControlOptions } from './types';
+import type { OutboxTransport, AuditEvent } from './outbox-transport';
 
 /**
  * Options for configuring an audit logger instance.
@@ -96,6 +97,8 @@ export interface MonguardAuditLoggerOptions<TRefId = any> {
   logger?: Logger;
   /** If true, validation failures throw errors; if false, they warn (default: false) */
   strictValidation?: boolean;
+  /** Outbox transport for handling 'outbox' mode audit logging */
+  outboxTransport?: OutboxTransport<TRefId>;
   // Reserved for future extensibility
   // Could include options like:
   // - Custom timestamp field names
@@ -143,7 +146,8 @@ export abstract class AuditLogger<TRefId = any> {
     collectionName: string,
     documentId: TRefId,
     userContext?: UserContext<TRefId>,
-    metadata?: AuditLogMetadata
+    metadata?: AuditLogMetadata,
+    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts'>
   ): Promise<void>;
 
   /**
@@ -182,6 +186,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   private refIdConfig?: RefIdConfig<TRefId>;
   private logger: Logger;
   private strictValidation: boolean;
+  private outboxTransport?: OutboxTransport<TRefId>;
 
   /**
    * Creates a new MonguardAuditLogger instance.
@@ -198,6 +203,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     this.refIdConfig = options?.refIdConfig;
     this.logger = options?.logger || ConsoleLogger;
     this.strictValidation = options?.strictValidation ?? false;
+    this.outboxTransport = options?.outboxTransport;
   }
 
   /**
@@ -215,7 +221,8 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     collectionName: string,
     documentId: TRefId,
     userContext?: UserContext<TRefId>,
-    metadata?: AuditLogMetadata
+    metadata?: AuditLogMetadata,
+    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts'>
   ): Promise<void> {
     // Process reference ID through config if available
     let processedRefId = documentId;
@@ -234,25 +241,97 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
       }
     }
 
-    try {
-      const auditLog: WithoutId<AuditLogDocument<TRefId>> = {
-        ref: {
-          collection: collectionName,
-          id: processedRefId,
-        },
-        action,
-        userId: userContext?.userId,
-        timestamp: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metadata,
-      };
+    // Determine audit mode - default to 'inTransaction' if not specified
+    const auditMode = auditControl?.mode || 'inTransaction';
 
-      await this.auditCollection.insertOne(auditLog as any);
-    } catch (error) {
-      // Log database errors but don't throw to avoid breaking the main operation
-      this.logger.error('Failed to create audit log:', error);
+    // Validate outbox transport is available when using outbox mode
+    if (auditMode === 'outbox' && !this.outboxTransport) {
+      const errorMessage = 'Outbox transport is required when audit control mode is "outbox"';
+
+      if (auditControl?.logFailedAttempts) {
+        this.logger.warn('Audit configuration error:', {
+          action,
+          collectionName,
+          documentId: processedRefId,
+          error: errorMessage,
+        });
+      }
+
+      if (auditControl?.failOnError) {
+        throw new Error(errorMessage);
+      }
+
+      // Fallback to in-transaction mode if outbox transport is not available
+      this.logger.warn('Falling back to in-transaction mode due to missing outbox transport');
     }
+
+    try {
+      if (auditMode === 'outbox' && this.outboxTransport) {
+        // Outbox mode: enqueue audit event for later processing
+        const auditEvent: AuditEvent<TRefId> = {
+          id: this.generateEventId(),
+          action,
+          collectionName,
+          documentId: processedRefId,
+          userContext,
+          metadata,
+          timestamp: new Date(),
+          retryCount: 0,
+        };
+
+        await this.outboxTransport.enqueue(auditEvent);
+      } else {
+        // In-transaction mode: write audit log directly to collection
+        const auditLog: WithoutId<AuditLogDocument<TRefId>> = {
+          ref: {
+            collection: collectionName,
+            id: processedRefId,
+          },
+          action,
+          userId: userContext?.userId,
+          timestamp: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          metadata,
+        };
+
+        await this.auditCollection.insertOne(auditLog as any);
+      }
+    } catch (error) {
+      // Log the error for debugging
+      this.logger.error(`Failed to ${auditMode === 'outbox' ? 'enqueue audit event' : 'create audit log'}:`, error);
+
+      // Log failed attempts if requested
+      if (auditControl?.logFailedAttempts) {
+        this.logger.warn('Audit failure logged for investigation:', {
+          action,
+          collectionName,
+          documentId: processedRefId,
+          mode: auditMode,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // Respect failOnError setting - if true, re-throw to cause transaction rollback
+      if (auditControl?.failOnError) {
+        throw error;
+      }
+
+      // Default behavior: swallow error to avoid breaking main operation
+    }
+  }
+
+  /**
+   * Generates a unique event ID for outbox audit events.
+   *
+   * @private
+   * @returns A unique string identifier
+   */
+  private generateEventId(): string {
+    // Use timestamp + random string for uniqueness
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 15);
+    return `${timestamp}-${random}`;
   }
 
   /**
@@ -311,7 +390,8 @@ export class NoOpAuditLogger extends AuditLogger<any> {
     collectionName: string,
     documentId: any,
     userContext?: UserContext<any>,
-    metadata?: AuditLogMetadata
+    metadata?: AuditLogMetadata,
+    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts'>
   ): Promise<void> {
     // Intentionally empty - no audit logging performed
   }

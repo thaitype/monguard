@@ -16,3 +16,8 @@ export * from './types';
  * Exports audit logger classes and interfaces.
  */
 export * from './audit-logger';
+
+/**
+ * Exports outbox transport interfaces and implementations.
+ */
+export * from './outbox-transport';

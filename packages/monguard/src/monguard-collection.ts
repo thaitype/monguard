@@ -79,6 +79,9 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditControl: {
     enableAutoAudit: true,
     auditCustomOperations: false,
+    mode: 'inTransaction',
+    failOnError: false,
+    logFailedAttempts: false,
   },
 };
 
@@ -148,6 +151,37 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     } else {
       // No audit logger provided - disable audit logging
       this.auditLogger = new NoOpAuditLogger();
+    }
+
+    // Validate outbox configuration if outbox mode is requested
+    const finalAuditControl = this.options.auditControl || defaultOptions.auditControl!;
+    if (finalAuditControl.mode === 'outbox') {
+      // Check if audit logger is MonguardAuditLogger and has outbox transport
+      if (this.auditLogger instanceof MonguardAuditLogger) {
+        const hasOutboxTransport = (this.auditLogger as any).outboxTransport;
+        if (!hasOutboxTransport) {
+          // Only throw error if failOnError is true (strict mode)
+          if (finalAuditControl.failOnError) {
+            throw new Error(
+              'Outbox transport is required when audit control mode is "outbox". ' +
+                'Please provide an outboxTransport option when creating the MonguardAuditLogger.'
+            );
+          } else {
+            // Warn about missing outbox transport but allow fallback
+            console.warn(
+              'Outbox transport is missing for outbox mode. ' + 'Audit logger will fall back to in-transaction mode.'
+            );
+          }
+        }
+      } else if (!(this.auditLogger instanceof NoOpAuditLogger)) {
+        // For custom audit loggers, we can't validate but should warn
+        console.warn(
+          'Using custom audit logger with outbox mode. ' +
+            'Please ensure your audit logger implementation supports outbox mode.'
+        );
+      } else {
+        // NoOpAuditLogger with outbox mode - this is fine, auditing is disabled
+      }
     }
 
     // Create strategy context

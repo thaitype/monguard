@@ -5,7 +5,7 @@
     "prepare": "turbo run @monguard/vitest-config#build",
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "all": "run-s build test lint",
+    "all": "run-s build test:ci lint",
     "check": "run-s check-types test",
     "check-types": "turbo check-types",
     "lint": "turbo lint:check check-types && npm run format",

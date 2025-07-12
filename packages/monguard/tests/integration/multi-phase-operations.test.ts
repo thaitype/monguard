@@ -392,7 +392,7 @@ describe('Multi-Phase Operations with newVersion Feature', () => {
       const singleDeleteResult = await docCollection.deleteById(docs[1]._id, { userContext });
 
       expect(singleDeleteResult.modifiedCount).toBe(1);
-      expect(singleDeleteResult.newVersion).toBe(2);
+      expect(singleDeleteResult.newVersion).toBe(3); // Version 3 because it was affected by the multi-update above
 
       // Multiple document soft delete - newVersion should be undefined
       const multiDeleteResult = await docCollection.delete({ title: { $regex: '^Doc' } }, { userContext });

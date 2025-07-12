@@ -1,10 +1,10 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { MongoClient, Db } from 'mongodb';
 // Import adapter to setup global ObjectId
 import './mongodb-adapter';
 
 // Singleton instance to avoid concurrency issues
-let globalMongod: MongoMemoryServer | null = null;
+let globalMongod: MongoMemoryReplSet | null = null;
 let globalClient: MongoClient | null = null;
 
 export class TestDatabase {
@@ -17,12 +17,12 @@ export class TestDatabase {
   }
 
   async start(): Promise<Db> {
-    // Initialize global MongoDB instance if not already running
+    // Initialize global MongoDB replica set instance if not already running
     if (!globalMongod) {
-      globalMongod = await MongoMemoryServer.create({
-        instance: {
-          // Use a single port to avoid conflicts
-          port: 27017 + Math.floor(Math.random() * 1000),
+      globalMongod = await MongoMemoryReplSet.create({
+        replSet: {
+          count: 1, // Single node replica set for simplicity
+          storageEngine: 'wiredTiger', // Required for transactions
         },
       });
     }
@@ -40,16 +40,26 @@ export class TestDatabase {
   async stop(): Promise<void> {
     // Only cleanup the database, don't stop the global instance
     if (this.db) {
-      await this.db.dropDatabase();
+      try {
+        await this.db.dropDatabase();
+      } catch (error) {
+        // Ignore errors during cleanup in replica set environment
+        console.warn('Database cleanup warning:', (error as Error).message);
+      }
       this.db = null;
     }
   }
 
   async cleanup(): Promise<void> {
     if (this.db) {
-      const collections = await this.db.listCollections().toArray();
-      for (const collection of collections) {
-        await this.db.collection(collection.name).deleteMany({});
+      try {
+        const collections = await this.db.listCollections().toArray();
+        for (const collection of collections) {
+          await this.db.collection(collection.name).deleteMany({});
+        }
+      } catch (error) {
+        // Ignore errors during cleanup in replica set environment
+        console.warn('Collection cleanup warning:', (error as Error).message);
       }
     }
   }

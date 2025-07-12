@@ -200,6 +200,14 @@ export interface AuditControlOptions {
   enableAutoAudit?: boolean;
   /** Whether to create audit logs for custom operations */
   auditCustomOperations?: boolean;
+
+  // Transaction-aware audit control options
+  /** Audit logging mode - 'inTransaction' writes audit in same TX, 'outbox' queues for later processing */
+  mode?: 'inTransaction' | 'outbox';
+  /** Whether audit logging failures should cause transaction rollback (default: false) */
+  failOnError?: boolean;
+  /** Whether to log failed audit attempts for debugging (default: false) */
+  logFailedAttempts?: boolean;
 }
 
 /**
