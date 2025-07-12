@@ -2,14 +2,14 @@
 
 [![CI](https://github.com/thaitype/monguard/actions/workflows/main.yml/badge.svg)](https://github.com/thaitype/monguard/actions/workflows/main.yml) [![codecov](https://codecov.io/gh/thaitype/monguard/graph/badge.svg?token=B7MCHM57BH)](https://codecov.io/gh/thaitype/monguard) [![NPM Version](https://img.shields.io/npm/v/monguard) ](https://www.npmjs.com/package/monguard)[![npm downloads](https://img.shields.io/npm/dt/monguard)](https://www.npmjs.com/package/monguard) 
 
-> Note: This is early stage of development, the API is subject to change. Please report any issues or suggestions. 
-> Don't use in production yet.
+> Note: The API is subject to change, please follow the release note to migration document, please report any issues or suggestions. 
 
 **`monguard`** is a lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features:
 
 * 🗑️ **Soft Delete** — Mark records as deleted without removing them from the database
 * ⏱️ **Auto Timestamps** — Automatically manage `createdAt` and `updatedAt` fields
 * 🕵️ **Audit Logging** — Track every `create`, `update`, and `delete` action with detailed metadata
+* 🎯 **Delta Mode Auditing** — Reduce audit log storage by 70-90% with smart field-level change tracking
 * 🚀 **Transaction-Aware Auditing** — In-transaction or outbox patterns for different consistency needs
 * 🧠 **TypeScript First** — Fully typed for safety and great DX
 * ⚙️ **Plug-and-Play** — Minimal setup, maximum control
@@ -59,7 +59,7 @@ npm install mongodb
 
 ```typescript
 import { MongoClient } from 'mongodb';
-import { MonguardCollection } from 'monguard';
+import { MonguardCollection, MonguardAuditLogger } from 'monguard';
 
 // Define your document interface
 interface User {
@@ -80,8 +80,16 @@ const client = new MongoClient('mongodb://localhost:27017');
 await client.connect();
 const db = client.db('myapp');
 
+// Create audit logger with delta mode for 70-90% storage reduction
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  storageMode: 'delta',        // Enable delta mode
+  maxDepth: 3,                 // Track nested changes up to 3 levels
+  arrayDiffMaxSize: 20,        // Smart array handling
+});
+
 // Create a Monguard collection
 const users = new MonguardCollection<User>(db, 'users', {
+  auditLogger,
   concurrency: { transactionsEnabled: true },
   auditControl: {
     mode: 'inTransaction',     // Strong audit consistency
@@ -108,6 +116,7 @@ try {
 
 ### 🔍 **Audit Logging**
 - Automatic tracking of all create, update, and delete operations
+- **Delta mode auditing** with 70-90% storage reduction via field-level change tracking
 - **Transaction-aware audit control** with in-transaction and outbox modes
 - **Flexible error handling** with fail-fast or resilient strategies
 - Customizable audit collection names and logger interfaces

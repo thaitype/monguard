@@ -39,7 +39,7 @@ import type {
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
-import { AuditLogger, NoOpAuditLogger, MonguardAuditLogger } from './audit-logger';
+import { AuditLogger, NoOpAuditLogger, MonguardAuditLogger, Logger, ConsoleLogger } from './audit-logger';
 
 /**
  * Configuration options for MonguardCollection initialization.
@@ -51,6 +51,11 @@ export interface MonguardCollectionOptions<TRefId = DefaultReferenceId> {
    * If not provided, audit logging will be disabled (uses NoOpAuditLogger).
    */
   auditLogger?: AuditLogger<TRefId>;
+  /**
+   * Logger instance for warning and error messages.
+   * If not provided, uses ConsoleLogger.
+   */
+  logger?: Logger;
   /**
    * Monguard configuration for concurrency handling.
    * Required - must explicitly set transactionsEnabled to true or false.
@@ -120,6 +125,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
   private options: MonguardCollectionOptions<TRefId>;
   private strategy: OperationStrategy<T, TRefId>;
   private auditLogger: AuditLogger<TRefId>;
+  private logger: Logger;
 
   /**
    * Creates a new MonguardCollection instance.
@@ -145,6 +151,9 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     this.collection = db.collection<T>(collectionName) as Collection<T>;
     this.collectionName = collectionName;
 
+    // Initialize logger - use provided logger or default to console
+    this.logger = options.logger || ConsoleLogger;
+
     // Initialize audit logger - use provided auditLogger or disable by default
     if (options.auditLogger) {
       this.auditLogger = options.auditLogger;
@@ -168,14 +177,14 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
             );
           } else {
             // Warn about missing outbox transport but allow fallback
-            console.warn(
+            this.logger.warn(
               'Outbox transport is missing for outbox mode. ' + 'Audit logger will fall back to in-transaction mode.'
             );
           }
         }
       } else if (!(this.auditLogger instanceof NoOpAuditLogger)) {
         // For custom audit loggers, we can't validate but should warn
-        console.warn(
+        this.logger.warn(
           'Using custom audit logger with outbox mode. ' +
             'Please ensure your audit logger implementation supports outbox mode.'
         );
@@ -188,6 +197,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
     const strategyContext: OperationStrategyContext<T, TRefId> = {
       collection: this.collection,
       auditLogger: this.auditLogger,
+      logger: this.logger,
       collectionName: this.collectionName,
       config: this.options.concurrency,
       auditControl: this.options.auditControl || defaultOptions.auditControl!,

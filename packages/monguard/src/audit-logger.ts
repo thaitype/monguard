@@ -5,6 +5,7 @@
 import type { Collection, WithoutId, Db, ObjectId } from './mongodb-types';
 import type { AuditLogDocument, AuditAction, UserContext, AuditControlOptions } from './types';
 import type { OutboxTransport, AuditEvent } from './outbox-transport';
+import { computeDelta, DEFAULT_DELTA_OPTIONS, type DeltaOptions } from './utils/delta-calculator';
 
 /**
  * Options for configuring an audit logger instance.
@@ -99,11 +100,16 @@ export interface MonguardAuditLoggerOptions<TRefId = any> {
   strictValidation?: boolean;
   /** Outbox transport for handling 'outbox' mode audit logging */
   outboxTransport?: OutboxTransport<TRefId>;
-  // Reserved for future extensibility
-  // Could include options like:
-  // - Custom timestamp field names
-  // - Custom metadata handling
-  // - Batch logging configuration
+  /** Storage mode configuration (default: 'delta') */
+  storageMode?: 'full' | 'delta';
+  /** Maximum depth for nested object diffing (default: 3) */
+  maxDepth?: number;
+  /** Array handling strategy (default: 'diff') */
+  arrayHandling?: 'diff' | 'replace';
+  /** Max array size for element-wise diffing (default: 20) */
+  arrayDiffMaxSize?: number;
+  /** Fields to exclude from delta computation */
+  blacklist?: string[];
 }
 
 /**
@@ -147,7 +153,7 @@ export abstract class AuditLogger<TRefId = any> {
     documentId: TRefId,
     userContext?: UserContext<TRefId>,
     metadata?: AuditLogMetadata,
-    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts'>
+    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>
   ): Promise<void>;
 
   /**
@@ -187,6 +193,8 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   private logger: Logger;
   private strictValidation: boolean;
   private outboxTransport?: OutboxTransport<TRefId>;
+  private deltaOptions: Required<DeltaOptions>;
+  private defaultStorageMode: 'full' | 'delta';
 
   /**
    * Creates a new MonguardAuditLogger instance.
@@ -204,6 +212,16 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     this.logger = options?.logger || ConsoleLogger;
     this.strictValidation = options?.strictValidation ?? false;
     this.outboxTransport = options?.outboxTransport;
+    this.defaultStorageMode = options?.storageMode ?? 'full';
+
+    // Configure delta computation options
+    this.deltaOptions = {
+      ...DEFAULT_DELTA_OPTIONS,
+      maxDepth: options?.maxDepth ?? DEFAULT_DELTA_OPTIONS.maxDepth,
+      arrayHandling: options?.arrayHandling ?? DEFAULT_DELTA_OPTIONS.arrayHandling,
+      arrayDiffMaxSize: options?.arrayDiffMaxSize ?? DEFAULT_DELTA_OPTIONS.arrayDiffMaxSize,
+      blacklist: options?.blacklist ?? DEFAULT_DELTA_OPTIONS.blacklist,
+    };
   }
 
   /**
@@ -222,7 +240,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     documentId: TRefId,
     userContext?: UserContext<TRefId>,
     metadata?: AuditLogMetadata,
-    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts'>
+    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>
   ): Promise<void> {
     // Process reference ID through config if available
     let processedRefId = documentId;
@@ -265,6 +283,10 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
       this.logger.warn('Falling back to in-transaction mode due to missing outbox transport');
     }
 
+    // Determine storage mode and process metadata
+    const storageMode = auditControl?.storageMode ?? this.defaultStorageMode;
+    const processedMetadata = this.processMetadata(metadata, action, storageMode);
+
     try {
       if (auditMode === 'outbox' && this.outboxTransport) {
         // Outbox mode: enqueue audit event for later processing
@@ -274,7 +296,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           collectionName,
           documentId: processedRefId,
           userContext,
-          metadata,
+          metadata: processedMetadata,
           timestamp: new Date(),
           retryCount: 0,
         };
@@ -292,7 +314,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           timestamp: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
-          metadata,
+          metadata: processedMetadata,
         };
 
         await this.auditCollection.insertOne(auditLog as any);
@@ -319,6 +341,60 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
       // Default behavior: swallow error to avoid breaking main operation
     }
+  }
+
+  /**
+   * Processes metadata based on storage mode and action type.
+   *
+   * @private
+   * @param metadata - Original metadata
+   * @param action - The audit action being performed
+   * @param storageMode - Storage mode to use
+   * @returns Processed metadata with delta computation if applicable
+   */
+  private processMetadata(
+    metadata: AuditLogMetadata | undefined,
+    action: AuditAction,
+    storageMode: 'full' | 'delta'
+  ): AuditLogMetadata | undefined {
+    if (!metadata) {
+      return metadata;
+    }
+
+    // For CREATE and DELETE actions, always use full document storage
+    if (action === 'create' || action === 'delete') {
+      return {
+        ...metadata,
+        storageMode: 'full',
+      };
+    }
+
+    // For UPDATE actions, apply storage mode logic
+    if (action === 'update' && storageMode === 'delta') {
+      const { before, after } = metadata;
+
+      if (before !== undefined && after !== undefined) {
+        // Compute delta changes
+        const deltaResult = computeDelta(before, after, this.deltaOptions);
+
+        if (deltaResult.hasChanges) {
+          return {
+            ...metadata,
+            deltaChanges: deltaResult.changes,
+            storageMode: 'delta',
+            // Keep original before/after for debugging purposes (could be removed for storage optimization)
+            before,
+            after,
+          };
+        }
+      }
+    }
+
+    // Fallback to full storage mode
+    return {
+      ...metadata,
+      storageMode: 'full',
+    };
   }
 
   /**
@@ -391,7 +467,7 @@ export class NoOpAuditLogger extends AuditLogger<any> {
     documentId: any,
     userContext?: UserContext<any>,
     metadata?: AuditLogMetadata,
-    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts'>
+    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>
   ): Promise<void> {
     // Intentionally empty - no audit logging performed
   }

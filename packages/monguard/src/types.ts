@@ -99,6 +99,17 @@ export interface AuditLogDocument<TId = DefaultReferenceId> extends BaseDocument
     after?: any;
     /** List of field names that were changed */
     changes?: string[];
+    /** Delta changes with field-level granularity */
+    deltaChanges?: {
+      [fieldPath: string]: {
+        old: any;
+        new: any;
+        /** Present if this is a full subdoc/array replacement due to maxDepth or array size limit */
+        fullDocument?: true;
+      };
+    };
+    /** Storage mode used for this audit log */
+    storageMode?: 'full' | 'delta';
     /** Whether this was a soft delete operation */
     softDelete?: boolean;
     /** Whether this was a hard delete operation */
@@ -127,6 +138,8 @@ export interface CreateOptions<TUserId = DefaultReferenceId> {
   skipAudit?: boolean;
   /** User context for audit trails and user-based fields */
   userContext?: UserContext<TUserId>;
+  /** Per-operation audit control options (overrides collection-level settings) */
+  auditControl?: Partial<AuditControlOptions>;
 }
 
 /**
@@ -150,6 +163,8 @@ export interface UpdateOptions<TUserId = DefaultReferenceId> {
   userContext?: UserContext<TUserId>;
   /** Whether to create the document if it doesn't exist */
   upsert?: boolean;
+  /** Per-operation audit control options (overrides collection-level settings) */
+  auditControl?: Partial<AuditControlOptions>;
 }
 
 export type HardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete extends true
@@ -168,6 +183,8 @@ export interface DeleteOptions<THardDelete extends boolean, TUserId = DefaultRef
   userContext?: UserContext<TUserId>;
   /** Whether to permanently delete the document (true) or soft delete (false) */
   hardDelete?: THardDelete;
+  /** Per-operation audit control options (overrides collection-level settings) */
+  auditControl?: Partial<AuditControlOptions>;
 }
 
 /**
@@ -208,6 +225,8 @@ export interface AuditControlOptions {
   failOnError?: boolean;
   /** Whether to log failed audit attempts for debugging (default: false) */
   logFailedAttempts?: boolean;
+  /** Override storage mode for this specific operation */
+  storageMode?: 'full' | 'delta';
 }
 
 /**

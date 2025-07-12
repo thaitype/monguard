@@ -1,12 +1,39 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ObjectId as MongoObjectId, Db as MongoDb } from 'mongodb';
 import { MonguardCollection } from '../../src/monguard-collection';
-import { MonguardAuditLogger } from '../../src/audit-logger';
+import { MonguardAuditLogger, AuditLogger, Logger } from '../../src/audit-logger';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { TestHelpers } from '../test-utils';
 import { adaptDb, adaptObjectId } from '../mongodb-adapter';
 import type { Db, ObjectId } from '../../src/mongodb-types';
+import type { AuditLogDocument, AuditAction, UserContext, AuditControlOptions } from '../../src/types';
+
+// Custom audit logger for testing
+class CustomAuditLogger extends AuditLogger<ObjectId> {
+  async logOperation(
+    action: AuditAction,
+    collectionName: string,
+    documentId: ObjectId,
+    userContext?: UserContext<ObjectId>,
+    metadata?: any,
+    auditControl?: any
+  ): Promise<void> {
+    // Custom implementation
+  }
+
+  async getAuditLogs(collectionName: string, documentId: ObjectId): Promise<AuditLogDocument<ObjectId>[]> {
+    return [];
+  }
+
+  getAuditCollection(): any {
+    return null;
+  }
+
+  isEnabled(): boolean {
+    return true;
+  }
+}
 
 // Interface for documents with audit fields in tests
 interface TestDocumentWithAuditFields {
@@ -116,6 +143,45 @@ class TestableMonguardCollection<
     return this.createAuditLogs(entries);
   }
 }
+
+describe('MonguardCollection Constructor Validation', () => {
+  let testDb: TestDatabase;
+  let mongoDb: MongoDb;
+  let db: Db;
+
+  beforeEach(async () => {
+    testDb = new TestDatabase();
+    mongoDb = await testDb.start();
+    db = adaptDb(mongoDb);
+  });
+
+  afterEach(async () => {
+    await testDb.stop();
+  });
+
+  it('should warn when using custom audit logger with outbox mode', () => {
+    const mockLogger: Logger = {
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
+    const customAuditLogger = new CustomAuditLogger();
+
+    // Create collection with custom audit logger and outbox mode
+    const collection = new MonguardCollection<TestUser>(db, 'test_users', {
+      auditLogger: customAuditLogger,
+      logger: mockLogger,
+      concurrency: { transactionsEnabled: false },
+      auditControl: { mode: 'outbox' },
+    });
+
+    // Should warn about custom audit logger with outbox mode
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Using custom audit logger with outbox mode. ' +
+        'Please ensure your audit logger implementation supports outbox mode.'
+    );
+  });
+});
 
 describe('MonguardCollection Internal Methods', () => {
   let testDb: TestDatabase;

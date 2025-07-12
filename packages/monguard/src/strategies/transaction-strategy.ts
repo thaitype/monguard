@@ -71,6 +71,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               mode: this.context.auditControl.mode,
               failOnError: this.context.auditControl.failOnError,
               logFailedAttempts: this.context.auditControl.logFailedAttempts,
+              storageMode: options.auditControl?.storageMode,
             }
           );
         }
@@ -154,6 +155,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 mode: this.context.auditControl.mode,
                 failOnError: this.context.auditControl.failOnError,
                 logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                storageMode: options.auditControl?.storageMode,
               }
             );
           }
@@ -231,6 +233,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                  storageMode: options.auditControl?.storageMode,
                 }
               );
             }
@@ -278,6 +281,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 mode: this.context.auditControl.mode,
                 failOnError: this.context.auditControl.failOnError,
                 logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                storageMode: options.auditControl?.storageMode,
               }
             );
           }

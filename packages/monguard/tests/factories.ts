@@ -8,6 +8,17 @@ export interface TestUser extends AuditableDocument<TestUserReference> {
   name: string;
   email: string;
   age?: number;
+  tags?: string[];
+  profile?: {
+    address?: {
+      city?: string;
+      country?: string;
+    };
+    preferences?: {
+      theme?: string;
+      language?: string;
+    };
+  };
 }
 
 export interface TestProduct extends BaseDocument {

@@ -182,6 +182,18 @@ describe('MongoOutboxTransport', () => {
       expect(events[1]!.id).toBe('test-event-2');
       expect(events[2]!.id).toBe('test-event-3');
     });
+
+    it('should handle fail operation for non-existent event', async () => {
+      // Try to fail an event that doesn't exist
+      await expect(transport.fail('non-existent-event-id', new Error('Some error'))).resolves.toBeUndefined();
+
+      // Should not affect queue depth
+      expect(await transport.getQueueDepth()).toBe(0);
+
+      // Should not create any dead letter entries
+      const deadLetterEvents = await transport.getDeadLetterCollection().find({}).toArray();
+      expect(deadLetterEvents).toHaveLength(0);
+    });
   });
 
   describe('Collection Access', () => {

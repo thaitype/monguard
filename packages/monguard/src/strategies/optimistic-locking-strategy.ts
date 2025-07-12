@@ -139,11 +139,12 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             mode: this.context.auditControl.mode,
             failOnError: this.context.auditControl.failOnError,
             logFailedAttempts: this.context.auditControl.logFailedAttempts,
+            storageMode: options.auditControl?.storageMode,
           }
         );
       } catch (auditError) {
         // Log audit error but don't fail the operation
-        console.error('Failed to create audit log for create operation:', auditError);
+        this.context.logger.error('Failed to create audit log for create operation:', auditError);
       }
     }
 
@@ -256,11 +257,12 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                  storageMode: options.auditControl?.storageMode,
                 }
               );
             }
           } catch (auditError) {
-            console.error('Failed to create audit log for update operation:', auditError);
+            this.context.logger.error('Failed to create audit log for update operation:', auditError);
           }
         }
 
@@ -309,10 +311,11 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               mode: this.context.auditControl.mode,
               failOnError: this.context.auditControl.failOnError,
               logFailedAttempts: this.context.auditControl.logFailedAttempts,
+              storageMode: options.auditControl?.storageMode,
             }
           );
         } catch (auditError) {
-          console.error('Failed to create audit log for multi-document update operation:', auditError);
+          this.context.logger.error('Failed to create audit log for multi-document update operation:', auditError);
         }
       }
 
@@ -380,11 +383,12 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                  storageMode: options.auditControl?.storageMode,
                 }
               );
             }
           } catch (auditError) {
-            console.error('Failed to create audit log for hard delete operation:', auditError);
+            this.context.logger.error('Failed to create audit log for hard delete operation:', auditError);
           }
         }
 
@@ -449,10 +453,11 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                     mode: this.context.auditControl.mode,
                     failOnError: this.context.auditControl.failOnError,
                     logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                    storageMode: options.auditControl?.storageMode,
                   }
                 );
               } catch (auditError) {
-                console.error('Failed to create audit log for soft delete operation:', auditError);
+                this.context.logger.error('Failed to create audit log for soft delete operation:', auditError);
               }
             }
           }
