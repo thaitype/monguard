@@ -223,7 +223,7 @@ if (validation.newVersion) {
 // Potential future API
 const docs = await collection.find({
   status: 'active',
-  version: { $gte: minVersion }
+  __v: { $gte: minVersion }
 });
 ```
 

@@ -28,7 +28,7 @@ Monguard uses document versioning to prevent conflicts during multi-phase operat
 ```typescript
 interface VersionedDocument {
   _id: ObjectId;
-  version: number;       // Automatically incremented on each update
+  __v: number;       // Automatically incremented on each update
   createdAt: Date;
   updatedAt: Date;
   // ... your business fields
@@ -54,7 +54,7 @@ const phase1Result = await collection.updateById(
 // Use newVersion for subsequent operations
 if (phase1Result.newVersion) {
   await collection.update(
-    { _id: documentId, version: phase1Result.newVersion },
+    { _id: documentId, __v: phase1Result.newVersion },
     { $set: { processed: true } },
     { userContext }
   );
@@ -83,7 +83,7 @@ async function safeMultiPhaseUpdate(collection: MonguardCollection, documentId: 
   
   // Phase 1: Initial update
   const phase1 = await collection.update(
-    { _id: documentId, version: expectedVersion },
+    { _id: documentId, __v: expectedVersion },
     { $set: { status: 'processing', phase: 1 } },
     { userContext }
   );
@@ -118,7 +118,7 @@ async function conditionalWorkflow(collection: MonguardCollection, documentId: O
   if (result.newVersion) {
     // Validation succeeded - proceed to next phase
     const processingResult = await collection.update(
-      { _id: documentId, version: result.newVersion },
+      { _id: documentId, __v: result.newVersion },
       { $set: { status: 'processing' } },
       { userContext: { userId: 'processor' } }
     );
@@ -155,7 +155,7 @@ async function retryableUpdate(
       
       // Attempt version-safe update
       const result = await collection.update(
-        { _id: documentId, version: currentDoc.version },
+        { _id: documentId, __v: currentDoc.__v },
         update,
         { userContext: { userId: 'retrying-processor' } }
       );
@@ -238,7 +238,7 @@ async function processECommerceOrder(
   
   // Phase 2: Warehouse picks and packs
   const packing = await orders.update(
-    { _id: orderId, version: validation.newVersion },
+    { _id: orderId, __v: validation.newVersion },
     {
       $set: {
         metadata: {
@@ -259,7 +259,7 @@ async function processECommerceOrder(
   
   // Phase 3: Billing processes payment
   const completion = await orders.update(
-    { _id: orderId, version: packing.newVersion },
+    { _id: orderId, __v: packing.newVersion },
     {
       $set: {
         status: 'completed',
@@ -322,11 +322,11 @@ async function processDocumentApproval(
   const doc = await documents.findById(docId);
   if (!doc) throw new Error('Document not found');
   
-  let currentVersion = doc.version;
+  let currentVersion = doc.__v;
   
   // Phase 1: Author submits for review
   const submission = await documents.update(
-    { _id: docId, version: currentVersion },
+    { _id: docId, __v: currentVersion },
     {
       $set: {
         tags: ['policy', 'pending-review'],
@@ -346,7 +346,7 @@ async function processDocumentApproval(
   
   // Phase 2: Reviewer reviews
   const review = await documents.update(
-    { _id: docId, version: currentVersion },
+    { _id: docId, __v: currentVersion },
     {
       $set: {
         tags: ['policy', 'reviewed'],
@@ -369,7 +369,7 @@ async function processDocumentApproval(
   
   // Phase 3: Approver approves
   const approval = await documents.update(
-    { _id: docId, version: currentVersion },
+    { _id: docId, __v: currentVersion },
     {
       $set: {
         tags: ['policy', 'approved'],
@@ -394,7 +394,7 @@ async function processDocumentApproval(
   
   // Phase 4: Publisher publishes
   const publication = await documents.update(
-    { _id: docId, version: currentVersion },
+    { _id: docId, __v: currentVersion },
     {
       $set: {
         tags: ['policy', 'published'],
@@ -474,7 +474,7 @@ async function processUserOnboarding(
   
   // Phase 2: Profile completion
   const profileCompletion = await users.update(
-    { _id: userId, version: emailVerification.newVersion },
+    { _id: userId, __v: emailVerification.newVersion },
     {
       $set: {
         status: 'profile-complete',
@@ -491,7 +491,7 @@ async function processUserOnboarding(
   
   // Phase 3: Permission assignment and activation
   const activation = await users.update(
-    { _id: userId, version: profileCompletion.newVersion },
+    { _id: userId, __v: profileCompletion.newVersion },
     {
       $set: {
         status: 'active',
@@ -523,12 +523,12 @@ async function handleVersionConflicts(
   // Both users try to update the same document
   const [result1, result2] = await Promise.allSettled([
     collection.update(
-      { _id: documentId, version: 1 },
+      { _id: documentId, __v: 1 },
       { $set: { status: 'processing-by-user1' } },
       { userContext: user1 }
     ),
     collection.update(
-      { _id: documentId, version: 1 }, // Same version!
+      { _id: documentId, __v: 1 }, // Same version!
       { $set: { status: 'processing-by-user2' } },
       { userContext: user2 }
     )
@@ -541,7 +541,7 @@ async function handleVersionConflicts(
     // User 2 can retry with the new version
     const currentDoc = await collection.findById(documentId);
     const retryResult = await collection.update(
-      { _id: documentId, version: currentDoc!.version },
+      { _id: documentId, __v: currentDoc!.__v },
       { $set: { reviewedBy: user2.userId } },
       { userContext: user2 }
     );
@@ -575,7 +575,7 @@ async function rollbackableWorkflow(
     
     // Phase 2
     const phase2 = await collection.update(
-      { _id: documentId, version: phase1.newVersion },
+      { _id: documentId, __v: phase1.newVersion },
       { $set: { status: 'phase2-complete', phase2Data: 'more data' } },
       { userContext }
     );
@@ -590,7 +590,7 @@ async function rollbackableWorkflow(
     
     // Phase 3 update
     const phase3 = await collection.update(
-      { _id: documentId, version: phase2.newVersion },
+      { _id: documentId, __v: phase2.newVersion },
       { $set: { status: 'completed', finalData: riskyOperation.data } },
       { userContext }
     );
@@ -750,7 +750,7 @@ async function smartBulkUpdate(
       const doc = await collection.findById(id);
       if (doc) {
         const result = await collection.update(
-          { _id: id, version: doc.version },
+          { _id: id, __v: doc.__v },
           { $set: { processed: true } }
         );
         results.push(result);
@@ -842,7 +842,7 @@ async function reliableMultiPhaseOperation(
     if (!doc) throw new Error('Document not found');
     
     return collection.update(
-      { _id: documentId, version: doc.version },
+      { _id: documentId, __v: doc.__v },
       { $set: { status: 'processed' } },
       { userContext: { userId: 'processor' } }
     );
@@ -1039,12 +1039,12 @@ async function idempotentStatusUpdate(
   
   // Check if already in target state
   if (doc.status === targetStatus) {
-    return { newVersion: doc.version, alreadyInState: true };
+    return { newVersion: doc.__v, alreadyInState: true };
   }
   
   // Perform update only if needed
   return collection.update(
-    { _id: documentId, version: doc.version },
+    { _id: documentId, __v: doc.__v },
     { $set: { status: targetStatus } },
     { userContext: { userId: 'system' } }
   );
@@ -1064,7 +1064,7 @@ async function updateWithDescriptiveErrors(
 ) {
   try {
     const filter = expectedVersion 
-      ? { _id: documentId, version: expectedVersion }
+      ? { _id: documentId, __v: expectedVersion }
       : { _id: documentId };
       
     const result = await collection.update(filter, update);
@@ -1075,10 +1075,10 @@ async function updateWithDescriptiveErrors(
         throw new Error(`Document ${documentId} not found`);
       }
       
-      if (expectedVersion && currentDoc.version !== expectedVersion) {
+      if (expectedVersion && currentDoc.__v !== expectedVersion) {
         throw new Error(
           `Version conflict: expected ${expectedVersion}, ` +
-          `but document is at version ${currentDoc.version}`
+          `but document is at __v ${currentDoc.__v}`
         );
       }
       
@@ -1159,7 +1159,7 @@ interface WorkflowStep {
   phase: string;
   startTime: Date;
   endTime?: Date;
-  version?: number;
+  __v?: number;
   error?: string;
   userId: string;
 }
@@ -1175,11 +1175,11 @@ class WorkflowLogger {
     });
   }
   
-  completePhase(version?: number): void {
+  completePhase(__v?: number): void {
     const currentStep = this.steps[this.steps.length - 1];
     if (currentStep) {
       currentStep.endTime = new Date();
-      currentStep.version = version;
+      currentStep.__v = __v;
     }
   }
   
@@ -1223,7 +1223,7 @@ async function loggedMultiPhaseOperation(
     // Phase 2
     logger.startPhase('processing', 'processor-001');
     const processing = await collection.update(
-      { _id: documentId, version: validation.newVersion },
+      { _id: documentId, __v: validation.newVersion },
       { $set: { status: 'processed' } }
     );
     logger.completePhase(processing.newVersion);

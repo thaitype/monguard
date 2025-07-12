@@ -131,18 +131,18 @@ async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions)
   return this.retryWithBackoff(async () => {
     // 1. Get current document with version
     const beforeDoc = await this.context.collection.findOne(filter);
-    const currentVersion = beforeDoc.version || 1;
+    const currentVersion = beforeDoc.__v || 1;
     
     // 2. Perform version-controlled update
     const versionedUpdate = {
       ...update,
-      $inc: { version: 1 },
+      $inc: { __v: 1 },
       $set: { updatedAt: new Date(), ...update.$set }
     };
     
     const result = await this.context.collection.updateMany({
       ...filter,
-      version: currentVersion
+      __v: currentVersion
     }, versionedUpdate);
     
     // 3. Check for version conflicts
@@ -172,8 +172,8 @@ async update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions)
 
 The `version` field is automatically managed in optimistic locking mode:
 
-- **New documents**: Start with `version: 1`
-- **Updates**: Increment version using `$inc: { version: 1 }`
+- **New documents**: Start with `__v: 1`
+- **Updates**: Increment version using `$inc: { __v: 1 }`
 - **Conflict detection**: Use current version in filter
 - **Retries**: Re-fetch document and try again with new version
 
@@ -188,7 +188,7 @@ private async retryWithBackoff<R>(
     try {
       return await operation();
     } catch (error) {
-      const isVersionConflict = error.message.includes('version') || 
+      const isVersionConflict = error.message.includes('__v') || 
                                error.message.includes('modified');
       
       if (isVersionConflict && attempt < attempts) {
@@ -369,10 +369,10 @@ Total Coverage:   118 tests passing
    }
    ```
 
-3. **Handle version conflicts** (optimistic locking mode):
+3. **Handle __v conflicts** (optimistic locking mode):
    ```typescript
    const result = await collection.update(filter, update);
-   if (!result.success && result.error?.includes('version')) {
+   if (!result.success && result.error?.includes('__v')) {
      // Handle version conflict - maybe retry or show user-friendly message
    }
    ```

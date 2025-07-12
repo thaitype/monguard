@@ -296,7 +296,7 @@ async function processOrder(orders: MonguardCollection, orderId: ObjectId) {
   
   // Phase 2: Warehouse processes using newVersion from Phase 1
   const processing = await orders.update(
-    { _id: orderId, version: validation.newVersion }, // Use newVersion for safety
+    { _id: orderId, __v: validation.newVersion }, // Use newVersion for safety
     { $set: { status: 'shipped' } },
     { userContext: warehouse }
   );
@@ -329,7 +329,7 @@ async function retryableUpdate(collection: MonguardCollection, docId: ObjectId) 
       
       // Attempt version-safe update
       const result = await collection.update(
-        { _id: docId, version: currentDoc.version },
+        { _id: docId, __v: currentDoc.__v },
         { $set: { processed: true } },
         { userContext: { userId: 'processor' } }
       );
@@ -356,19 +356,19 @@ async function retryableUpdate(collection: MonguardCollection, docId: ObjectId) 
 ```typescript
 // Author → Reviewer → Approver → Publisher
 const submission = await docs.update(
-  { _id: docId, version: 1 },
+  { _id: docId, __v: 1 },
   { $set: { status: 'submitted' } },
   { userContext: author }
 );
 
 const review = await docs.update(
-  { _id: docId, version: submission.newVersion },
+  { _id: docId, __v: submission.newVersion },
   { $set: { status: 'reviewed' } },
   { userContext: reviewer }
 );
 
 const approval = await docs.update(
-  { _id: docId, version: review.newVersion },
+  { _id: docId, __v: review.newVersion },
   { $set: { status: 'approved' } },
   { userContext: approver }
 );
@@ -383,10 +383,10 @@ const phases = [
   { status: 'completed', user: billing }
 ];
 
-let currentVersion = order.version;
+let currentVersion = order.__v;
 for (const phase of phases) {
   const result = await orders.update(
-    { _id: orderId, version: currentVersion },
+    { _id: orderId, __v: currentVersion },
     { $set: { status: phase.status } },
     { userContext: phase.user }
   );
@@ -1238,7 +1238,7 @@ const userContext = {
   userId: { 
     type: 'service',
     name: 'auth-service',
-    version: '1.0.0'
+    __v: '1.0.0'
   }
 };
 ```
