@@ -2,7 +2,7 @@
 
 ## Overview
 
-Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `newVersion` feature enables safe, conflict-free multi-phase operations by providing version-based optimistic locking that prevents race conditions and ensures data consistency.
+Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `__v` feature enables safe, conflict-free multi-phase operations by providing version-based optimistic locking that prevents race conditions and ensures data consistency.
 
 ### Why Multi-Phase Operations Matter
 
@@ -35,13 +35,13 @@ interface VersionedDocument {
 }
 ```
 
-### The `newVersion` Feature
+### The `__v` Feature
 
 When operations succeed, Monguard returns the updated version number:
 
 ```typescript
 interface ExtendedUpdateResult extends UpdateResult {
-  newVersion?: number;    // Present when document was modified
+  __v?: number;    // Present when document was modified
 }
 
 // Example: Safe operation chaining
@@ -51,19 +51,19 @@ const phase1Result = await collection.updateById(
   { userContext }
 );
 
-// Use newVersion for subsequent operations
-if (phase1Result.newVersion) {
+// Use __v for subsequent operations
+if (phase1Result.__v) {
   await collection.update(
-    { _id: documentId, __v: phase1Result.newVersion },
+    { _id: documentId, __v: phase1Result.__v },
     { $set: { processed: true } },
     { userContext }
   );
 }
 ```
 
-### When `newVersion` is Available
+### When `__v` is Available
 
-| Condition | `newVersion` Value | Use Case |
+| Condition | `__v` Value | Use Case |
 |-----------|-------------------|----------|
 | Single document modified | `currentVersion + 1` | Safe for chaining operations |
 | No documents modified | `undefined` | Operation failed or no matching documents |
@@ -88,18 +88,18 @@ async function safeMultiPhaseUpdate(collection: MonguardCollection, documentId: 
     { userContext }
   );
   
-  if (!phase1.newVersion) {
+  if (!phase1.__v) {
     throw new Error('Phase 1 failed: Version conflict or document not found');
   }
   
-  // Phase 2: Use newVersion from phase 1
+  // Phase 2: Use __v from phase 1
   const phase2 = await collection.update(
-    { _id: documentId, version: phase1.newVersion },
+    { _id: documentId, version: phase1.__v },
     { $set: { status: 'completed', phase: 2 } },
     { userContext }
   );
   
-  return phase2.newVersion;
+  return phase2.__v;
 }
 ```
 
@@ -115,10 +115,10 @@ async function conditionalWorkflow(collection: MonguardCollection, documentId: O
     { userContext: { userId: 'validator' } }
   );
   
-  if (result.newVersion) {
+  if (result.__v) {
     // Validation succeeded - proceed to next phase
     const processingResult = await collection.update(
-      { _id: documentId, __v: result.newVersion },
+      { _id: documentId, __v: result.__v },
       { $set: { status: 'processing' } },
       { userContext: { userId: 'processor' } }
     );
@@ -232,13 +232,13 @@ async function processECommerceOrder(
     { userContext: customerService }
   );
   
-  if (!validation.newVersion) {
+  if (!validation.__v) {
     throw new Error('Order validation failed');
   }
   
   // Phase 2: Warehouse picks and packs
   const packing = await orders.update(
-    { _id: orderId, __v: validation.newVersion },
+    { _id: orderId, __v: validation.__v },
     {
       $set: {
         metadata: {
@@ -253,13 +253,13 @@ async function processECommerceOrder(
     { userContext: warehouse }
   );
   
-  if (!packing.newVersion) {
+  if (!packing.__v) {
     throw new Error('Order packing failed - possible concurrent modification');
   }
   
   // Phase 3: Billing processes payment
   const completion = await orders.update(
-    { _id: orderId, __v: packing.newVersion },
+    { _id: orderId, __v: packing.__v },
     {
       $set: {
         status: 'completed',
@@ -279,7 +279,7 @@ async function processECommerceOrder(
     { userContext: billing }
   );
   
-  return completion.newVersion;
+  return completion.__v;
 }
 ```
 
@@ -341,8 +341,8 @@ async function processDocumentApproval(
     { userContext: author }
   );
   
-  if (!submission.newVersion) throw new Error('Submission failed');
-  currentVersion = submission.newVersion;
+  if (!submission.__v) throw new Error('Submission failed');
+  currentVersion = submission.__v;
   
   // Phase 2: Reviewer reviews
   const review = await documents.update(
@@ -364,8 +364,8 @@ async function processDocumentApproval(
     { userContext: reviewer }
   );
   
-  if (!review.newVersion) throw new Error('Review failed');
-  currentVersion = review.newVersion;
+  if (!review.__v) throw new Error('Review failed');
+  currentVersion = review.__v;
   
   // Phase 3: Approver approves
   const approval = await documents.update(
@@ -389,8 +389,8 @@ async function processDocumentApproval(
     { userContext: approver }
   );
   
-  if (!approval.newVersion) throw new Error('Approval failed');
-  currentVersion = approval.newVersion;
+  if (!approval.__v) throw new Error('Approval failed');
+  currentVersion = approval.__v;
   
   // Phase 4: Publisher publishes
   const publication = await documents.update(
@@ -417,7 +417,7 @@ async function processDocumentApproval(
     { userContext: publisher }
   );
   
-  return publication.newVersion;
+  return publication.__v;
 }
 ```
 
@@ -468,13 +468,13 @@ async function processUserOnboarding(
     { userContext: system }
   );
   
-  if (!emailVerification.newVersion) {
+  if (!emailVerification.__v) {
     throw new Error('Email verification failed');
   }
   
   // Phase 2: Profile completion
   const profileCompletion = await users.update(
-    { _id: userId, __v: emailVerification.newVersion },
+    { _id: userId, __v: emailVerification.__v },
     {
       $set: {
         status: 'profile-complete',
@@ -485,13 +485,13 @@ async function processUserOnboarding(
     { userContext: hr }
   );
   
-  if (!profileCompletion.newVersion) {
+  if (!profileCompletion.__v) {
     throw new Error('Profile completion failed');
   }
   
   // Phase 3: Permission assignment and activation
   const activation = await users.update(
-    { _id: userId, __v: profileCompletion.newVersion },
+    { _id: userId, __v: profileCompletion.__v },
     {
       $set: {
         status: 'active',
@@ -502,7 +502,7 @@ async function processUserOnboarding(
     { userContext: itAdmin }
   );
   
-  return activation.newVersion;
+  return activation.__v;
 }
 ```
 
@@ -535,7 +535,7 @@ async function handleVersionConflicts(
   ]);
   
   // Only one update will succeed
-  if (result1.status === 'fulfilled' && result1.value.newVersion) {
+  if (result1.status === 'fulfilled' && result1.value.__v) {
     console.log('User 1 won the race');
     
     // User 2 can retry with the new version
@@ -546,7 +546,7 @@ async function handleVersionConflicts(
       { userContext: user2 }
     );
     
-    return retryResult.newVersion;
+    return retryResult.__v;
   }
 }
 ```
@@ -570,17 +570,17 @@ async function rollbackableWorkflow(
       { $set: { status: 'phase1-complete', phase1Data: 'some data' } },
       { userContext }
     );
-    if (!phase1.newVersion) throw new Error('Phase 1 failed');
-    checkpoints.push(phase1.newVersion);
+    if (!phase1.__v) throw new Error('Phase 1 failed');
+    checkpoints.push(phase1.__v);
     
     // Phase 2
     const phase2 = await collection.update(
-      { _id: documentId, __v: phase1.newVersion },
+      { _id: documentId, __v: phase1.__v },
       { $set: { status: 'phase2-complete', phase2Data: 'more data' } },
       { userContext }
     );
-    if (!phase2.newVersion) throw new Error('Phase 2 failed');
-    checkpoints.push(phase2.newVersion);
+    if (!phase2.__v) throw new Error('Phase 2 failed');
+    checkpoints.push(phase2.__v);
     
     // Phase 3 (risky operation)
     const riskyOperation = await performRiskyBusinessLogic();
@@ -590,12 +590,12 @@ async function rollbackableWorkflow(
     
     // Phase 3 update
     const phase3 = await collection.update(
-      { _id: documentId, __v: phase2.newVersion },
+      { _id: documentId, __v: phase2.__v },
       { $set: { status: 'completed', finalData: riskyOperation.data } },
       { userContext }
     );
     
-    return phase3.newVersion;
+    return phase3.__v;
     
   } catch (error) {
     // Rollback to last known good state
@@ -961,7 +961,7 @@ async function monitoredMultiPhaseOperation(
 - Eventually consistent requirements are acceptable
 
 **Characteristics:**
-- Returns `newVersion` for single-document operations
+- Returns `__v` for single-document operations
 - Uses document versioning for conflict detection
 - Automatic retry logic for version conflicts
 - Lower latency for non-conflicting operations
@@ -982,7 +982,7 @@ const collection = new MonguardCollection(db, 'documents', {
 - Strong consistency requirements
 
 **Characteristics:**
-- Returns `newVersion: undefined` (doesn't use version-based concurrency)
+- Returns `__v: undefined` (doesn't use version-based concurrency)
 - Uses MongoDB transactions for atomicity
 - No retry logic needed for conflicts
 - Higher latency due to transaction overhead
@@ -1039,7 +1039,7 @@ async function idempotentStatusUpdate(
   
   // Check if already in target state
   if (doc.status === targetStatus) {
-    return { newVersion: doc.__v, alreadyInState: true };
+    return { __v: doc.__v, alreadyInState: true };
   }
   
   // Perform update only if needed
@@ -1218,15 +1218,15 @@ async function loggedMultiPhaseOperation(
       { _id: documentId },
       { $set: { status: 'validated' } }
     );
-    logger.completePhase(validation.newVersion);
+    logger.completePhase(validation.__v);
     
     // Phase 2
     logger.startPhase('processing', 'processor-001');
     const processing = await collection.update(
-      { _id: documentId, __v: validation.newVersion },
+      { _id: documentId, __v: validation.__v },
       { $set: { status: 'processed' } }
     );
-    logger.completePhase(processing.newVersion);
+    logger.completePhase(processing.__v);
     
     console.log('Workflow completed:', {
       documentId,
@@ -1234,7 +1234,7 @@ async function loggedMultiPhaseOperation(
       steps: logger.getLog(),
     });
     
-    return processing.newVersion;
+    return processing.__v;
     
   } catch (error) {
     logger.failPhase(error.message);
@@ -1253,12 +1253,12 @@ async function loggedMultiPhaseOperation(
 
 ## Conclusion
 
-Multi-phase operations with Monguard's `newVersion` feature enable safe, conflict-free workflows in complex business scenarios. By following the patterns and best practices outlined in this guide, you can build robust systems that handle concurrent modifications, recover from failures, and maintain data consistency throughout multi-step processes.
+Multi-phase operations with Monguard's `__v` feature enable safe, conflict-free workflows in complex business scenarios. By following the patterns and best practices outlined in this guide, you can build robust systems that handle concurrent modifications, recover from failures, and maintain data consistency throughout multi-step processes.
 
 Key takeaways:
 
 - **Always use version-based filtering** when chaining operations
-- **Handle `newVersion: undefined`** as a signal of failure or conflict
+- **Handle `__v: undefined`** as a signal of failure or conflict
 - **Implement proper retry logic** with exponential backoff
 - **Design for idempotency** to make operations safe to retry
 - **Choose the right strategy** based on your MongoDB environment and requirements
