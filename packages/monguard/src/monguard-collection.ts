@@ -79,6 +79,9 @@ const defaultOptions: Partial<MonguardCollectionOptions> = {
   auditControl: {
     enableAutoAudit: true,
     auditCustomOperations: false,
+    mode: 'inTransaction',
+    failOnError: false,
+    logFailedAttempts: false,
   },
 };
 

@@ -143,7 +143,8 @@ export abstract class AuditLogger<TRefId = any> {
     collectionName: string,
     documentId: TRefId,
     userContext?: UserContext<TRefId>,
-    metadata?: AuditLogMetadata
+    metadata?: AuditLogMetadata,
+    auditControl?: { failOnError?: boolean; logFailedAttempts?: boolean }
   ): Promise<void>;
 
   /**
@@ -215,7 +216,8 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     collectionName: string,
     documentId: TRefId,
     userContext?: UserContext<TRefId>,
-    metadata?: AuditLogMetadata
+    metadata?: AuditLogMetadata,
+    auditControl?: { failOnError?: boolean; logFailedAttempts?: boolean }
   ): Promise<void> {
     // Process reference ID through config if available
     let processedRefId = documentId;
@@ -250,8 +252,21 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
       await this.auditCollection.insertOne(auditLog as any);
     } catch (error) {
-      // Log database errors but don't throw to avoid breaking the main operation
+      // Log the error for debugging
       this.logger.error('Failed to create audit log:', error);
+      
+      // Log failed attempts if requested
+      if (auditControl?.logFailedAttempts) {
+        // TODO: In future, could write to a system_events collection
+        this.logger.warn('Audit failure logged for investigation:', { action, collectionName, documentId: processedRefId });
+      }
+      
+      // Respect failOnError setting - if true, re-throw to cause transaction rollback
+      if (auditControl?.failOnError) {
+        throw error;
+      }
+      
+      // Default behavior: swallow error to avoid breaking main operation
     }
   }
 
@@ -311,7 +326,8 @@ export class NoOpAuditLogger extends AuditLogger<any> {
     collectionName: string,
     documentId: any,
     userContext?: UserContext<any>,
-    metadata?: AuditLogMetadata
+    metadata?: AuditLogMetadata,
+    auditControl?: { failOnError?: boolean; logFailedAttempts?: boolean }
   ): Promise<void> {
     // Intentionally empty - no audit logging performed
   }

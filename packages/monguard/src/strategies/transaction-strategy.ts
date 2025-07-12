@@ -66,7 +66,11 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
             this.context.collectionName,
             insertResult.insertedId as TRefId,
             options.userContext,
-            metadata
+            metadata,
+            {
+              failOnError: this.context.auditControl.failOnError,
+              logFailedAttempts: this.context.auditControl.logFailedAttempts
+            }
           );
         }
       });
@@ -145,7 +149,11 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               this.context.collectionName,
               beforeDoc._id as TRefId,
               options.userContext,
-              metadata
+              metadata,
+              {
+                failOnError: this.context.auditControl.failOnError,
+                logFailedAttempts: this.context.auditControl.logFailedAttempts
+              }
             );
           }
         }
@@ -217,7 +225,11 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 this.context.collectionName,
                 doc._id as TRefId,
                 options.userContext,
-                metadata
+                metadata,
+                {
+                  failOnError: this.context.auditControl.failOnError,
+                  logFailedAttempts: this.context.auditControl.logFailedAttempts
+                }
               );
             }
           }
@@ -260,7 +272,11 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               this.context.collectionName,
               beforeDoc._id as TRefId,
               options.userContext,
-              metadata
+              metadata,
+              {
+                failOnError: this.context.auditControl.failOnError,
+                logFailedAttempts: this.context.auditControl.logFailedAttempts
+              }
             );
           }
         }

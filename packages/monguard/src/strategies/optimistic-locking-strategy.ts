@@ -134,7 +134,11 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           this.context.collectionName,
           result.insertedId as TRefId,
           options.userContext,
-          metadata
+          metadata,
+          {
+            failOnError: this.context.auditControl.failOnError || false,
+            logFailedAttempts: this.context.auditControl.logFailedAttempts
+          }
         );
       } catch (auditError) {
         // Log audit error but don't fail the operation
@@ -236,7 +240,11 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               this.context.collectionName,
               beforeDoc._id,
               options.userContext,
-              metadata
+              metadata,
+              {
+                failOnError: this.context.auditControl.failOnError || false,
+                logFailedAttempts: this.context.auditControl.logFailedAttempts
+              }
             );
           }
         } catch (auditError) {
@@ -303,7 +311,11 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                 this.context.collectionName,
                 doc._id,
                 options.userContext,
-                metadata
+                metadata,
+                {
+                  failOnError: this.context.auditControl.failOnError || false,
+                  logFailedAttempts: this.context.auditControl.logFailedAttempts
+                }
               );
             }
           } catch (auditError) {
@@ -367,7 +379,11 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   this.context.collectionName,
                   beforeDoc._id,
                   options.userContext,
-                  metadata
+                  metadata,
+                  {
+                    failOnError: this.context.auditControl.failOnError || false,
+                    logFailedAttempts: this.context.auditControl.logFailedAttempts
+                  }
                 );
               } catch (auditError) {
                 console.error('Failed to create audit log for soft delete operation:', auditError);

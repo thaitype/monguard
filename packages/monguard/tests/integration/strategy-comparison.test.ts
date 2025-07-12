@@ -24,6 +24,10 @@ describe('Strategy Comparison Tests', () => {
     transactionCollection = new MonguardCollection<TestUser>(db, 'transaction_users', {
       auditLogger: new MonguardAuditLogger(db, 'transaction_audit_logs'),
       concurrency: { transactionsEnabled: true },
+      auditControl: {
+        enableAutoAudit: true,
+        failOnError: true, // Enable strict audit failure handling for transaction tests
+      }
     });
 
     optimisticCollection = new MonguardCollection<TestUser>(db, 'optimistic_users', {
@@ -323,7 +327,7 @@ describe('Strategy Comparison Tests', () => {
   });
 
   describe('Error Handling Comparison', () => {
-    it('should handle audit failures similarly between strategies', async () => {
+    it('should handle audit failures differently between strategies', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
 
@@ -336,32 +340,27 @@ describe('Strategy Comparison Tests', () => {
         .spyOn(optimisticCollection.getAuditCollection()!, 'insertOne')
         .mockRejectedValue(new Error('Optimistic audit failed'));
 
-      const transactionResult = await transactionCollection.create(userData, { userContext });
+      // TransactionStrategy: Should fail completely due to transaction rollback
+      await expect(transactionCollection.create(userData, { userContext })).rejects.toThrow();
+      
+      // OptimisticLockingStrategy: Should succeed despite audit failure
       const optimisticResult = await optimisticCollection.create(userData, { userContext });
+      expect(optimisticResult).toBeDefined();
+      expect(optimisticResult.name).toBe(userData.name);
 
-      // Both should handle the error (transaction rolls back, optimistic continues)
-      // In fallback mode, transaction strategy might succeed like optimistic strategy
-      // In true transaction mode, transaction strategy would fail completely due to rollback
+      // Verify document creation outcomes
+      const transactionDocs = await transactionCollection.find({});
+      const optimisticDocs = await optimisticCollection.find({});
+      
+      // Transaction strategy: No documents created due to rollback
+      expect(transactionDocs).toHaveLength(0);
+      
+      // Optimistic strategy: Document created despite audit failure
+      expect(optimisticDocs).toHaveLength(1);
 
-      // This test documents the behavioral difference between strategies and fallback mode
-      if (transactionResult) {
-        // Fallback mode: document created despite audit failure
-        expect(transactionResult).toBeDefined();
-      } else {
-        // True transaction mode: complete rollback would throw an error
-        expect(transactionResult).toBeNull();
-      }
-
-      // Optimistic strategy might succeed despite audit failure (implementation dependent)
-      // This test documents the behavioral difference
-
-      // Verify document creation outcome for transaction strategy
-      const transactionDocsResult = await transactionCollection.find({});
-      if (transactionResult) {
-        expect(transactionDocsResult).toHaveLength(1); // Fallback mode
-      } else {
-        expect(transactionDocsResult).toHaveLength(0); // True transaction mode
-      }
+      // Verify audit operations were attempted
+      expect(transactionAuditSpy).toHaveBeenCalled();
+      expect(optimisticAuditSpy).toHaveBeenCalled();
 
       // Cleanup
       transactionAuditSpy.mockRestore();
