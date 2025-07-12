@@ -460,7 +460,7 @@ describe('Delta Audit Logging Integration Tests', () => {
 
       // Should NOT create audit log when no meaningful changes in delta mode
       expect(updateLogs).toHaveLength(0);
-      
+
       // Should only have create audit log
       const createLogs = auditLogs.filter(log => log.action === 'create');
       expect(createLogs).toHaveLength(1);
@@ -475,7 +475,7 @@ describe('Delta Audit Logging Integration Tests', () => {
         ...userData,
         _id: TestDataFactory.createObjectId(),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
         // Note: no __v field
       };
 

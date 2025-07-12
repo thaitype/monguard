@@ -392,7 +392,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           return undefined;
         }
       }
-      
+
       // If before/after are undefined in delta mode, fall through to normal full mode logging
       // This handles direct API calls, unit tests, or cases where metadata is minimal
     }
