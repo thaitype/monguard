@@ -719,6 +719,151 @@ Used when `transactionsEnabled: false`. Uses document versioning for conflict de
 - Retry logic with exponential backoff
 - Conflict detection and resolution
 
+## Legacy Document Handling & Recent Fixes
+
+MonGuard seamlessly handles documents created outside the MonGuard system or before MonGuard was implemented (legacy documents). Recent improvements ensure robust handling of various edge cases and migration scenarios.
+
+### Legacy Documents Without `__v` Field
+
+Documents created directly in MongoDB (outside MonGuard) don't have the `__v` version field that MonGuard uses for optimistic locking. MonGuard now handles these gracefully:
+
+```typescript
+// Legacy document in your collection (created outside MonGuard):
+{
+  _id: ObjectId("..."),
+  name: "John Doe", 
+  email: "john@example.com",
+  createdAt: new Date("2023-01-01")
+  // Note: No __v field
+}
+
+// ✅ MonGuard operations now work seamlessly
+const users = new MonguardCollection<User>(db, 'users', {
+  concurrency: { transactionsEnabled: false } // Optimistic locking
+});
+
+// First MonGuard operation correctly sets version to 1
+const result = await users.updateById(legacyDocId, { 
+  $set: { name: 'John Smith' } 
+}, { userContext });
+
+console.log('New version:', result.__v); // ✅ 1 (not 2!)
+
+// Document now has proper version tracking:
+{
+  _id: ObjectId("..."),
+  name: "John Smith",
+  email: "john@example.com", 
+  __v: 1,                    // ✅ Correctly starts at version 1
+  updatedAt: new Date(),
+  updatedBy: userId
+}
+```
+
+### Fixed Issues (Recent Improvements)
+
+#### 1. **Version Conflict Resolution**
+**Problem**: Legacy documents without `__v` threw "Document was modified by another operation" errors.
+
+**Solution**: Smart version filter that handles both versioned and unversioned documents:
+```typescript
+// ✅ Now works for both:
+await users.updateById(legacyDocId, update);    // Document without __v
+await users.updateById(versionedDocId, update); // Document with __v: 5
+```
+
+#### 2. **Correct Initial Versioning** 
+**Problem**: Legacy documents got version 2 instead of 1 on first MonGuard operation.
+
+**Solution**: Fixed initial version calculation:
+```typescript
+// ❌ Before: Legacy doc → version 2 (incorrect)
+// ✅ After:  Legacy doc → version 1 (correct)
+```
+
+#### 3. **Delta Mode Stability**
+**Problem**: Delta mode unnecessarily fell back to full mode for documents without `__v`.
+
+**Solution**: Delta mode now works consistently:
+```typescript
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  storageMode: 'delta'
+});
+
+// ✅ Delta mode works for both legacy and versioned documents
+await users.updateById(legacyDocId, { $set: { name: 'Updated' } });
+// Result: Delta audit log (not fallback to full mode)
+```
+
+#### 4. **Empty Changes Optimization**
+**Problem**: Audit logs created even when no meaningful changes occurred.
+
+**Solution**: Smart change detection:
+```typescript
+// ❌ Before: Created audit log even for no-op updates
+await users.updateById(docId, { $set: { name: 'Same Name' } });
+// Creates audit log with no real changes
+
+// ✅ After: Skips audit logging for empty changes in delta mode
+await users.updateById(docId, { $set: { name: 'Same Name' } });
+// No audit log created (storage optimization)
+```
+
+### Migration Compatibility
+
+MonGuard is designed for zero-downtime migration and works with existing MongoDB collections:
+
+```typescript
+// ✅ Drop-in replacement for existing MongoDB collections
+const users = new MonguardCollection<User>(db, 'existing_users', {
+  concurrency: { transactionsEnabled: false }
+});
+
+// Works immediately with your existing data:
+// - Documents without __v: Start version tracking from 1
+// - Documents with timestamps: Preserve existing timestamps  
+// - Mixed collections: Handle both legacy and MonGuard documents
+// - Audit trail: Start logging from first MonGuard operation
+```
+
+### Best Practices for Legacy Integration
+
+#### Gradual Migration
+```typescript
+// 1. Start with read operations to verify compatibility
+const existingUsers = await users.find({});
+
+// 2. Begin with non-critical update operations
+await users.updateById(testUserId, { $set: { lastLogin: new Date() } });
+
+// 3. Gradually adopt full MonGuard features
+// - Soft deletes
+// - User tracking  
+// - Audit logging
+// - Transaction support
+```
+
+#### Monitoring Version Tracking
+```typescript
+// Monitor version field adoption across your collection
+const versionStats = await db.collection('users').aggregate([
+  {
+    $group: {
+      _id: { 
+        hasVersion: { $cond: [{ $exists: ["$__v"] }, "versioned", "legacy"] }
+      },
+      count: { $sum: 1 }
+    }
+  }
+]).toArray();
+
+console.log('Collection version status:', versionStats);
+// Result: [
+//   { _id: { hasVersion: "legacy" }, count: 1500 },
+//   { _id: { hasVersion: "versioned" }, count: 300 }
+// ]
+```
+
 ## Audit Logging
 
 Monguard provides comprehensive audit logging with two storage modes:
@@ -873,6 +1018,93 @@ Traditional audit logging stores complete "before" and "after" document states f
 - **Smart fallbacks** for complex nested structures
 - **Per-operation control** - mix delta and full modes as needed
 - **Production-ready** with comprehensive error handling
+
+### Operation-Specific Storage Modes
+
+**IMPORTANT**: Not all operations respect the delta mode setting. MonGuard uses different storage strategies based on the logical requirements of each operation type:
+
+| Operation | Storage Mode | Rationale | Fields Stored |
+|-----------|--------------|-----------|---------------|
+| **CREATE** | Always **Full** | Only has new document state | `after` (complete document) |
+| **UPDATE** | Respects delta/full setting | Has before/after states | `deltaChanges` (delta) or `before`+`after` (full) |
+| **DELETE** | Always **Full** | Only has previous document state | `before` (complete document) |
+
+#### Why CREATE and DELETE Always Use Full Mode
+
+```typescript
+// ✅ CREATE: Only the new document exists
+const newUser = await users.create({
+  name: 'John Doe',
+  email: 'john@example.com'
+}, { userContext });
+
+// Audit log will ALWAYS contain:
+{
+  action: 'create',
+  metadata: {
+    storageMode: 'full',        // Always full, regardless of global setting
+    after: { /* complete new document */ }
+    // No "before" - document didn't exist
+    // No "deltaChanges" - nothing to compare against
+  }
+}
+
+// ✅ DELETE: Only the old document exists  
+await users.deleteById(userId, { 
+  userContext,
+  hardDelete: true 
+});
+
+// Audit log will ALWAYS contain:
+{
+  action: 'delete',
+  metadata: {
+    storageMode: 'full',        // Always full, regardless of global setting
+    before: { /* complete deleted document */ }
+    // No "after" - document no longer exists
+    // No "deltaChanges" - nothing to compare to
+  }
+}
+
+// ⚙️ UPDATE: Respects your delta/full mode setting
+await users.updateById(userId, { 
+  $set: { name: 'Jane Doe' } 
+}, { userContext });
+
+// Delta mode audit log:
+{
+  action: 'update', 
+  metadata: {
+    storageMode: 'delta',
+    deltaChanges: {
+      'name': { old: 'John Doe', new: 'Jane Doe' }
+    }
+    // No before/after in delta mode for storage efficiency
+  }
+}
+```
+
+#### Configuration Override Behavior
+
+```typescript
+// ⚠️ storageMode overrides are IGNORED for CREATE and DELETE
+await users.create(document, {
+  userContext,
+  auditControl: { storageMode: 'delta' } // ❌ IGNORED - CREATE always uses full
+});
+
+await users.deleteById(id, {
+  userContext, 
+  hardDelete: true,
+  auditControl: { storageMode: 'delta' } // ❌ IGNORED - DELETE always uses full
+});
+
+// ✅ storageMode overrides work for UPDATE operations
+await users.updateById(id, update, {
+  userContext,
+  auditControl: { storageMode: 'full' }  // ✅ RESPECTED - Override delta to full
+});
+```
 
 ### Configuration
 
@@ -1113,51 +1345,149 @@ for (let i = 0; i < 10000; i++) {
 
 ### Best Practices
 
-#### When to Use Delta Mode
-- ✅ **High-frequency updates** with small change sets
-- ✅ **Large documents** where only a few fields typically change
-- ✅ **Storage-constrained environments** requiring audit compliance
-- ✅ **Cost-sensitive applications** with audit log storage costs
+#### Storage Mode Selection Guide
 
-#### When to Consider Full Mode
-- ⚠️ **Frequent complete document replacements**
-- ⚠️ **Very small documents** where delta overhead isn't worthwhile
-- ⚠️ **Legacy audit analysis tools** that expect full before/after states
+| Scenario | Recommended Mode | Reasoning | Expected Reduction |
+|----------|------------------|-----------|-------------------|
+| **E-commerce products** | `delta` | Frequent price/inventory updates | 85-95% |
+| **User profiles** | `delta` | Occasional field updates | 70-90% |
+| **Financial records** | `full` | Regulatory compliance needs | N/A (audit completeness) |
+| **System logs** | `delta` | High volume, small changes | 90-98% |
+| **Document management** | `full` | Complete version history needed | N/A (business requirement) |
+| **IoT sensor data** | `delta` | Continuous small updates | 95-99% |
+| **Configuration files** | `full` | Infrequent but critical changes | N/A (change significance) |
 
-#### Configuration Recommendations
+#### Configuration Matrix
+
+| Use Case | Storage Mode | Max Depth | Array Handling | Array Max Size | Blacklist Strategy |
+|----------|-------------|-----------|----------------|----------------|--------------------|
+| **High Performance** | `delta` | `2` | `replace` | `10` | Aggressive |
+| **Balanced** | `delta` | `3` | `diff` | `20` | Moderate |
+| **Maximum Detail** | `delta` | `5` | `diff` | `50` | Minimal |
+| **Compliance/Audit** | `full` | N/A | N/A | N/A | None |
+
+#### Environment-Specific Configurations
 
 ```typescript
-// Production-optimized configuration
-const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
-  storageMode: 'delta',
-  maxDepth: 3,                    // Balance detail vs performance
-  arrayHandling: 'diff',          // Preserve array change granularity
-  arrayDiffMaxSize: 20,           // Optimize for typical array sizes
+// High-throughput production (e-commerce, social media)
+const highThroughputConfig = {
+  storageMode: 'delta' as const,
+  maxDepth: 2,                    // Fast processing
+  arrayHandling: 'replace' as const, // Avoid expensive array diffs
+  arrayDiffMaxSize: 10,           // Small threshold for arrays
   blacklist: [
-    // Exclude high-frequency, low-value fields
-    'lastAccessed', 'viewCount', 'hitCounter',
-    // Exclude complex metadata
-    'meta.*', 'internal.*', 'cache.*',
-    // Exclude framework fields
-    '__v', 'updatedAt', 'createdAt'
+    'lastAccessed', 'viewCount', 'hitCounter', 'sessionData',
+    'cache.*', 'temp.*', 'meta.analytics.*'
   ]
-});
+};
+
+// Balanced production (most applications)
+const balancedConfig = {
+  storageMode: 'delta' as const,
+  maxDepth: 3,                    // Good detail vs performance
+  arrayHandling: 'diff' as const,   // Track array changes
+  arrayDiffMaxSize: 20,           // Reasonable array threshold
+  blacklist: [
+    'updatedAt', 'createdAt', '__v',
+    'meta.internal.*', 'cache.*'
+  ]
+};
+
+// Compliance/financial (detailed audit trails)
+const complianceConfig = {
+  storageMode: 'full' as const,   // Complete audit records
+  maxDepth: 10,                   // Deep inspection (not used in full mode)
+  arrayHandling: 'diff' as const,   // Not used in full mode
+  arrayDiffMaxSize: 100,          // Not used in full mode
+  blacklist: []                   // Track everything
+};
+
+// Development/testing
+const devConfig = {
+  storageMode: 'delta' as const,
+  maxDepth: 5,                    // Detailed for debugging
+  arrayHandling: 'diff' as const,
+  arrayDiffMaxSize: 50,
+  blacklist: ['meta.debug.*']     // Minimal exclusions
+};
 ```
 
-#### Per-Operation Strategies
+#### Per-Operation Strategy Patterns
 
 ```typescript
-// Critical operations: use full mode for maximum audit detail
-await users.delete(criticalFilter, {
-  userContext,
-  auditControl: { storageMode: 'full' }  // Complete audit trail for deletions
-});
+// Pattern 1: Operation-specific overrides
+async function handleCriticalUserUpdate(userId: ObjectId, changes: any) {
+  return await users.updateById(userId, changes, {
+    userContext,
+    auditControl: { storageMode: 'full' }  // Override delta for critical ops
+  });
+}
 
-// Bulk operations: use delta mode for efficiency
-await users.updateMany(bulkFilter, bulkUpdate, {
-  userContext,
-  auditControl: { storageMode: 'delta' } // Efficient bulk change tracking
-});
+// Pattern 2: Data sensitivity-based routing
+async function updateUserData(userId: ObjectId, changes: any, isSensitive: boolean) {
+  const auditControl = isSensitive 
+    ? { storageMode: 'full' as const }     // Sensitive: full audit
+    : { storageMode: 'delta' as const };   // Regular: efficient delta
+    
+  return await users.updateById(userId, changes, { userContext, auditControl });
+}
+
+// Pattern 3: Bulk operation optimization
+async function performBulkUpdates(updates: BulkUpdate[]) {
+  return Promise.all(updates.map(update => 
+    users.updateById(update.id, update.changes, {
+      userContext,
+      auditControl: { storageMode: 'delta' }  // Optimize bulk operations
+    })
+  ));
+}
+
+// Pattern 4: Migration-friendly approach
+async function migrationSafeUpdate(docId: ObjectId, changes: any) {
+  // Use full mode during migrations for complete audit trail
+  const auditMode = process.env.MIGRATION_MODE === 'true' ? 'full' : 'delta';
+  
+  return await collection.updateById(docId, changes, {
+    userContext,
+    auditControl: { storageMode: auditMode }
+  });
+}
+```
+
+#### Performance Optimization Table
+
+| Optimization | Setting | Impact | Use When |
+|-------------|---------|--------|----------|
+| **Shallow Diffing** | `maxDepth: 1-2` | 🚀 Fastest | Flat document structures |
+| **Array Replacement** | `arrayHandling: 'replace'` | ⚡ Fast for large arrays | Arrays change completely |
+| **Small Array Threshold** | `arrayDiffMaxSize: 5-10` | 🏃 Quick processing | Small arrays only |
+| **Aggressive Blacklist** | Many excluded fields | 💨 Skip irrelevant fields | High-frequency updates |
+| **Conservative Blacklist** | Few excluded fields | 🔍 Detailed tracking | Important business data |
+
+#### Monitoring and Alerting
+
+```typescript
+// Monitor delta mode effectiveness
+interface DeltaModeMetrics {
+  avgStorageReduction: number;    // % reduction vs full mode
+  avgProcessingTime: number;      // ms per operation
+  fallbackRate: number;           // % falling back to full mode
+  changeComplexity: number;       // avg fields changed per operation
+}
+
+// Alert on unexpected patterns
+function monitorDeltaMode(logs: AuditLogDocument[]) {
+  const deltaLogs = logs.filter(log => log.metadata?.storageMode === 'delta');
+  const fullLogs = logs.filter(log => log.metadata?.storageMode === 'full');
+  
+  if (deltaLogs.length / logs.length < 0.7) {
+    console.warn('⚠️ Low delta mode usage - check configuration');
+  }
+  
+  if (fullLogs.some(log => log.action === 'update')) {
+    console.warn('⚠️ UPDATE operations using full mode - investigate');
+  }
+}
 ```
 
 ### Troubleshooting
@@ -2092,6 +2422,196 @@ const productionLogger = {
 
 ## Examples
 
+### Mixed Storage Mode Examples
+
+These examples demonstrate how CREATE, UPDATE, and DELETE operations use different storage modes in audit logs:
+
+#### Global Delta Mode with Operation-Specific Behavior
+
+```typescript
+import { MonguardAuditLogger, MonguardCollection } from 'monguard';
+
+// Configure global delta mode
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  storageMode: 'delta'  // Global delta mode setting
+});
+
+const users = new MonguardCollection<User>(db, 'users', {
+  auditLogger,
+  concurrency: { transactionsEnabled: false }
+});
+
+const userContext = { userId: 'admin123' };
+
+// 1. CREATE - Always uses FULL mode (ignores global delta setting)
+const newUser = await users.create({
+  name: 'John Doe',
+  email: 'john@example.com'
+}, { userContext });
+
+// Audit log structure for CREATE:
+// {
+//   action: 'create',
+//   metadata: {
+//     storageMode: 'full',                    // ✅ Always full
+//     after: { name: 'John Doe', email: '...', _id: '...' }
+//   }
+// }
+
+// 2. UPDATE - Respects global delta setting
+await users.updateById(newUser._id, {
+  $set: { name: 'Jane Doe' }
+}, { userContext });
+
+// Audit log structure for UPDATE (delta mode):
+// {
+//   action: 'update',
+//   metadata: {
+//     storageMode: 'delta',                   // ✅ Uses delta mode
+//     deltaChanges: {
+//       'name': { old: 'John Doe', new: 'Jane Doe' }
+//     }
+//   }
+// }
+
+// 3. DELETE - Always uses FULL mode (ignores global delta setting)
+await users.deleteById(newUser._id, {
+  userContext,
+  hardDelete: true
+});
+
+// Audit log structure for DELETE:
+// {
+//   action: 'delete',
+//   metadata: {
+//     storageMode: 'full',                    // ✅ Always full
+//     before: { name: 'Jane Doe', email: '...', _id: '...' }
+//   }
+// }
+```
+
+#### Per-Operation Storage Mode Overrides
+
+```typescript
+// Global full mode with selective delta overrides
+const fullModeLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  storageMode: 'full'  // Global full mode
+});
+
+const collection = new MonguardCollection<Document>(db, 'documents', {
+  auditLogger: fullModeLogger,
+  concurrency: { transactionsEnabled: true }
+});
+
+// CREATE - Always full (override ignored)
+await collection.create(document, {
+  userContext,
+  auditControl: { storageMode: 'delta' }  // ❌ Ignored
+});
+// Result: Full mode audit log
+
+// UPDATE - Override to delta mode
+await collection.updateById(docId, update, {
+  userContext,
+  auditControl: { storageMode: 'delta' }  // ✅ Respected
+});
+// Result: Delta mode audit log
+
+// DELETE - Always full (override ignored)
+await collection.deleteById(docId, {
+  userContext,
+  hardDelete: true,
+  auditControl: { storageMode: 'delta' }  // ❌ Ignored
+});
+// Result: Full mode audit log
+```
+
+#### Storage Efficiency Comparison
+
+```typescript
+// Demonstrating storage differences between modes
+async function demonstrateStorageEfficiency() {
+  const user = { 
+    _id: new ObjectId(),
+    name: 'John Doe',
+    email: 'john@example.com',
+    profile: {
+      address: { city: 'Bangkok', country: 'Thailand' },
+      preferences: { theme: 'dark', language: 'en' },
+      settings: { notifications: true, privacy: 'public' }
+    },
+    tags: ['user', 'editor', 'active'],
+    metadata: { /* 50+ fields */ }
+  };
+
+  // Update only the name field
+  await users.updateById(user._id, {
+    $set: { name: 'Jane Doe' }
+  }, { userContext });
+
+  // Full mode audit log size: ~2KB (entire before + after documents)
+  // {
+  //   metadata: {
+  //     storageMode: 'full',
+  //     before: { /* entire 2KB document */ },
+  //     after: { /* entire 2KB document */ }
+  //   }
+  // }
+
+  // Delta mode audit log size: ~50 bytes (only the change)
+  // {
+  //   metadata: {
+  //     storageMode: 'delta',
+  //     deltaChanges: {
+  //       'name': { old: 'John Doe', new: 'Jane Doe' }
+  //     }
+  //   }
+  // }
+  
+  console.log('Storage reduction: ~97% (50 bytes vs 4KB)');
+}
+```
+
+#### Mixed Mode Audit Analysis
+
+```typescript
+// Analyzing audit logs with mixed storage modes
+async function analyzeAuditLogs(userId: ObjectId) {
+  const auditCollection = users.getAuditCollection();
+  const logs = await auditCollection.find({
+    'ref.id': userId
+  }).sort({ timestamp: 1 }).toArray();
+
+  logs.forEach((log, index) => {
+    const mode = log.metadata?.storageMode;
+    console.log(`${index + 1}. ${log.action} - ${mode} mode`);
+    
+    if (mode === 'delta' && log.metadata?.deltaChanges) {
+      const changedFields = Object.keys(log.metadata.deltaChanges);
+      console.log(`   Changed fields: ${changedFields.join(', ')}`);
+    } else if (mode === 'full') {
+      if (log.action === 'create') {
+        console.log(`   New document created`);
+      } else if (log.action === 'delete') {
+        console.log(`   Document deleted`);
+      } else {
+        console.log(`   Full document comparison available`);
+      }
+    }
+  });
+}
+
+// Example output:
+// 1. create - full mode
+//    New document created
+// 2. update - delta mode
+//    Changed fields: name, updatedAt
+// 3. update - delta mode
+//    Changed fields: email
+// 4. delete - full mode
+//    Document deleted
+```
+
 ### Concurrency and Update Patterns
 
 #### Single Document Updates with Optimistic Locking
@@ -2941,6 +3461,77 @@ async function bulkUpdateUsers(userIds: ObjectId[], updateData: any, userContext
   
   return results;
 }
+```
+
+#### Legacy Document Issues
+
+**Problem**: "Document was modified by another operation" errors on existing documents
+
+**Symptoms**:
+- Errors when updating documents that existed before MonGuard implementation
+- Version conflict errors on documents without `__v` field
+- Unexpected behavior when migrating existing collections
+
+**Solution**: These errors occur when documents don't have the `__v` version field. MonGuard now handles this automatically:
+
+```typescript
+// ✅ Works automatically - no configuration needed
+const users = new MonguardCollection<User>(db, 'existing_collection', {
+  concurrency: { transactionsEnabled: false } // Use optimistic locking
+});
+
+// These operations now work seamlessly on legacy documents
+await users.updateById(legacyDocId, { $set: { status: 'active' } });
+await users.deleteById(legacyDocId, { userContext });
+```
+
+**Problem**: Documents get incorrect initial version (2 instead of 1)
+
+**Solution**: Fixed in recent versions. Legacy documents now correctly start at version 1:
+
+```typescript
+// ✅ Legacy document → version 1 (correct)
+const result = await users.updateById(legacyDocId, update);
+console.log('First version:', result.__v); // 1 (not 2)
+```
+
+**Problem**: Delta mode unexpectedly falls back to full mode
+
+**Symptoms**:
+- Delta audit logs showing `storageMode: 'full'` instead of `storageMode: 'delta'`
+- Larger than expected audit log storage
+- Inconsistent delta mode behavior
+
+**Solution**: Recent fixes ensure delta mode works consistently:
+
+```typescript
+// ✅ Delta mode now works for both legacy and versioned documents
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  storageMode: 'delta'
+});
+
+// Both create delta audit logs consistently
+await users.updateById(legacyDocId, update);    // Legacy doc → delta log
+await users.updateById(versionedDocId, update); // Versioned doc → delta log
+```
+
+**Problem**: Unnecessary audit logs for empty changes
+
+**Symptoms**:
+- Audit logs created when no meaningful data changes
+- Storage bloat from infrastructure-only changes (timestamps, version increments)
+- Audit logs for no-op operations
+
+**Solution**: Smart change detection now skips empty changes in delta mode:
+
+```typescript
+// ✅ No audit log created for same-value updates
+await users.updateById(docId, { $set: { name: existingName } });
+// Result: No audit log (optimization)
+
+// ✅ Audit log created only for meaningful changes  
+await users.updateById(docId, { $set: { name: newName } });
+// Result: Delta audit log with actual changes
 ```
 
 ### Debug Tips
