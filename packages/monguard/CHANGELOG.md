@@ -1,5 +1,11 @@
 # monguard
 
+## 0.11.1
+
+### Patch Changes
+
+- 0f8f706: Fix: when no \_\_v1 field it should not throw error on existing document
+
 ## 0.11.0
 
 ### Minor Changes
