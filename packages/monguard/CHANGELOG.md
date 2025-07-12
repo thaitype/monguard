@@ -1,5 +1,11 @@
 # monguard
 
+## 0.11.2
+
+### Patch Changes
+
+- aafb66f: fix: delta audit logger should log only deltaChanges, not full documents
+
 ## 0.11.1
 
 ### Patch Changes
