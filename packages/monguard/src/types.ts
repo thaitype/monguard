@@ -52,7 +52,7 @@ export interface BaseDocument<TId = DefaultReferenceId> {
   /** Timestamp when the document was soft deleted (undefined if not deleted) */
   deletedAt?: Date;
   /** Version number for optimistic locking (used when transactions are disabled) */
-  version?: number;
+  __v?: number;
 }
 
 /**
@@ -268,7 +268,7 @@ export interface BatchAuditEntry<TRefId = DefaultReferenceId> {
  */
 export interface ExtendedUpdateResult extends UpdateResult {
   /** The new version number after the update operation, only present when document was modified and version was incremented */
-  newVersion?: number;
+  __v?: number;
 }
 
 /**
@@ -277,12 +277,12 @@ export interface ExtendedUpdateResult extends UpdateResult {
  */
 export interface ExtendedDeleteResult extends UpdateResult {
   /** The new version number after the soft delete operation, only present when document was modified and version was incremented */
-  newVersion?: number;
+  __v?: number;
 }
 
 /**
  * Conditional type that determines the result type based on whether it's a hard delete or soft delete operation.
- * For hard deletes, returns standard DeleteResult. For soft deletes, returns ExtendedDeleteResult with newVersion.
+ * For hard deletes, returns standard DeleteResult. For soft deletes, returns ExtendedDeleteResult with __v.
  */
 export type ExtendedHardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete extends true
   ? DeleteResult

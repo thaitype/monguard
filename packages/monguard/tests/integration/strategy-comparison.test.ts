@@ -185,7 +185,7 @@ describe('Strategy Comparison Tests', () => {
   });
 
   describe('Version Handling Differences', () => {
-    it('should handle version field differently between strategies', async () => {
+    it('should handle __v field differently between strategies', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
 
@@ -193,11 +193,11 @@ describe('Strategy Comparison Tests', () => {
       const transactionCreate = await transactionCollection.create(userData, { userContext });
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
-      // Transaction strategy doesn't use version field
-      expect(transactionCreate.version).toBeUndefined();
+      // Transaction strategy doesn't use __v field
+      expect(transactionCreate.__v).toBeUndefined();
 
-      // Optimistic strategy should add version field
-      expect(optimisticCreate.version).toBe(1);
+      // Optimistic strategy should add __v field
+      expect(optimisticCreate.__v).toBe(1);
 
       // Update both documents
       const transactionUpdate = await transactionCollection.updateById(
@@ -217,10 +217,10 @@ describe('Strategy Comparison Tests', () => {
       const optimisticDoc = await optimisticCollection.findById(optimisticCreate._id);
 
       // Transaction strategy still doesn't use version
-      expect(transactionDoc!.version).toBeUndefined();
+      expect(transactionDoc!.__v).toBeUndefined();
 
       // Optimistic strategy should increment version
-      expect(optimisticDoc!.version).toBe(2);
+      expect(optimisticDoc!.__v).toBe(2);
     });
   });
 

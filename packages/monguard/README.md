@@ -273,12 +273,12 @@ const collection = new MonguardCollection<User>(db, 'users', {
 
 ## Multi-Phase Operations
 
-Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `newVersion` feature enables safe, conflict-free multi-phase operations using version-based optimistic locking.
+Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `__v` feature enables safe, conflict-free multi-phase operations using version-based optimistic locking.
 
 ### Basic Version-Safe Chaining
 
 ```typescript
-// Safe multi-phase operation using newVersion
+// Safe multi-phase operation using __v
 async function processOrder(orders: MonguardCollection, orderId: ObjectId) {
   const customerService = { userId: 'cs-001' };
   const warehouse = { userId: 'warehouse-001' };
@@ -290,24 +290,24 @@ async function processOrder(orders: MonguardCollection, orderId: ObjectId) {
     { userContext: customerService }
   );
   
-  if (!validation.newVersion) {
+  if (!validation.__v) {
     throw new Error('Validation failed or version conflict');
   }
   
-  // Phase 2: Warehouse processes using newVersion from Phase 1
+  // Phase 2: Warehouse processes using __v from Phase 1
   const processing = await orders.update(
-    { _id: orderId, version: validation.newVersion }, // Use newVersion for safety
+    { _id: orderId, __v: validation.__v }, // Use __v for safety
     { $set: { status: 'shipped' } },
     { userContext: warehouse }
   );
   
-  return processing.newVersion;
+  return processing.__v;
 }
 ```
 
-### When `newVersion` is Available
+### When `__v` is Available
 
-| Condition | `newVersion` Value | Safe to Chain? |
+| Condition | `__v` Value | Safe to Chain? |
 |-----------|-------------------|----------------|
 | Single document modified | `currentVersion + 1` | ✅ Yes |
 | No documents modified | `undefined` | ❌ Operation failed |
@@ -329,13 +329,13 @@ async function retryableUpdate(collection: MonguardCollection, docId: ObjectId) 
       
       // Attempt version-safe update
       const result = await collection.update(
-        { _id: docId, version: currentDoc.version },
+        { _id: docId, __v: currentDoc.__v },
         { $set: { processed: true } },
         { userContext: { userId: 'processor' } }
       );
       
       if (result.modifiedCount > 0) {
-        return result.newVersion; // Success!
+        return result.__v; // Success!
       }
       
       // Version conflict - retry
@@ -356,19 +356,19 @@ async function retryableUpdate(collection: MonguardCollection, docId: ObjectId) 
 ```typescript
 // Author → Reviewer → Approver → Publisher
 const submission = await docs.update(
-  { _id: docId, version: 1 },
+  { _id: docId, __v: 1 },
   { $set: { status: 'submitted' } },
   { userContext: author }
 );
 
 const review = await docs.update(
-  { _id: docId, version: submission.newVersion },
+  { _id: docId, __v: submission.__v },
   { $set: { status: 'reviewed' } },
   { userContext: reviewer }
 );
 
 const approval = await docs.update(
-  { _id: docId, version: review.newVersion },
+  { _id: docId, __v: review.__v },
   { $set: { status: 'approved' } },
   { userContext: approver }
 );
@@ -383,19 +383,19 @@ const phases = [
   { status: 'completed', user: billing }
 ];
 
-let currentVersion = order.version;
+let currentVersion = order.__v;
 for (const phase of phases) {
   const result = await orders.update(
-    { _id: orderId, version: currentVersion },
+    { _id: orderId, __v: currentVersion },
     { $set: { status: phase.status } },
     { userContext: phase.user }
   );
   
-  if (!result.newVersion) {
+  if (!result.__v) {
     throw new Error(`Phase failed: ${phase.status}`);
   }
   
-  currentVersion = result.newVersion;
+  currentVersion = result.__v;
 }
 ```
 
@@ -485,27 +485,27 @@ interface ExtendedUpdateResult {
   upsertedCount: number;
   upsertedId: any | null;
   matchedCount: number;
-  newVersion?: number; // Available for single-document updates with Optimistic Locking
+  __v?: number; // Available for single-document updates with Optimistic Locking
 }
 ```
 
-#### newVersion Field Behavior
+#### __v Field Behavior
 
-The `newVersion` field indicates the document version after update and provides insight into the operation type:
+The `__v` field indicates the document version after update and provides insight into the operation type:
 
 **With Optimistic Locking Strategy (`transactionsEnabled: false`):**
-- ✅ **Single document update**: Returns `newVersion` (e.g., `3`)
-- ❌ **Multi-document update**: Returns `newVersion: undefined`
+- ✅ **Single document update**: Returns `__v` (e.g., `3`)
+- ❌ **Multi-document update**: Returns `__v: undefined`
 
 **With Transaction Strategy (`transactionsEnabled: true`):**
-- ❌ **All updates**: Returns `newVersion: undefined` (no version tracking)
+- ❌ **All updates**: Returns `__v: undefined` (no version tracking)
 
 ```typescript
 // Example: Detecting operation type
 const result = await collection.update(filter, update);
 
-if (result.newVersion !== undefined) {
-  console.log(`Single document updated to version ${result.newVersion}`);
+if (result.__v !== undefined) {
+  console.log(`Single document updated to version ${result.__v}`);
   console.log('Concurrency protection was applied ✅');
 } else {
   console.log(`${result.modifiedCount} documents updated`);
@@ -520,7 +520,7 @@ The Optimistic Locking Strategy behaves differently based on how many documents 
 **🔒 Single Document Updates** (Full concurrency protection):
 - **When**: Filter matches exactly 1 document
 - **Behavior**: Uses version control for concurrency safety
-- **Returns**: `newVersion` field for tracking document state
+- **Returns**: `__v` field for tracking document state
 - **Retry**: Automatic retry on version conflicts
 - **Examples**: 
   ```typescript
@@ -533,7 +533,7 @@ The Optimistic Locking Strategy behaves differently based on how many documents 
 **⚡ Multi-Document Updates** (No concurrency protection):
 - **When**: Filter matches 2+ documents
 - **Behavior**: Updates all matching documents without version control
-- **Returns**: `newVersion: undefined`
+- **Returns**: `__v: undefined`
 - **Retry**: No automatic conflict resolution
 - **Examples**:
   ```typescript
@@ -544,7 +544,7 @@ The Optimistic Locking Strategy behaves differently based on how many documents 
 
 **Best Practices:**
 - ✅ Use unique field filters (email, externalId) for concurrent safety
-- ✅ Check `newVersion` field to confirm single-document operation
+- ✅ Check `__v` field to confirm single-document operation
 - ⚠️ Use multi-document updates only when you understand the concurrency trade-offs
 - 🔄 For critical updates, prefer `updateById()` or unique field filters
 
@@ -700,7 +700,7 @@ Used when `transactionsEnabled: true`. Provides ACID guarantees.
 **Features:**
 - Atomic operations with automatic rollback
 - Consistent audit logging
-- No version fields required
+- No __v fields required
 
 **Automatic Fallback:**
 If transactions fail (e.g., standalone MongoDB), automatically falls back to optimistic strategy behavior.
@@ -1238,7 +1238,7 @@ const userContext = {
   userId: { 
     type: 'service',
     name: 'auth-service',
-    version: '1.0.0'
+    __v: '1.0.0'
   }
 };
 ```
@@ -1750,7 +1750,7 @@ const result1 = await collection.updateById(
   { $set: { lastLogin: new Date() } },
   { userContext }
 );
-console.log('Version after update:', result1.newVersion); // e.g., 5
+console.log('Version after update:', result1.__v); // e.g., 5
 
 // Update by unique field (single document if email is unique)
 const result2 = await collection.update(
@@ -1758,7 +1758,7 @@ const result2 = await collection.update(
   { $set: { name: 'John Doe Updated' } },
   { userContext }
 );
-console.log('Version after update:', result2.newVersion); // e.g., 6
+console.log('Version after update:', result2.__v); // e.g., 6
 
 // Update by external ID (single document if externalId is unique)
 const result3 = await collection.update(
@@ -1766,7 +1766,7 @@ const result3 = await collection.update(
   { $set: { status: 'verified' } },
   { userContext }
 );
-console.log('Version after update:', result3.newVersion); // e.g., 7
+console.log('Version after update:', result3.__v); // e.g., 7
 ```
 
 #### Multi-Document Updates (No Optimistic Locking)
@@ -1782,7 +1782,7 @@ const bulkResult = await collection.update(
   { userContext }
 );
 console.log('Documents updated:', bulkResult.modifiedCount); // e.g., 150
-console.log('Version tracking:', bulkResult.newVersion);     // undefined
+console.log('Version tracking:', bulkResult.__v);     // undefined
 
 // Update all users in a department (multiple documents)
 const deptResult = await collection.update(
@@ -1791,7 +1791,7 @@ const deptResult = await collection.update(
   { userContext }
 );
 console.log('Departments updated:', deptResult.modifiedCount); // e.g., 25
-console.log('Version tracking:', deptResult.newVersion);       // undefined
+console.log('Version tracking:', deptResult.__v);       // undefined
 ```
 
 #### Handling Mixed Scenarios
@@ -1801,8 +1801,8 @@ console.log('Version tracking:', deptResult.newVersion);       // undefined
 async function updateUsersByFilter(filter: any, update: any) {
   const result = await collection.update(filter, update, { userContext });
   
-  if (result.newVersion !== undefined) {
-    console.log(`✅ Single document updated to version ${result.newVersion}`);
+  if (result.__v !== undefined) {
+    console.log(`✅ Single document updated to version ${result.__v}`);
     console.log('✅ Concurrency protection was applied');
   } else {
     console.log(`⚡ ${result.modifiedCount} documents updated in bulk`);
@@ -1824,8 +1824,8 @@ async function safeConcurrentUpdate(userId: string, updateData: any) {
   try {
     const result = await collection.updateById(userId, updateData, { userContext });
     
-    if (result.newVersion) {
-      console.log(`✅ Update successful, new version: ${result.newVersion}`);
+    if (result.__v) {
+      console.log(`✅ Update successful, new version: ${result.__v}`);
       return result;
     } else {
       console.log('⚠️ Update completed but no version tracking');

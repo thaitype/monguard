@@ -1,4 +1,4 @@
-# InProgressContext: newVersion Feature Implementation
+# InProgressContext: __v Feature Implementation
 
 **Created**: 2025-07-07  
 **Status**: ✅ **COMPLETE** - Ready for production use  
@@ -8,14 +8,14 @@
 
 ## 🎯 **Current State Summary**
 
-### **Feature Completed: Return `newVersion` for Version-Aware Operations**
+### **Feature Completed: Return `__v` for Version-Aware Operations**
 
-The MonguardCollection library now returns the updated document version (`newVersion`) from operations that increment the version field. This enables safe multi-phase workflows without requiring extra database queries.
+The MonguardCollection library now returns the updated document version (`__v`) from operations that increment the __v field. This enables safe multi-phase workflows without requiring extra database queries.
 
 #### **✅ What's Been Implemented**
 
 1. **Extended Result Types** - New interfaces that extend MongoDB's native result types
-2. **Version Tracking Logic** - Intelligent newVersion calculation and return conditions  
+2. **Version Tracking Logic** - Intelligent __v calculation and return conditions  
 3. **Strategy Updates** - Both OptimisticLockingStrategy and TransactionStrategy enhanced
 4. **API Documentation** - Comprehensive JSDoc examples and usage patterns
 5. **Integration Tests** - 11 new test cases demonstrating real-world multi-phase workflows
@@ -50,9 +50,9 @@ pnpm build                   # Should compile successfully
 
 ## 🔧 **Technical Implementation Details**
 
-### **Core Functionality: When `newVersion` is Returned**
+### **Core Functionality: When `__v` is Returned**
 
-| Condition | newVersion Value | Reason |
+| Condition | __v Value | Reason |
 |-----------|------------------|---------|
 | Document modified + version incremented | `currentVersion + 1` | Safe to use in next operation |
 | Document not modified (`modifiedCount = 0`) | `undefined` | No version change occurred |
@@ -64,12 +64,12 @@ pnpm build                   # Should compile successfully
 
 #### **OptimisticLockingStrategy** (`transactionsEnabled: false`)
 - **Full version tracking** with retry logic and conflict detection
-- **Returns newVersion** when documents are modified and version incremented
+- **Returns __v** when documents are modified and version incremented
 - **Handles concurrency** through version-based optimistic locking
 
 #### **TransactionStrategy** (`transactionsEnabled: true`)
 - **Basic version support** for API consistency
-- **Returns `undefined`** for newVersion (transactions don't use version-based concurrency)
+- **Returns `undefined`** for __v (transactions don't use version-based concurrency)
 - **Maintains compatibility** with the same interface
 
 ---
@@ -81,8 +81,8 @@ pnpm build                   # Should compile successfully
 packages/monguard/src/types.ts
 ```
 **Changes**: Added extended result type interfaces
-- `ExtendedUpdateResult` - Extends UpdateResult with optional newVersion
-- `ExtendedDeleteResult` - Extends UpdateResult with optional newVersion  
+- `ExtendedUpdateResult` - Extends UpdateResult with optional __v
+- `ExtendedDeleteResult` - Extends UpdateResult with optional __v  
 - `ExtendedHardOrSoftDeleteResult<T>` - Conditional type for delete operations
 
 ### **Strategy Interface**
@@ -90,24 +90,24 @@ packages/monguard/src/types.ts
 packages/monguard/src/strategies/operation-strategy.ts
 ```
 **Changes**: Updated method signatures to return extended result types
-- All CRUD methods now return extended results with newVersion support
+- All CRUD methods now return extended results with __v support
 
 ### **Optimistic Locking Implementation**
 ```
 packages/monguard/src/strategies/optimistic-locking-strategy.ts
 ```
-**Changes**: Full newVersion tracking implementation
-- `update()` - Calculates and returns newVersion on successful modification
-- `delete()` - Returns newVersion for soft deletes only
-- `restore()` - Returns newVersion when documents are restored
+**Changes**: Full __v tracking implementation
+- `update()` - Calculates and returns __v on successful modification
+- `delete()` - Returns __v for soft deletes only
+- `restore()` - Returns __v when documents are restored
 - Version conflict detection and retry logic
 
 ### **Transaction Strategy Implementation**  
 ```
 packages/monguard/src/strategies/transaction-strategy.ts
 ```
-**Changes**: Interface compliance with undefined newVersion
-- All methods return `{ ...result, newVersion: undefined }`
+**Changes**: Interface compliance with undefined __v
+- All methods return `{ ...result, __v: undefined }`
 - Maintains API compatibility without version-based logic
 
 ### **Main Collection API**
@@ -125,7 +125,7 @@ packages/monguard/tests/integration/multi-phase-operations.test.ts
 **New File**: 15 enhanced comprehensive test cases covering:
 - Multi-phase order processing workflows
 - Document lifecycle management
-- **Version-based operation chaining** with proper newVersion usage patterns
+- **Version-based operation chaining** with proper __v usage patterns
 - Version conflict detection and prevention
 - Retry patterns with version-based recovery  
 - Strategy comparison and performance
@@ -144,14 +144,14 @@ const result1 = await collection.updateById(
   { userContext }
 );
 
-// Phase 2: Use newVersion for safe chaining
-if (result1.newVersion) {
+// Phase 2: Use __v for safe chaining
+if (result1.__v) {
   const result2 = await collection.updateById(
     orderId,
     { $set: { status: 'completed' } },
     { userContext }
   );
-  console.log(`Order completed at version ${result2.newVersion}`);
+  console.log(`Order completed at version ${result2.__v}`);
 }
 ```
 
@@ -159,9 +159,9 @@ if (result1.newVersion) {
 ```typescript
 const result = await collection.updateById(id, update, options);
 
-if (result.newVersion) {
+if (result.__v) {
   // Success - safe to proceed with next operation
-  await nextPhaseOperation(id, result.newVersion);
+  await nextPhaseOperation(id, result.__v);
 } else {
   // Failed or no changes - handle appropriately
   console.log('Update failed or no changes made');
@@ -177,14 +177,14 @@ const validation = await orders.updateById(orderId,
 );
 
 // Warehouse processes using validated version
-if (validation.newVersion) {
+if (validation.__v) {
   const fulfillment = await orders.updateById(orderId,
     { $set: { status: 'shipped' } },
     { userContext: warehouse }
   );
   
   // Billing completes using shipped version
-  if (fulfillment.newVersion) {
+  if (fulfillment.__v) {
     await orders.updateById(orderId,
       { $set: { status: 'completed' } },
       { userContext: billing }
@@ -201,7 +201,7 @@ if (validation.newVersion) {
 
 1. **Monitor Production Usage**
    ```bash
-   # Watch for newVersion usage patterns in logs
+   # Watch for __v usage patterns in logs
    # Monitor version conflict rates
    # Track performance impact
    ```
@@ -212,7 +212,7 @@ if (validation.newVersion) {
    - Custom conflict resolution strategies
 
 3. **Documentation Updates**
-   - Add newVersion examples to main README
+   - Add __v examples to main README
    - Create migration guide for existing applications
    - Update API documentation website
 
@@ -223,7 +223,7 @@ if (validation.newVersion) {
 // Potential future API
 const docs = await collection.find({
   status: 'active',
-  version: { $gte: minVersion }
+  __v: { $gte: minVersion }
 });
 ```
 
@@ -249,7 +249,7 @@ const collection = new MonguardCollection(db, 'docs', {
 
 1. **Version Caching** - Cache version numbers for frequently updated documents
 2. **Bulk Version Updates** - Optimize version tracking for bulk operations  
-3. **Conditional Returns** - Make newVersion return configurable per operation
+3. **Conditional Returns** - Make __v return configurable per operation
 
 ---
 
@@ -257,10 +257,10 @@ const collection = new MonguardCollection(db, 'docs', {
 
 ### **Design Decisions Made**
 
-#### **1. Why `newVersion` is Optional**
+#### **1. Why `__v` is Optional**
 - **Backward Compatibility**: Existing code continues to work unchanged
 - **Clear Semantics**: `undefined` clearly indicates no version change
-- **Type Safety**: TypeScript can distinguish when newVersion is available
+- **Type Safety**: TypeScript can distinguish when __v is available
 
 #### **2. Why Multi-Document Operations Return `undefined`**
 - **Ambiguity**: Multiple documents have different versions
@@ -278,7 +278,7 @@ const collection = new MonguardCollection(db, 'docs', {
 
 | Aspect | Chosen | Alternative | Reason |
 |--------|---------|-------------|---------|
-| Return Type | Optional `newVersion` field | Always return version | Backward compatibility |
+| Return Type | Optional `__v` field | Always return version | Backward compatibility |
 | Multi-Document | Return `undefined` | Return version array | Simplicity and clarity |
 | Transaction Strategy | Return `undefined` | Track versions anyway | Different concurrency model |
 | API Design | Extend existing results | New separate methods | Minimal API surface change |
@@ -286,8 +286,8 @@ const collection = new MonguardCollection(db, 'docs', {
 ### **Potential Gotchas**
 
 1. **Version Conflicts**: In high-concurrency scenarios, retry logic may be needed
-2. **Multi-Document Updates**: Don't expect newVersion for batch operations  
-3. **Hard Deletes**: newVersion is never returned when documents are removed
+2. **Multi-Document Updates**: Don't expect __v for batch operations  
+3. **Hard Deletes**: __v is never returned when documents are removed
 4. **Strategy Differences**: Transaction strategy behavior differs from optimistic locking
 
 ---
@@ -305,7 +305,7 @@ const collection = new MonguardCollection(db, 'docs', {
 #### **2. Integration Tests (New + Existing)**
 - **New**: 15 enhanced multi-phase operation tests with proper version-based chaining patterns
 - **Existing**: 185 comprehensive tests covering all functionality
-- **Coverage**: All newVersion scenarios and edge cases
+- **Coverage**: All __v scenarios and edge cases
 
 #### **3. Performance Tests**
 - Strategy comparison benchmarks
@@ -315,20 +315,20 @@ const collection = new MonguardCollection(db, 'docs', {
 ### **Key Test Scenarios**
 
 ```typescript
-// Example test pattern for newVersion verification
-it('should return newVersion for successful updates', async () => {
+// Example test pattern for __v verification
+it('should return __v for successful updates', async () => {
   const result = await collection.updateById(id, update, options);
   
   expect(result.modifiedCount).toBe(1);
-  expect(result.newVersion).toBeDefined();
-  expect(result.newVersion).toBe(expectedVersion);
+  expect(result.__v).toBeDefined();
+  expect(result.__v).toBe(expectedVersion);
 });
 
-it('should return undefined newVersion when no changes', async () => {
+it('should return undefined __v when no changes', async () => {
   const result = await collection.updateById(nonExistentId, update, options);
   
   expect(result.modifiedCount).toBe(0);
-  expect(result.newVersion).toBeUndefined();
+  expect(result.__v).toBeUndefined();
 });
 ```
 
@@ -346,7 +346,7 @@ it('should return undefined newVersion when no changes', async () => {
 ### **If You Need to Extend This Work**
 
 1. **Start with tests**: Write tests for your new functionality first
-2. **Follow existing patterns**: Look at how newVersion is implemented in strategies
+2. **Follow existing patterns**: Look at how __v is implemented in strategies
 3. **Maintain backward compatibility**: Don't break existing APIs
 4. **Update documentation**: Add JSDoc examples for new features
 
@@ -362,7 +362,7 @@ it('should return undefined newVersion when no changes', async () => {
 ## 🏁 **Summary: What's Complete and Ready**
 
 ### **✅ Ready for Production**
-- ✅ Full newVersion implementation for OptimisticLockingStrategy
+- ✅ Full __v implementation for OptimisticLockingStrategy
 - ✅ Interface compliance for TransactionStrategy  
 - ✅ Comprehensive test coverage (196 tests)
 - ✅ Backward compatible API
@@ -384,6 +384,6 @@ it('should return undefined newVersion when no changes', async () => {
 1. **Deploy immediately** - All functionality tested and working
 2. **Monitor usage** - Watch for patterns and optimization opportunities  
 3. **Enhance gradually** - Add future improvements as needed
-4. **Support users** - Help teams adopt the new newVersion patterns
+4. **Support users** - Help teams adopt the new __v patterns
 
 **The foundation is solid. Build confidently on top of it! 🚀**

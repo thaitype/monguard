@@ -42,7 +42,7 @@ export interface OperationStrategy<T extends BaseDocument, TRefId = DefaultRefer
    * @param filter - MongoDB filter criteria
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    */
   update(filter: Filter<T>, update: UpdateFilter<T>, options: UpdateOptions<TRefId>): Promise<ExtendedUpdateResult>;
@@ -53,7 +53,7 @@ export interface OperationStrategy<T extends BaseDocument, TRefId = DefaultRefer
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    */
   updateById(id: ObjectId, update: UpdateFilter<T>, options: UpdateOptions<TRefId>): Promise<ExtendedUpdateResult>;
@@ -63,7 +63,7 @@ export interface OperationStrategy<T extends BaseDocument, TRefId = DefaultRefer
    *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
+   * @returns Promise resolving to delete/update result information with __v for soft deletes
    * @throws Error if the operation fails
    */
   delete<THardDelete extends boolean>(
@@ -76,7 +76,7 @@ export interface OperationStrategy<T extends BaseDocument, TRefId = DefaultRefer
    *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
+   * @returns Promise resolving to delete/update result information with __v for soft deletes
    * @throws Error if the operation fails
    */
   deleteById<THardDelete extends boolean = false>(
@@ -89,7 +89,7 @@ export interface OperationStrategy<T extends BaseDocument, TRefId = DefaultRefer
    *
    * @param filter - MongoDB filter criteria
    * @param userContext - Optional user context for audit trails
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    */
   restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<ExtendedUpdateResult>;
