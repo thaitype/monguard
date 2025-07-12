@@ -35,7 +35,11 @@ describe('TransactionStrategy', () => {
       auditLogger,
       collectionName: 'test_users',
       config: { transactionsEnabled: true },
-      auditControl: { enableAutoAudit: true },
+      auditControl: { 
+        enableAutoAudit: true,
+        failOnError: false,
+        logFailedAttempts: false
+      },
       addTimestamps: (doc, isUpdate, userContext) => ({
         ...doc,
         ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
@@ -94,7 +98,11 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { enableAutoAudit: true },
+        auditControl: { 
+          enableAutoAudit: true,
+          failOnError: false,
+          logFailedAttempts: false
+        },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
@@ -129,7 +137,11 @@ describe('TransactionStrategy', () => {
         'test_users',
         insertedId,
         userContext,
-        expect.objectContaining({ after: expect.any(Object) })
+        expect.objectContaining({ after: expect.any(Object) }),
+        expect.objectContaining({
+          failOnError: expect.any(Boolean),
+          logFailedAttempts: expect.any(Boolean)
+        })
       );
       expect(mockSession.endSession).toHaveBeenCalled();
       expect(result._id).toBe(insertedId);
@@ -175,7 +187,11 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { enableAutoAudit: true },
+        auditControl: { 
+          enableAutoAudit: true,
+          failOnError: false,
+          logFailedAttempts: false
+        },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
@@ -216,6 +232,10 @@ describe('TransactionStrategy', () => {
           before: beforeDoc,
           after: afterDoc,
           changes: expect.any(Array)
+        }),
+        expect.objectContaining({
+          failOnError: expect.any(Boolean),
+          logFailedAttempts: expect.any(Boolean)
         })
       );
       expect(result.modifiedCount).toBe(1);
@@ -256,7 +276,11 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { enableAutoAudit: true },
+        auditControl: { 
+          enableAutoAudit: true,
+          failOnError: false,
+          logFailedAttempts: false
+        },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
@@ -286,6 +310,10 @@ describe('TransactionStrategy', () => {
         expect.objectContaining({
           hardDelete: true,
           before: docToDelete
+        }),
+        expect.objectContaining({
+          failOnError: expect.any(Boolean),
+          logFailedAttempts: expect.any(Boolean)
         })
       );
       expect(result.deletedCount).toBe(1);
@@ -326,7 +354,11 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { enableAutoAudit: true },
+        auditControl: { 
+          enableAutoAudit: true,
+          failOnError: false,
+          logFailedAttempts: false
+        },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
@@ -369,6 +401,10 @@ describe('TransactionStrategy', () => {
         expect.objectContaining({
           softDelete: true,
           before: beforeDoc
+        }),
+        expect.objectContaining({
+          failOnError: expect.any(Boolean),
+          logFailedAttempts: expect.any(Boolean)
         })
       );
       expect(result.modifiedCount).toBe(1);

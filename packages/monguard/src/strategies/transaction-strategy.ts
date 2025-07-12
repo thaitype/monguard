@@ -129,8 +129,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
 
         // Create audit log if document was modified
         if (
-          !options.skipAudit &&
-          this.context.auditLogger.isEnabled() &&
+          this.context.shouldAudit(options.skipAudit) &&
           'modifiedCount' in result &&
           result.modifiedCount > 0 &&
           beforeDoc
@@ -257,8 +256,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
 
           // Create audit log for soft delete
           if (
-            !options.skipAudit &&
-            this.context.auditLogger.isEnabled() &&
+            this.context.shouldAudit(options.skipAudit) &&
             beforeDoc &&
             'modifiedCount' in result &&
             result.modifiedCount > 0

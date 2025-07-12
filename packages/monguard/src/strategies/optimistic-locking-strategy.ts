@@ -136,7 +136,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           options.userContext,
           metadata,
           {
-            failOnError: this.context.auditControl.failOnError || false,
+            failOnError: this.context.auditControl.failOnError,
             logFailedAttempts: this.context.auditControl.logFailedAttempts
           }
         );
