@@ -1,5 +1,11 @@
 # monguard
 
+## 0.11.0
+
+### Minor Changes
+
+- c5ce7a7: Add delta audit logger mode
+
 ## 0.10.0
 
 ### Minor Changes
