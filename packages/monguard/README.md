@@ -2,8 +2,7 @@
 
 [![CI](https://github.com/thaitype/monguard/actions/workflows/main.yml/badge.svg)](https://github.com/thaitype/monguard/actions/workflows/main.yml) [![codecov](https://codecov.io/gh/thaitype/monguard/graph/badge.svg?token=B7MCHM57BH)](https://codecov.io/gh/thaitype/monguard) [![NPM Version](https://img.shields.io/npm/v/monguard) ](https://www.npmjs.com/package/monguard)[![npm downloads](https://img.shields.io/npm/dt/monguard)](https://www.npmjs.com/package/monguard) 
 
-> Note: This is early stage of development, the API is subject to change. Please report any issues or suggestions. 
-> Don't use in production yet.
+> Note: The API is subject to change, please follow the release note to migration document, please report any issues or suggestions. 
 
 **`monguard`** is a lightweight, zero-boilerplate toolkit designed to enhance MongoDB models with production-ready features:
 
