@@ -64,17 +64,14 @@ describe('OptimisticLockingStrategy', () => {
       let attemptCount = 0;
       const mockOperation = vi.fn().mockImplementation(() => {
         attemptCount++;
-        const error = new Error('Version conflict detected');
+        const error = new Error('version conflict detected'); // lowercase 'version' to match retry pattern
         throw error;
       });
 
-      try {
-        await expect(strategy.testRetryWithBackoff(mockOperation, 2)).rejects.toThrow('Version conflict detected');
-        expect(attemptCount).toBe(2); // Should attempt exactly 2 times
-      } catch (error) {
-        // Expected to throw
-        expect(error).toBeInstanceOf(Error);
-      }
+      // Use the expect/rejects pattern correctly to ensure the error is thrown
+      await expect(strategy.testRetryWithBackoff(mockOperation, 2)).rejects.toThrow('version conflict detected');
+      expect(attemptCount).toBe(2); // Should attempt exactly 2 times
+      expect(mockOperation).toHaveBeenCalledTimes(2);
     });
 
     it('should throw error immediately for non-version conflicts', async () => {
