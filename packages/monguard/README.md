@@ -513,30 +513,6 @@ if (result.newVersion !== undefined) {
 }
 ```
 
-
-### Deleting Documents
-
-```typescript
-// Delete by filter
-async delete(
-  filter: Filter<T>,
-  options?: DeleteOptions
-): Promise<UpdateResult | DeleteResult>
-
-// Delete by ID
-async deleteById(
-  id: ObjectId,
-  options?: DeleteOptions
-): Promise<UpdateResult | DeleteResult>
-
-interface DeleteOptions {
-  skipAudit?: boolean;
-  userContext?: UserContext;
-  hardDelete?: boolean; // Default: false (soft delete)
-}
-```
-
-
 #### Single vs Multi-Document Updates
 
 The Optimistic Locking Strategy behaves differently based on how many documents match your filter:
@@ -571,6 +547,29 @@ The Optimistic Locking Strategy behaves differently based on how many documents 
 - ✅ Check `newVersion` field to confirm single-document operation
 - ⚠️ Use multi-document updates only when you understand the concurrency trade-offs
 - 🔄 For critical updates, prefer `updateById()` or unique field filters
+
+
+### Deleting Documents
+
+```typescript
+// Delete by filter
+async delete(
+  filter: Filter<T>,
+  options?: DeleteOptions
+): Promise<UpdateResult | DeleteResult>
+
+// Delete by ID
+async deleteById(
+  id: ObjectId,
+  options?: DeleteOptions
+): Promise<UpdateResult | DeleteResult>
+
+interface DeleteOptions {
+  skipAudit?: boolean;
+  userContext?: UserContext;
+  hardDelete?: boolean; // Default: false (soft delete)
+}
+```
 
 
 ### Restoring Soft-Deleted Documents
