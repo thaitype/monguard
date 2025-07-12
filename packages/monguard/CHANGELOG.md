@@ -1,5 +1,11 @@
 # monguard
 
+## 0.10.0
+
+### Minor Changes
+
+- 5beb9c6: refactor: version field to \_\_v for optimistic locking version to avoid generic word
+
 ## 0.9.0
 
 ### Minor Changes
