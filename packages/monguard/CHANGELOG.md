@@ -1,5 +1,11 @@
 # monguard
 
+## 0.9.0
+
+### Minor Changes
+
+- be82a1a: Add audit log mode in transaction concurrency mode for clear, stable audit logging, and most case of coverage test
+
 ## 0.8.0
 
 ### Minor Changes
