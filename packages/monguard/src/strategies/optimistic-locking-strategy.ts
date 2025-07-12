@@ -106,6 +106,30 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
   }
 
   /**
+   * Creates a versioned filter that handles documents with or without __v field.
+   * For version 1, supports both documents with __v: 1 and documents without __v field.
+   * For versions > 1, requires exact version match.
+   *
+   * @private
+   * @param baseFilter - The base filter to apply (includes original filter and soft delete filter)
+   * @param currentVersion - The current version number
+   * @returns Filter object for version-safe operations
+   */
+  private createVersionedFilter(baseFilter: Filter<T>, currentVersion: number): Filter<T> {
+    if (currentVersion === 1) {
+      return {
+        ...baseFilter,
+        $or: [{ __v: 1 }, { __v: { $exists: false } }],
+      } as Filter<T>;
+    } else {
+      return {
+        ...baseFilter,
+        __v: currentVersion,
+      } as Filter<T>;
+    }
+  }
+
+  /**
    * Creates a new document with version 1 and automatic timestamps.
    *
    * @param document - The document data to create
@@ -214,20 +238,18 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           ...update,
           $set: {
             ...((update as any).$set || {}),
+            __v: __v, // Explicitly set the new version
             updatedAt: new Date(),
             ...(options.userContext && { updatedBy: options.userContext.userId }),
           },
           $inc: {
             ...((update as any).$inc || {}),
-            __v: 1,
           },
         };
 
         // Use version in filter for optimistic locking
-        const versionedFilter = {
-          ...this.context.mergeSoftDeleteFilter(filter),
-          __v: currentVersion,
-        };
+        const baseFilter = this.context.mergeSoftDeleteFilter(filter);
+        const versionedFilter = this.createVersionedFilter(baseFilter, currentVersion);
 
         const updateResult = await this.context.collection.updateMany(versionedFilter, timestampedUpdate);
 
@@ -407,22 +429,23 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         // Process each document individually for version control
         for (const beforeDoc of beforeDocs) {
           const currentVersion = beforeDoc.__v || 1;
+          const newVersion = currentVersion + 1;
 
           const softDeleteUpdate = {
             $set: {
+              __v: newVersion, // Explicitly set the new version
               deletedAt: new Date(),
               updatedAt: new Date(),
               ...(options.userContext && { deletedBy: options.userContext.userId }),
             },
-            $inc: { __v: 1 },
           };
 
           // Use version in filter for optimistic locking
-          const versionedFilter = {
+          const baseFilter = {
             _id: beforeDoc._id,
-            __v: currentVersion,
             deletedAt: { $exists: false },
           };
+          const versionedFilter = this.createVersionedFilter(baseFilter as Filter<T>, currentVersion);
 
           const updateResult = await this.context.collection.updateOne(
             versionedFilter as Filter<T>,
@@ -433,7 +456,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             totalModified += updateResult.modifiedCount;
             // For single document operation, track the new version
             if (beforeDocs.length === 1) {
-              __v = currentVersion + 1;
+              __v = newVersion;
             }
 
             // Create audit log after successful soft delete
@@ -522,21 +545,22 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
       for (const doc of deletedDocs) {
         const currentVersion = doc.__v || 1;
+        const newVersion = currentVersion + 1;
 
         const restoreUpdate = {
           $unset: { deletedAt: 1, deletedBy: 1 },
           $set: {
+            __v: newVersion, // Explicitly set the new version
             updatedAt: new Date(),
             ...(userContext && { updatedBy: userContext.userId }),
           },
-          $inc: { __v: 1 },
         } as unknown as UpdateFilter<T>;
 
-        const versionedFilter = {
+        const baseFilter = {
           _id: doc._id,
-          __v: currentVersion,
           deletedAt: { $exists: true },
         };
+        const versionedFilter = this.createVersionedFilter(baseFilter as Filter<T>, currentVersion);
 
         const updateResult = await this.context.collection.updateOne(versionedFilter as Filter<T>, restoreUpdate);
 
@@ -547,7 +571,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         totalModified += updateResult.modifiedCount;
         // For single document operation, track the new version
         if (deletedDocs.length === 1) {
-          __v = currentVersion + 1;
+          __v = newVersion;
         }
       }
 
