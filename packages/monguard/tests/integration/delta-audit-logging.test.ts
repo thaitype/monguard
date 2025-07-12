@@ -94,6 +94,34 @@ describe('Delta Audit Logging Integration Tests', () => {
       expect(deltaChanges['email']).toBeUndefined();
     });
 
+    it('should only store deltaChanges in delta mode (no before/after/changes fields)', async () => {
+      const userData = TestDataFactory.createUser({ name: 'John Doe', age: 30 });
+      const userContext = TestDataFactory.createUserContext();
+
+      const doc = await collection.create(userData, { userContext });
+
+      // Update to trigger delta mode
+      await collection.updateById(doc._id, { $set: { name: 'Jane Doe' } }, { userContext });
+
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
+      const updateLog = auditLogs.find(log => log.action === 'update');
+
+      expect(updateLog).toBeDefined();
+      expect(updateLog!.metadata?.storageMode).toBe('delta');
+
+      // Should have deltaChanges
+      expect(updateLog!.metadata?.deltaChanges).toBeDefined();
+      expect(updateLog!.metadata?.deltaChanges!['name']).toEqual({
+        old: 'John Doe',
+        new: 'Jane Doe',
+      });
+
+      // Should NOT have before, after, or changes fields in delta mode
+      expect(updateLog!.metadata?.before).toBeUndefined();
+      expect(updateLog!.metadata?.after).toBeUndefined();
+      expect(updateLog!.metadata?.changes).toBeUndefined();
+    });
+
     it('should create full document audit log for CREATE action', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
