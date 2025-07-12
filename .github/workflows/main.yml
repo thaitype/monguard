@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - "**"
+    paths-ignore: 
+      - "**/*.md"
+  
 env:
   NODE_VERSION: 22.x
 
