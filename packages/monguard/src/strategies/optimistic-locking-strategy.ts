@@ -136,6 +136,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           options.userContext,
           metadata,
           {
+            mode: this.context.auditControl.mode,
             failOnError: this.context.auditControl.failOnError,
             logFailedAttempts: this.context.auditControl.logFailedAttempts
           }
@@ -242,7 +243,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               options.userContext,
               metadata,
               {
-                failOnError: this.context.auditControl.failOnError || false,
+                mode: this.context.auditControl.mode,
+                failOnError: this.context.auditControl.failOnError,
                 logFailedAttempts: this.context.auditControl.logFailedAttempts
               }
             );
@@ -313,7 +315,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                 options.userContext,
                 metadata,
                 {
-                  failOnError: this.context.auditControl.failOnError || false,
+                  mode: this.context.auditControl.mode,
+                  failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts
                 }
               );
@@ -381,7 +384,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   options.userContext,
                   metadata,
                   {
-                    failOnError: this.context.auditControl.failOnError || false,
+                    mode: this.context.auditControl.mode,
+                    failOnError: this.context.auditControl.failOnError,
                     logFailedAttempts: this.context.auditControl.logFailedAttempts
                   }
                 );
