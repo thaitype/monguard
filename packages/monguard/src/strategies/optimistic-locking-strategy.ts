@@ -157,7 +157,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    * @param filter - MongoDB filter criteria
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    */
   async update(
@@ -188,7 +188,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
           const updateResult = await this.context.collection.updateMany(filter, timestampedUpdate, { upsert: true });
           // For upsert that creates a new document, return version 1
-          return { ...updateResult, newVersion: updateResult.upsertedCount > 0 ? 1 : undefined };
+          return { ...updateResult, __v: updateResult.upsertedCount > 0 ? 1 : undefined };
         }
 
         // No document to update
@@ -198,7 +198,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           upsertedCount: 0,
           upsertedId: null,
           matchedCount: 0,
-          newVersion: undefined,
+          __v: undefined,
         };
       }
 
@@ -206,7 +206,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       if (beforeDocs.length === 1) {
         const beforeDoc = beforeDocs[0]!;
         const currentVersion = beforeDoc.version || 1;
-        const newVersion = currentVersion + 1;
+        const __v = currentVersion + 1;
 
         // Create version-controlled update
         const timestampedUpdate = {
@@ -264,8 +264,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           }
         }
 
-        // Return result with newVersion only for single document updates
-        return { ...updateResult, newVersion: updateResult.modifiedCount > 0 ? newVersion : undefined };
+        // Return result with __v only for single document updates
+        return { ...updateResult, __v: updateResult.modifiedCount > 0 ? __v : undefined };
       }
 
       // Handle multi-document update without version control (no optimistic locking)
@@ -316,8 +316,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         }
       }
 
-      // For multi-document updates, newVersion is always undefined
-      return { ...updateResult, newVersion: undefined };
+      // For multi-document updates, __v is always undefined
+      return { ...updateResult, __v: undefined };
     });
 
     return result;
@@ -329,7 +329,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    */
   async updateById(
@@ -346,7 +346,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
+   * @returns Promise resolving to delete/update result information with __v for soft deletes
    * @throws Error if the operation fails
    */
   async delete<THardDelete extends boolean = false>(
@@ -398,7 +398,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         }
 
         let totalModified = 0;
-        let newVersion: number | undefined;
+        let __v: number | undefined;
 
         // Process each document individually for version control
         for (const beforeDoc of beforeDocs) {
@@ -429,7 +429,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             totalModified += updateResult.modifiedCount;
             // For single document operation, track the new version
             if (beforeDocs.length === 1) {
-              newVersion = currentVersion + 1;
+              __v = currentVersion + 1;
             }
 
             // Create audit log after successful soft delete
@@ -464,8 +464,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           upsertedCount: 0,
           upsertedId: null,
           matchedCount: beforeDocs.length,
-          // Only return newVersion for single document soft deletes
-          newVersion: totalModified > 0 && beforeDocs.length === 1 ? newVersion : undefined,
+          // Only return __v for single document soft deletes
+          __v: totalModified > 0 && beforeDocs.length === 1 ? __v : undefined,
         };
       }
     });
@@ -478,7 +478,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
+   * @returns Promise resolving to delete/update result information with __v for soft deletes
    * @throws Error if the operation fails
    */
   async deleteById<THardDelete extends boolean = false>(
@@ -494,7 +494,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    *
    * @param filter - MongoDB filter criteria for documents to restore
    * @param userContext - Optional user context for audit trails
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    */
   async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<ExtendedUpdateResult> {
@@ -513,7 +513,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
       // Restore each document with version control
       let totalModified = 0;
-      let newVersion: number | undefined;
+      let __v: number | undefined;
 
       for (const doc of deletedDocs) {
         const currentVersion = doc.version || 1;
@@ -542,7 +542,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         totalModified += updateResult.modifiedCount;
         // For single document operation, track the new version
         if (deletedDocs.length === 1) {
-          newVersion = currentVersion + 1;
+          __v = currentVersion + 1;
         }
       }
 
@@ -552,8 +552,8 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         upsertedCount: 0,
         upsertedId: null,
         matchedCount: deletedDocs.length,
-        // Only return newVersion for single document restores
-        newVersion: totalModified > 0 && deletedDocs.length === 1 ? newVersion : undefined,
+        // Only return __v for single document restores
+        __v: totalModified > 0 && deletedDocs.length === 1 ? __v : undefined,
       };
     });
 

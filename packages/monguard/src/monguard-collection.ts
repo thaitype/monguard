@@ -684,7 +684,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * @param filter - MongoDB filter criteria to select documents
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    *
    * @example
@@ -695,10 +695,10 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { userContext: { userId: 'user123' } }
    * );
    *
-   * // For version-aware operations, use the newVersion for subsequent updates
-   * if (result.newVersion) {
+   * // For version-aware operations, use the __v for subsequent updates
+   * if (result.__v) {
    *   await collection.update(
-   *     { _id: documentId, version: result.newVersion },
+   *     { _id: documentId, version: result.__v },
    *     { $set: { processed: true } }
    *   );
    * }
@@ -718,7 +718,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * @param id - The document ID to update
    * @param update - Update operations to apply
    * @param options - Options for the update operation
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    *
    * @example
@@ -729,8 +729,8 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { userContext: { userId: 'user123' } }
    * );
    *
-   * // Use the newVersion for safe multi-phase operations
-   * if (result.newVersion) {
+   * // Use the __v for safe multi-phase operations
+   * if (result.__v) {
    *   await collection.updateById(
    *     documentId,
    *     { $set: { status: 'processed' } },
@@ -752,20 +752,20 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *
    * @param filter - MongoDB filter criteria to select documents
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
+   * @returns Promise resolving to delete/update result information with __v for soft deletes
    * @throws Error if the operation fails
    *
    * @example
    * ```typescript
-   * // Soft delete with newVersion tracking
+   * // Soft delete with __v tracking
    * const result = await collection.delete(
    *   { status: 'inactive' },
    *   { userContext: { userId: 'user123' } }
    * );
    *
-   * // For single document soft deletes, use newVersion for subsequent operations
-   * if (result.newVersion) {
-   *   console.log(`Document soft deleted with version ${result.newVersion}`);
+   * // For single document soft deletes, use __v for subsequent operations
+   * if (result.__v) {
+   *   console.log(`Document soft deleted with version ${result.__v}`);
    * }
    *
    * // Hard delete (no version tracking)
@@ -787,7 +787,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *
    * @param id - The document ID to delete
    * @param options - Options for the delete operation
-   * @returns Promise resolving to delete/update result information with newVersion for soft deletes
+   * @returns Promise resolving to delete/update result information with __v for soft deletes
    * @throws Error if the operation fails
    *
    * @example
@@ -797,9 +797,9 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { userContext: { userId: 'user123' } }
    * );
    *
-   * // For soft deletes, use the newVersion for subsequent operations
-   * if (result.newVersion) {
-   *   console.log(`Document soft deleted with version ${result.newVersion}`);
+   * // For soft deletes, use the __v for subsequent operations
+   * if (result.__v) {
+   *   console.log(`Document soft deleted with version ${result.__v}`);
    *   // This document can now be safely restored using the known version
    * }
    * ```
@@ -816,7 +816,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *
    * @param filter - MongoDB filter criteria to select documents to restore
    * @param userContext - Optional user context for audit trails
-   * @returns Promise resolving to update result information with newVersion when applicable
+   * @returns Promise resolving to update result information with __v when applicable
    * @throws Error if the operation fails
    *
    * @example
@@ -826,9 +826,9 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    *   { userId: 'user123' }
    * );
    *
-   * // For single document restores, use the newVersion for subsequent operations
-   * if (result.newVersion) {
-   *   console.log(`Document restored with version ${result.newVersion}`);
+   * // For single document restores, use the __v for subsequent operations
+   * if (result.__v) {
+   *   console.log(`Document restored with version ${result.__v}`);
    *   // Safe to perform additional updates with known version
    * }
    * ```

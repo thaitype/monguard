@@ -160,8 +160,8 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         }
       });
 
-      // TransactionStrategy doesn't currently track versions, so newVersion is undefined
-      return { ...result!, newVersion: undefined };
+      // TransactionStrategy doesn't currently track versions, so __v is undefined
+      return { ...result!, __v: undefined };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Update operation failed');
     } finally {
@@ -284,9 +284,9 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         }
       });
 
-      // TransactionStrategy doesn't currently track versions, so newVersion is undefined
-      // For hard deletes, return standard DeleteResult; for soft deletes, return with newVersion undefined
-      return { ...result!, newVersion: undefined } as ExtendedHardOrSoftDeleteResult<THardDelete>;
+      // TransactionStrategy doesn't currently track versions, so __v is undefined
+      // For hard deletes, return standard DeleteResult; for soft deletes, return with __v undefined
+      return { ...result!, __v: undefined } as ExtendedHardOrSoftDeleteResult<THardDelete>;
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Delete operation failed');
     } finally {
@@ -341,8 +341,8 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         );
       });
 
-      // TransactionStrategy doesn't currently track versions, so newVersion is undefined
-      return { ...result!, newVersion: undefined };
+      // TransactionStrategy doesn't currently track versions, so __v is undefined
+      return { ...result!, __v: undefined };
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Restore operation failed');
     } finally {
