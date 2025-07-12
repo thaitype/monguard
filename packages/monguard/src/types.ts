@@ -52,7 +52,7 @@ export interface BaseDocument<TId = DefaultReferenceId> {
   /** Timestamp when the document was soft deleted (undefined if not deleted) */
   deletedAt?: Date;
   /** Version number for optimistic locking (used when transactions are disabled) */
-  version?: number;
+  __v?: number;
 }
 
 /**

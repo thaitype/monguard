@@ -698,7 +698,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * // For version-aware operations, use the __v for subsequent updates
    * if (result.__v) {
    *   await collection.update(
-   *     { _id: documentId, version: result.__v },
+   *     { _id: documentId, __v: result.__v },
    *     { $set: { processed: true } }
    *   );
    * }

@@ -96,16 +96,16 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Phase 1: Create initial order
       const order = await optimisticCollection.create(orderData, { userContext });
-      expect(order.version).toBe(1);
+      expect(order.__v).toBe(1);
 
       // Phase 2: Update using explicit version-based filtering
       // This demonstrates the proper pattern for using __v to prevent conflicts
-      let currentVersion = order.version;
+      let currentVersion = order.__v;
 
       const phase2Result = await optimisticCollection.update(
         {
           _id: order._id,
-          version: currentVersion, // Use version in filter to prevent conflicts
+          __v: currentVersion, // Use version in filter to prevent conflicts
         },
         {
           $set: {
@@ -124,7 +124,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       const phase3Result = await optimisticCollection.update(
         {
           _id: order._id,
-          version: currentVersion, // Use __v from previous operation
+          __v: currentVersion, // Use __v from previous operation
         },
         {
           $set: {
@@ -141,14 +141,14 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Verify final state
       const finalOrder = await optimisticCollection.findById(order._id);
       expect(finalOrder!.status).toBe('completed');
-      expect(finalOrder!.version).toBe(3);
+      expect(finalOrder!.__v).toBe(3);
       expect(finalOrder!.metadata?.phase).toBe(3);
 
       // Demonstrate that using wrong version would fail
       const wrongVersionResult = await optimisticCollection.update(
         {
           _id: order._id,
-          version: 1, // Wrong version - should not modify anything
+          __v: 1, // Wrong version - should not modify anything
         },
         { $set: { status: 'cancelled' } },
         { userContext }
@@ -178,7 +178,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       expect(order._id).toBeDefined();
       expect(order.status).toBe('pending');
-      expect(order.version).toBe(1);
+      expect(order.__v).toBe(1);
       TestAssertions.expectTimestamps(order);
       TestHelpers.expectDateInRange(order.createdAt, timeRange);
 
@@ -223,7 +223,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       const finalOrder = await optimisticCollection.findById(order._id);
       expect(finalOrder).toBeDefined();
       expect(finalOrder!.status).toBe('completed');
-      expect(finalOrder!.version).toBe(3);
+      expect(finalOrder!.__v).toBe(3);
       expect(finalOrder!.processedAt).toBeDefined();
       expect(finalOrder!.completedAt).toBeDefined();
       expect(finalOrder!.updatedBy).toBe(userContext.userId);
@@ -296,7 +296,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Phase 1: Create the document
       const doc = await docCollection.create(docData, { userContext });
-      expect(doc.version).toBe(1);
+      expect(doc.__v).toBe(1);
 
       // Phase 2: Update document metadata
       const updateResult = await docCollection.updateById(
@@ -323,7 +323,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       const deletedDoc = await docCollection.findById(doc._id, { includeSoftDeleted: true });
       expect(deletedDoc).toBeDefined();
       expect(deletedDoc!.deletedAt).toBeDefined();
-      expect(deletedDoc!.version).toBe(3);
+      expect(deletedDoc!.__v).toBe(3);
 
       // Document should not be found in normal queries
       const normalQuery = await docCollection.findById(doc._id);
@@ -340,7 +340,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       const restoredDoc = await docCollection.findById(doc._id);
       expect(restoredDoc).toBeDefined();
       expect(restoredDoc!.deletedAt).toBeUndefined();
-      expect(restoredDoc!.version).toBe(4);
+      expect(restoredDoc!.__v).toBe(4);
       expect(restoredDoc!.tags).toEqual(['important', 'reviewed']);
       expect(restoredDoc!.metadata).toBeDefined();
     });
@@ -418,11 +418,11 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Create initial order
       const order = await optimisticCollection.create(orderData, { userContext: userContext1 });
-      expect(order.version).toBe(1);
+      expect(order.__v).toBe(1);
 
       // User 1 starts a multi-phase operation
       const user1Phase1 = await optimisticCollection.update(
-        { _id: order._id, version: 1 }, // Use version filter for safety
+        { _id: order._id, __v: 1 }, // Use version filter for safety
         { $set: { status: 'processing', metadata: { processor: 'user1' } } },
         { userContext: userContext1 }
       );
@@ -432,7 +432,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // User 2 tries to update using the same version (should fail)
       const user2Conflict = await optimisticCollection.update(
-        { _id: order._id, version: 1 }, // Same version - should fail
+        { _id: order._id, __v: 1 }, // Same version - should fail
         { $set: { status: 'cancelled', metadata: { processor: 'user2' } } },
         { userContext: userContext2 }
       );
@@ -442,7 +442,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // User 1 continues with correct version
       const user1Phase2 = await optimisticCollection.update(
-        { _id: order._id, version: user1Phase1.__v }, // Use __v from phase 1
+        { _id: order._id, __v: user1Phase1.__v }, // Use __v from phase 1
         { $set: { status: 'completed', metadata: { processor: 'user1', completed: true } } },
         { userContext: userContext1 }
       );
@@ -453,12 +453,12 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Verify final state
       const finalOrder = await optimisticCollection.findById(order._id);
       expect(finalOrder!.status).toBe('completed');
-      expect(finalOrder!.version).toBe(3);
+      expect(finalOrder!.__v).toBe(3);
       expect(finalOrder!.metadata?.processor).toBe('user1');
 
       // User 2 can now update with the current version if needed
       const user2Recovery = await optimisticCollection.update(
-        { _id: order._id, version: 3 }, // Use current version
+        { _id: order._id, __v: 3 }, // Use current version
         { $set: { metadata: { processor: 'user1', completed: true, reviewedBy: 'user2' } } },
         { userContext: userContext2 }
       );
@@ -482,7 +482,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Create initial order
       const order = await optimisticCollection.create(orderData, { userContext: userContext1 });
-      expect(order.version).toBe(1);
+      expect(order.__v).toBe(1);
 
       // First user starts processing
       const firstUpdate = await optimisticCollection.updateById(
@@ -506,10 +506,10 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Now if first user tries to continue with stale version,
       // they can detect the conflict by checking the current document
       const currentDoc = await optimisticCollection.findById(order._id);
-      expect(currentDoc!.version).toBe(3); // Version has moved beyond what first user expects
+      expect(currentDoc!.__v).toBe(3); // Version has moved beyond what first user expects
 
       // First user can now handle the conflict appropriately
-      if (currentDoc!.version !== firstUpdate.__v) {
+      if (currentDoc!.__v !== firstUpdate.__v) {
         // Handle version conflict - could retry with current version
         const retryUpdate = await optimisticCollection.updateById(
           order._id,
@@ -594,7 +594,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Create initial order
       const order = await optimisticCollection.create(orderData, { userContext });
-      let currentVersion = order.version;
+      let currentVersion = order.__v;
 
       // Simulate a retry loop with version-based recovery
       let retryCount = 0;
@@ -609,11 +609,11 @@ describe('Multi-Phase Operations with __v Feature', () => {
             throw new Error('Document not found');
           }
 
-          currentVersion = currentDoc.version;
+          currentVersion = currentDoc.__v;
 
           // Attempt version-safe update
           const updateResult = await optimisticCollection.update(
-            { _id: order._id, version: currentVersion },
+            { _id: order._id, __v: currentVersion },
             {
               $set: {
                 status: 'processing',
@@ -657,7 +657,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       const finalOrder = await optimisticCollection.findById(order._id);
       expect(finalOrder!.status).toBe('processing');
       expect(finalOrder!.metadata?.processor).toBe(userContext.userId);
-      expect(finalOrder!.version).toBe(finalResult.__v);
+      expect(finalOrder!.__v).toBe(finalResult.__v);
     });
   });
 
@@ -802,10 +802,10 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Step 1: Customer service validates the order
       const order = await optimisticCollection.create(orderData, { userContext: customerService });
-      let currentVersion = order.version;
+      let currentVersion = order.__v;
 
       const validationResult = await optimisticCollection.update(
-        { _id: order._id, version: currentVersion }, // Use version for safe handoff
+        { _id: order._id, __v: currentVersion }, // Use version for safe handoff
         {
           $set: {
             status: 'processing',
@@ -824,7 +824,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Step 2: Warehouse picks and packs the order (using __v from validation)
       const packingResult = await optimisticCollection.update(
-        { _id: order._id, version: currentVersion }, // Use __v from validation
+        { _id: order._id, __v: currentVersion }, // Use __v from validation
         {
           $set: {
             metadata: {
@@ -845,7 +845,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Step 3: Billing processes payment and completes order (using __v from packing)
       const completionResult = await optimisticCollection.update(
-        { _id: order._id, version: currentVersion }, // Use __v from packing
+        { _id: order._id, __v: currentVersion }, // Use __v from packing
         {
           $set: {
             status: 'completed',
@@ -871,7 +871,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Verify the complete workflow
       const finalOrder = await optimisticCollection.findById(order._id);
       expect(finalOrder!.status).toBe('completed');
-      expect(finalOrder!.version).toBe(4);
+      expect(finalOrder!.__v).toBe(4);
       expect(finalOrder!.metadata?.validatedBy).toBe(customerService.userId);
       expect(finalOrder!.metadata?.packedBy).toBe(warehouse.userId);
       expect(finalOrder!.metadata?.billedBy).toBe(billing.userId);
@@ -943,7 +943,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       const recoveredOrder = await optimisticCollection.findById(order._id);
       expect(recoveredOrder!.status).toBe('pending');
       expect(recoveredOrder!.metadata?.errorRecovery).toBe(true);
-      expect(recoveredOrder!.version).toBe(4);
+      expect(recoveredOrder!.__v).toBe(4);
     });
 
     /**
@@ -965,11 +965,11 @@ describe('Multi-Phase Operations with __v Feature', () => {
       };
 
       const doc = await docCollection.create(docData, { userContext: author });
-      let currentVersion = doc.version;
+      let currentVersion = doc.__v;
 
       // Phase 1: Author submits for review
       const submitResult = await docCollection.update(
-        { _id: doc._id, version: currentVersion },
+        { _id: doc._id, __v: currentVersion },
         {
           $set: {
             tags: ['policy', 'pending-review'],
@@ -989,7 +989,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Phase 2: Reviewer reviews and approves
       const reviewResult = await docCollection.update(
-        { _id: doc._id, version: currentVersion },
+        { _id: doc._id, __v: currentVersion },
         {
           $set: {
             tags: ['policy', 'reviewed'],
@@ -1012,7 +1012,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Phase 3: Approver gives final approval
       const approvalResult = await docCollection.update(
-        { _id: doc._id, version: currentVersion },
+        { _id: doc._id, __v: currentVersion },
         {
           $set: {
             tags: ['policy', 'approved'],
@@ -1037,7 +1037,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Phase 4: Publisher publishes the document
       const publishResult = await docCollection.update(
-        { _id: doc._id, version: currentVersion },
+        { _id: doc._id, __v: currentVersion },
         {
           $set: {
             tags: ['policy', 'published'],
@@ -1065,7 +1065,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Verify the complete approval workflow
       const finalDoc = await docCollection.findById(doc._id);
       expect(finalDoc!.tags).toContain('published');
-      expect(finalDoc!.version).toBe(5);
+      expect(finalDoc!.__v).toBe(5);
       expect(finalDoc!.metadata?.status).toBe('published');
       expect(finalDoc!.metadata?.submittedBy).toBe(author.userId);
       expect(finalDoc!.metadata?.reviewedBy).toBe(reviewer.userId);
@@ -1075,7 +1075,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Demonstrate that workflow is conflict-safe
       // If someone tries to update with an old version, it should fail
       const oldVersionUpdate = await docCollection.update(
-        { _id: doc._id, version: 2 }, // Old version
+        { _id: doc._id, __v: 2 }, // Old version
         { $set: { tags: ['policy', 'outdated'] } },
         { userContext: author }
       );
@@ -1085,7 +1085,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
 
       // Document should remain unchanged
       const unchangedDoc = await docCollection.findById(doc._id);
-      expect(unchangedDoc!.version).toBe(5);
+      expect(unchangedDoc!.__v).toBe(5);
       expect(unchangedDoc!.tags).toContain('published');
     });
   });

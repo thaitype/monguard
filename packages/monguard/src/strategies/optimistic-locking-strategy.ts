@@ -117,7 +117,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     // Add version field and timestamps for new documents
     const versionedDoc = {
       ...document,
-      version: 1, // Start with version 1 for new documents
+      __v: 1, // Start with version 1 for new documents
     };
 
     const timestampedDoc = this.context.addTimestamps(versionedDoc, false, options.userContext);
@@ -176,7 +176,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             ...update,
             $set: {
               ...((update as any).$set || {}),
-              version: 1,
+              __v: 1,
               createdAt: new Date(),
               updatedAt: new Date(),
               ...(options.userContext && {
@@ -205,7 +205,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       // Handle single document update with optimistic locking
       if (beforeDocs.length === 1) {
         const beforeDoc = beforeDocs[0]!;
-        const currentVersion = beforeDoc.version || 1;
+        const currentVersion = beforeDoc.__v || 1;
         const __v = currentVersion + 1;
 
         // Create version-controlled update
@@ -218,14 +218,14 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
           },
           $inc: {
             ...((update as any).$inc || {}),
-            version: 1,
+            __v: 1,
           },
         };
 
         // Use version in filter for optimistic locking
         const versionedFilter = {
           ...this.context.mergeSoftDeleteFilter(filter),
-          version: currentVersion,
+          __v: currentVersion,
         };
 
         const updateResult = await this.context.collection.updateMany(versionedFilter, timestampedUpdate);
@@ -278,7 +278,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         },
         $inc: {
           ...((update as any).$inc || {}),
-          version: 1,
+          __v: 1,
         },
       };
 
@@ -402,7 +402,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
         // Process each document individually for version control
         for (const beforeDoc of beforeDocs) {
-          const currentVersion = beforeDoc.version || 1;
+          const currentVersion = beforeDoc.__v || 1;
 
           const softDeleteUpdate = {
             $set: {
@@ -410,13 +410,13 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               updatedAt: new Date(),
               ...(options.userContext && { deletedBy: options.userContext.userId }),
             },
-            $inc: { version: 1 },
+            $inc: { __v: 1 },
           };
 
           // Use version in filter for optimistic locking
           const versionedFilter = {
             _id: beforeDoc._id,
-            version: currentVersion,
+            __v: currentVersion,
             deletedAt: { $exists: false },
           };
 
@@ -516,7 +516,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       let __v: number | undefined;
 
       for (const doc of deletedDocs) {
-        const currentVersion = doc.version || 1;
+        const currentVersion = doc.__v || 1;
 
         const restoreUpdate = {
           $unset: { deletedAt: 1, deletedBy: 1 },
@@ -524,12 +524,12 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             updatedAt: new Date(),
             ...(userContext && { updatedBy: userContext.userId }),
           },
-          $inc: { version: 1 },
+          $inc: { __v: 1 },
         } as unknown as UpdateFilter<T>;
 
         const versionedFilter = {
           _id: doc._id,
-          version: currentVersion,
+          __v: currentVersion,
           deletedAt: { $exists: true },
         };
 

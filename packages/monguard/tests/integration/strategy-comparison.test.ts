@@ -194,10 +194,10 @@ describe('Strategy Comparison Tests', () => {
       const optimisticCreate = await optimisticCollection.create(userData, { userContext });
 
       // Transaction strategy doesn't use version field
-      expect(transactionCreate.version).toBeUndefined();
+      expect(transactionCreate.__v).toBeUndefined();
 
       // Optimistic strategy should add version field
-      expect(optimisticCreate.version).toBe(1);
+      expect(optimisticCreate.__v).toBe(1);
 
       // Update both documents
       const transactionUpdate = await transactionCollection.updateById(
@@ -217,10 +217,10 @@ describe('Strategy Comparison Tests', () => {
       const optimisticDoc = await optimisticCollection.findById(optimisticCreate._id);
 
       // Transaction strategy still doesn't use version
-      expect(transactionDoc!.version).toBeUndefined();
+      expect(transactionDoc!.__v).toBeUndefined();
 
       // Optimistic strategy should increment version
-      expect(optimisticDoc!.version).toBe(2);
+      expect(optimisticDoc!.__v).toBe(2);
     });
   });
 
