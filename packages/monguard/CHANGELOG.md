@@ -1,5 +1,11 @@
 # monguard
 
+## 0.11.3
+
+### Patch Changes
+
+- a56561f: Fix unexpected delta behavior
+
 ## 0.11.2
 
 ### Patch Changes
