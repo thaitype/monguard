@@ -379,12 +379,9 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
         if (deltaResult.hasChanges) {
           return {
-            ...metadata,
             deltaChanges: deltaResult.changes,
             storageMode: 'delta',
-            // Keep original before/after for debugging purposes (could be removed for storage optimization)
-            before,
-            after,
+            // Only store delta changes in delta mode - exclude before/after/changes for storage optimization
           };
         }
       }
