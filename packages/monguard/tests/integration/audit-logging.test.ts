@@ -417,4 +417,159 @@ describe('Audit Logging Integration Tests', () => {
       expect(validAuditLogs).toHaveLength(1);
     });
   });
+
+  describe('Backward Compatibility - Delta Mode Integration', () => {
+    it('should maintain full mode as default behavior', async () => {
+      // Create collection with default audit logger (should use full mode)
+      const defaultCollection = new MonguardCollection<TestUser>(db, 'test_users_default', {
+        auditLogger: new MonguardAuditLogger(db, 'audit_logs_default'),
+        concurrency: { transactionsEnabled: false },
+      });
+
+      const userData = TestDataFactory.createUser({ name: 'John Doe' });
+      const userContext = TestDataFactory.createUserContext();
+      
+      const doc = await defaultCollection.create(userData, { userContext });
+      
+      await defaultCollection.update(
+        { _id: doc._id },
+        { $set: { name: 'Jane Doe' } },
+        { userContext }
+      );
+
+      const auditLogs = await defaultCollection.getAuditCollection()!.find({}).toArray();
+      const updateLog = auditLogs.find(log => log.action === 'update');
+      
+      expect(updateLog).toBeDefined();
+      expect(updateLog!.metadata?.storageMode).toBe('full');
+      expect(updateLog!.metadata?.before).toBeDefined();
+      expect(updateLog!.metadata?.after).toBeDefined();
+      expect(updateLog!.metadata?.deltaChanges).toBeUndefined();
+    });
+
+    it('should allow explicit delta mode configuration', async () => {
+      const deltaLogger = new MonguardAuditLogger(db, 'audit_logs_delta', {
+        storageMode: 'delta',
+      });
+      
+      const deltaCollection = new MonguardCollection<TestUser>(db, 'test_users_delta', {
+        auditLogger: deltaLogger,
+        concurrency: { transactionsEnabled: false },
+      });
+
+      const userData = TestDataFactory.createUser({ name: 'John Doe' });
+      const userContext = TestDataFactory.createUserContext();
+      
+      const doc = await deltaCollection.create(userData, { userContext });
+      
+      await deltaCollection.update(
+        { _id: doc._id },
+        { $set: { name: 'Jane Doe' } },
+        { userContext }
+      );
+
+      const auditLogs = await deltaCollection.getAuditCollection()!.find({}).toArray();
+      const updateLog = auditLogs.find(log => log.action === 'update');
+      
+      expect(updateLog).toBeDefined();
+      expect(updateLog!.metadata?.storageMode).toBe('delta');
+      expect(updateLog!.metadata?.deltaChanges).toBeDefined();
+      expect(updateLog!.metadata?.deltaChanges!['name']).toEqual({
+        old: 'John Doe',
+        new: 'Jane Doe',
+      });
+    });
+
+    it('should support per-operation storage mode override', async () => {
+      const userData = TestDataFactory.createUser({ name: 'John Doe' });
+      const userContext = TestDataFactory.createUserContext();
+      
+      const doc = await collection.create(userData, { userContext });
+      
+      // Override to delta mode for this specific operation
+      await collection.update(
+        { _id: doc._id },
+        { $set: { name: 'Jane Doe' } },
+        { userContext, auditControl: { storageMode: 'delta' } }
+      );
+
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
+      const updateLog = auditLogs.find(log => log.action === 'update');
+      
+      expect(updateLog).toBeDefined();
+      expect(updateLog!.metadata?.storageMode).toBe('delta');
+      expect(updateLog!.metadata?.deltaChanges).toBeDefined();
+    });
+
+    it('should maintain existing audit log structure for CREATE and DELETE', async () => {
+      const deltaLogger = new MonguardAuditLogger(db, 'audit_logs_mixed', {
+        storageMode: 'delta',
+      });
+      
+      const deltaCollection = new MonguardCollection<TestUser>(db, 'test_users_mixed', {
+        auditLogger: deltaLogger,
+        concurrency: { transactionsEnabled: false },
+      });
+
+      const userData = TestDataFactory.createUser();
+      const userContext = TestDataFactory.createUserContext();
+      
+      const doc = await deltaCollection.create(userData, { userContext });
+      await deltaCollection.deleteById(doc._id, { userContext });
+
+      const auditLogs = await deltaCollection.getAuditCollection()!.find({}).toArray();
+      const createLog = auditLogs.find(log => log.action === 'create');
+      const deleteLog = auditLogs.find(log => log.action === 'delete');
+      
+      // CREATE and DELETE should always use full mode regardless of configuration
+      expect(createLog!.metadata?.storageMode).toBe('full');
+      expect(createLog!.metadata?.after).toBeDefined();
+      expect(createLog!.metadata?.deltaChanges).toBeUndefined();
+      
+      expect(deleteLog!.metadata?.storageMode).toBe('full');
+      expect(deleteLog!.metadata?.before).toBeDefined();
+      expect(deleteLog!.metadata?.deltaChanges).toBeUndefined();
+    });
+
+    it('should handle mixed audit logs in same collection', async () => {
+      const userData = TestDataFactory.createUser({ name: 'John Doe', age: 30 });
+      const userContext = TestDataFactory.createUserContext();
+      
+      const doc = await collection.create(userData, { userContext });
+      
+      // First update with full mode (default)
+      await collection.update(
+        { _id: doc._id },
+        { $set: { name: 'Jane Doe' } },
+        { userContext }
+      );
+      
+      // Second update with delta mode override
+      await collection.update(
+        { _id: doc._id },
+        { $set: { age: 31 } },
+        { userContext, auditControl: { storageMode: 'delta' } }
+      );
+
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
+      const updateLogs = auditLogs.filter(log => log.action === 'update').sort((a, b) => 
+        a.timestamp.getTime() - b.timestamp.getTime()
+      );
+      
+      expect(updateLogs).toHaveLength(2);
+      
+      // First update should be full mode
+      expect(updateLogs[0]!.metadata?.storageMode).toBe('full');
+      expect(updateLogs[0]!.metadata?.before).toBeDefined();
+      expect(updateLogs[0]!.metadata?.after).toBeDefined();
+      
+      // Second update should be delta mode
+      expect(updateLogs[1]!.metadata?.storageMode).toBe('delta');
+      expect(updateLogs[1]!.metadata?.deltaChanges).toBeDefined();
+      expect(updateLogs[1]!.metadata?.deltaChanges!['age']).toEqual({
+        old: 30,
+        new: 31,
+      });
+    });
+  });
 });
