@@ -4,7 +4,7 @@ import { OptimisticLockingStrategy } from '../../src/strategies/optimistic-locki
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { adaptDb, adaptObjectId } from '../mongodb-adapter';
-import { MonguardAuditLogger, NoOpAuditLogger } from '../../src/audit-logger';
+import { MonguardAuditLogger, NoOpAuditLogger, ConsoleLogger } from '../../src/audit-logger';
 import type { Db, Collection, ObjectId } from '../../src/mongodb-types';
 import type { OperationStrategyContext } from '../../src/strategies/operation-strategy';
 import type { BaseDocument } from '../../src/types';
@@ -37,6 +37,7 @@ describe('OptimisticLockingStrategy', () => {
     const context: OperationStrategyContext<TestUser> = {
       collection,
       auditLogger,
+      logger: ConsoleLogger,
       collectionName: 'test_users',
       config: { transactionsEnabled: false, retryAttempts: 3, retryDelayMs: 10 },
       auditControl: { enableAutoAudit: true },
@@ -89,7 +90,7 @@ describe('OptimisticLockingStrategy', () => {
 
   describe('audit error handling', () => {
     it('should log audit error for create operation without failing main operation (line 141)', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockLogger = { warn: vi.fn(), error: vi.fn() };
 
       // Mock audit logger to throw error
       const mockAuditLogger = {
@@ -103,6 +104,7 @@ describe('OptimisticLockingStrategy', () => {
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
         collection,
         auditLogger: mockAuditLogger,
+        logger: mockLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: false },
         auditControl: { enableAutoAudit: true },
@@ -122,13 +124,11 @@ describe('OptimisticLockingStrategy', () => {
 
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to create audit log for create operation:', expect.any(Error));
-
-      consoleSpy.mockRestore();
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to create audit log for create operation:', expect.any(Error));
     });
 
     it('should log audit error for update operation without failing main operation (line 243)', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockLogger = { warn: vi.fn(), error: vi.fn() };
 
       // First create a document
       const userData = TestDataFactory.createUser();
@@ -146,6 +146,7 @@ describe('OptimisticLockingStrategy', () => {
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
         collection,
         auditLogger: mockAuditLogger,
+        logger: mockLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: false },
         auditControl: { enableAutoAudit: true },
@@ -165,13 +166,11 @@ describe('OptimisticLockingStrategy', () => {
       );
 
       expect(result.modifiedCount).toBeGreaterThan(0);
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to create audit log for update operation:', expect.any(Error));
-
-      consoleSpy.mockRestore();
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to create audit log for update operation:', expect.any(Error));
     });
 
     it('should log audit error for hard delete operation without failing main operation (line 310)', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockLogger = { warn: vi.fn(), error: vi.fn() };
 
       // First create a document
       const userData = TestDataFactory.createUser();
@@ -189,6 +188,7 @@ describe('OptimisticLockingStrategy', () => {
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
         collection,
         auditLogger: mockAuditLogger,
+        logger: mockLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: false },
         auditControl: { enableAutoAudit: true },
@@ -207,16 +207,14 @@ describe('OptimisticLockingStrategy', () => {
       });
 
       expect(result.deletedCount).toBeGreaterThan(0);
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to create audit log for hard delete operation:',
         expect.any(Error)
       );
-
-      consoleSpy.mockRestore();
     });
 
     it('should log audit error for soft delete operation without failing main operation (line 373)', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockLogger = { warn: vi.fn(), error: vi.fn() };
 
       // First create a document
       const userData = TestDataFactory.createUser();
@@ -234,6 +232,7 @@ describe('OptimisticLockingStrategy', () => {
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
         collection,
         auditLogger: mockAuditLogger,
+        logger: mockLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: false },
         auditControl: { enableAutoAudit: true },
@@ -252,12 +251,10 @@ describe('OptimisticLockingStrategy', () => {
       });
 
       expect(result.modifiedCount).toBeGreaterThan(0);
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to create audit log for soft delete operation:',
         expect.any(Error)
       );
-
-      consoleSpy.mockRestore();
     });
   });
 

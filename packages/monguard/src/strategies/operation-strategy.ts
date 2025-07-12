@@ -16,7 +16,7 @@ import {
   ExtendedUpdateResult,
   ExtendedHardOrSoftDeleteResult,
 } from '../types';
-import type { AuditLogger } from '../audit-logger';
+import type { AuditLogger, Logger } from '../audit-logger';
 
 /**
  * Interface defining the operations that different concurrency strategies must implement.
@@ -107,6 +107,8 @@ export interface OperationStrategyContext<T extends BaseDocument, TRefId = Defau
   collection: Collection<T>;
   /** The audit logger instance for tracking changes */
   auditLogger: AuditLogger<TRefId>;
+  /** Logger instance for warning and error messages */
+  logger: Logger;
   /** Name of the collection being managed */
   collectionName: string;
   /** Concurrency configuration determining strategy behavior */
