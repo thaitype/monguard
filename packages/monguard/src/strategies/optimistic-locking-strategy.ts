@@ -116,12 +116,14 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    * @returns Filter object for version-safe operations
    */
   private createVersionedFilter(baseFilter: Filter<T>, currentVersion: number): Filter<T> {
-    if (currentVersion === 1) {
+    if (currentVersion === 0) {
+      // For documents without __v field (currentVersion = 0)
       return {
         ...baseFilter,
-        $or: [{ __v: 1 }, { __v: { $exists: false } }],
+        __v: { $exists: false },
       } as Filter<T>;
     } else {
+      // For documents with existing __v field
       return {
         ...baseFilter,
         __v: currentVersion,
@@ -230,7 +232,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       // Handle single document update with optimistic locking
       if (beforeDocs.length === 1) {
         const beforeDoc = beforeDocs[0]!;
-        const currentVersion = beforeDoc.__v || 1;
+        const currentVersion = beforeDoc.__v || 0;
         const __v = currentVersion + 1;
 
         // Create version-controlled update
@@ -428,7 +430,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
         // Process each document individually for version control
         for (const beforeDoc of beforeDocs) {
-          const currentVersion = beforeDoc.__v || 1;
+          const currentVersion = beforeDoc.__v || 0;
           const newVersion = currentVersion + 1;
 
           const softDeleteUpdate = {
@@ -544,7 +546,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
       let __v: number | undefined;
 
       for (const doc of deletedDocs) {
-        const currentVersion = doc.__v || 1;
+        const currentVersion = doc.__v || 0;
         const newVersion = currentVersion + 1;
 
         const restoreUpdate = {

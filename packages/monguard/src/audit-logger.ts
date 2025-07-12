@@ -287,6 +287,11 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     const storageMode = auditControl?.storageMode ?? this.defaultStorageMode;
     const processedMetadata = this.processMetadata(metadata, action, storageMode);
 
+    // Skip logging if processMetadata returned undefined (no meaningful changes in delta mode)
+    if (processedMetadata === undefined) {
+      return;
+    }
+
     try {
       if (auditMode === 'outbox' && this.outboxTransport) {
         // Outbox mode: enqueue audit event for later processing
@@ -383,11 +388,17 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
             storageMode: 'delta',
             // Only store delta changes in delta mode - exclude before/after/changes for storage optimization
           };
+        } else {
+          // No meaningful changes - skip audit logging entirely
+          return undefined;
         }
       }
+      
+      // If before/after are undefined in delta mode, skip logging
+      return undefined;
     }
 
-    // Fallback to full storage mode
+    // For non-delta modes, use full storage mode
     return {
       ...metadata,
       storageMode: 'full',

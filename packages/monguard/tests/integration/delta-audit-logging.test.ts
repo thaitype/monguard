@@ -446,7 +446,7 @@ describe('Delta Audit Logging Integration Tests', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle empty update operations', async () => {
+    it('should skip audit logging for empty update operations (no meaningful changes)', async () => {
       const userData = TestDataFactory.createUser({ name: 'John Doe' });
       const userContext = TestDataFactory.createUserContext();
 
@@ -458,8 +458,37 @@ describe('Delta Audit Logging Integration Tests', () => {
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLogs = auditLogs.filter(log => log.action === 'update');
 
-      // Should still create audit log even if no changes detected
-      expect(updateLogs).toHaveLength(1);
+      // Should NOT create audit log when no meaningful changes in delta mode
+      expect(updateLogs).toHaveLength(0);
+      
+      // Should only have create audit log
+      const createLogs = auditLogs.filter(log => log.action === 'create');
+      expect(createLogs).toHaveLength(1);
+    });
+
+    it('should skip audit logging when only infrastructure fields (__v, updatedAt, etc.) change', async () => {
+      const userData = TestDataFactory.createUser({ name: 'John Doe' });
+      const userContext = TestDataFactory.createUserContext();
+
+      // Create a document without __v field (simulating legacy data)
+      const legacyDoc = {
+        ...userData,
+        _id: TestDataFactory.createObjectId(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+        // Note: no __v field
+      };
+
+      await collection.getCollection().insertOne(legacyDoc);
+
+      // Update using MonGuard - this will add __v field but only change infrastructure fields
+      await collection.updateById(legacyDoc._id, { $set: { name: 'John Doe' } }, { userContext });
+
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
+      const updateLogs = auditLogs.filter(log => log.action === 'update');
+
+      // Should NOT create audit log when only infrastructure fields change
+      expect(updateLogs).toHaveLength(0);
     });
 
     it('should handle null and undefined values correctly', async () => {
