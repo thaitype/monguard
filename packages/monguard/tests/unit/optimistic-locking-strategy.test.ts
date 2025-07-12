@@ -124,7 +124,10 @@ describe('OptimisticLockingStrategy', () => {
 
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to create audit log for create operation:', expect.any(Error));
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to create audit log for create operation:',
+        expect.any(Error)
+      );
     });
 
     it('should log audit error for update operation without failing main operation (line 243)', async () => {
@@ -166,7 +169,10 @@ describe('OptimisticLockingStrategy', () => {
       );
 
       expect(result.modifiedCount).toBeGreaterThan(0);
-      expect(mockLogger.error).toHaveBeenCalledWith('Failed to create audit log for update operation:', expect.any(Error));
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to create audit log for update operation:',
+        expect.any(Error)
+      );
     });
 
     it('should log audit error for hard delete operation without failing main operation (line 310)', async () => {
