@@ -68,8 +68,8 @@ describe('MongoOutboxTransport', () => {
       // Dequeue events
       const dequeuedEvents = await transport.dequeue(5);
       expect(dequeuedEvents).toHaveLength(2);
-      expect(dequeuedEvents[0].id).toBe('test-event-1');
-      expect(dequeuedEvents[1].id).toBe('test-event-2');
+      expect(dequeuedEvents[0]!.id).toBe('test-event-1');
+      expect(dequeuedEvents[1]!.id).toBe('test-event-2');
     });
 
     it('should acknowledge processed events', async () => {
@@ -107,7 +107,7 @@ describe('MongoOutboxTransport', () => {
       // Event should still be in queue with incremented retry count
       const events = await transport.dequeue(5);
       expect(events).toHaveLength(1);
-      expect(events[0].retryCount).toBe(1);
+      expect(events[0]!.retryCount).toBe(1);
     });
 
     it('should move events to dead letter queue after max retries', async () => {
@@ -135,8 +135,8 @@ describe('MongoOutboxTransport', () => {
       // Check dead letter collection has the event
       const deadLetterEvents = await testTransport.getDeadLetterCollection().find({}).toArray();
       expect(deadLetterEvents).toHaveLength(1);
-      expect(deadLetterEvents[0].id).toBe('test-event-1');
-      expect(deadLetterEvents[0].retryCount).toBe(2);
+      expect(deadLetterEvents[0]!.id).toBe('test-event-1');
+      expect(deadLetterEvents[0]!.retryCount).toBe(2);
     });
 
     it('should respect dequeue limit parameter', async () => {
@@ -172,15 +172,15 @@ describe('MongoOutboxTransport', () => {
           action: 'create',
           collectionName: 'test_users',
           documentId: `507f1f77bcf86cd79943901${i + 1}`,
-          timestamp: timestamps[i],
+          timestamp: timestamps[i]!,
           retryCount: 0,
         });
       }
 
       const events = await transport.dequeue(3);
-      expect(events[0].id).toBe('test-event-1'); // Oldest timestamp
-      expect(events[1].id).toBe('test-event-2');
-      expect(events[2].id).toBe('test-event-3');
+      expect(events[0]!.id).toBe('test-event-1'); // Oldest timestamp
+      expect(events[1]!.id).toBe('test-event-2');
+      expect(events[2]!.id).toBe('test-event-3');
     });
   });
 

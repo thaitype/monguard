@@ -13,7 +13,7 @@
     "format": "prettier --check ./**/*.{ts,js}",
     "format:fix": "prettier --write ./**/*.{ts,js}",
     "test": "turbo run test",
-    "test:ci": "turbo run test:ci --force",
+    "test:ci": "turbo run test:ci",
     "test:watch": "turbo run test:watch",
     "test:coverage-report": "turbo run view-report",
     "upgrade-deps": "npx taze -r --interactive",

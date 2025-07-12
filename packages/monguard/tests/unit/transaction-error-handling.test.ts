@@ -140,7 +140,7 @@ describe('TransactionStrategy Error Handling', () => {
 
     it('should clean up session when transaction succeeds', async () => {
       // Mock successful transaction
-      mockSession.withTransaction.mockImplementation(async callback => {
+      mockSession.withTransaction.mockImplementation(async (callback: () => Promise<void>) => {
         await callback();
       });
       mockCollection.insertOne.mockResolvedValue({ insertedId: 'test-id' });

@@ -7,9 +7,13 @@ import { adaptDb, adaptObjectId } from '../mongodb-adapter';
 import { MonguardAuditLogger, NoOpAuditLogger } from '../../src/audit-logger';
 import type { Db, Collection, ObjectId } from '../../src/mongodb-types';
 import type { OperationStrategyContext } from '../../src/strategies/operation-strategy';
+import type { BaseDocument } from '../../src/types';
 
 // Test class to access private methods for line coverage
-class TestableOptimisticLockingStrategy<T, TRefId = any> extends OptimisticLockingStrategy<T, TRefId> {
+class TestableOptimisticLockingStrategy<T extends BaseDocument, TRefId = any> extends OptimisticLockingStrategy<
+  T,
+  TRefId
+> {
   public async testRetryWithBackoff<R>(operation: () => Promise<R>, attempts?: number): Promise<R> {
     return (this as any).retryWithBackoff(operation, attempts);
   }
@@ -27,7 +31,7 @@ describe('OptimisticLockingStrategy', () => {
     testDb = new TestDatabase();
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
-    collection = db.collection<TestUser>('test_users');
+    collection = db.collection<TestUser>('test_users') as Collection<TestUser>;
     auditLogger = new MonguardAuditLogger(db, 'audit_logs');
 
     const context: OperationStrategyContext<TestUser> = {
@@ -93,6 +97,7 @@ describe('OptimisticLockingStrategy', () => {
         logOperation: vi.fn().mockRejectedValue(new Error('Audit logging failed')),
         isEnabled: () => true,
         getAuditCollection: () => null,
+        getAuditLogs: vi.fn().mockResolvedValue([]),
       };
 
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
@@ -135,6 +140,7 @@ describe('OptimisticLockingStrategy', () => {
         logOperation: vi.fn().mockRejectedValue(new Error('Update audit logging failed')),
         isEnabled: () => true,
         getAuditCollection: () => null,
+        getAuditLogs: vi.fn().mockResolvedValue([]),
       };
 
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
@@ -177,6 +183,7 @@ describe('OptimisticLockingStrategy', () => {
         logOperation: vi.fn().mockRejectedValue(new Error('Delete audit logging failed')),
         isEnabled: () => true,
         getAuditCollection: () => null,
+        getAuditLogs: vi.fn().mockResolvedValue([]),
       };
 
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {
@@ -221,6 +228,7 @@ describe('OptimisticLockingStrategy', () => {
         logOperation: vi.fn().mockRejectedValue(new Error('Soft delete audit logging failed')),
         isEnabled: () => true,
         getAuditCollection: () => null,
+        getAuditLogs: vi.fn().mockResolvedValue([]),
       };
 
       const contextWithFailingAudit: OperationStrategyContext<TestUser> = {

@@ -65,11 +65,11 @@ describe('Outbox Audit Integration Tests', () => {
       // Verify the enqueued event content
       const enqueuedEvents = await outboxTransport.dequeue(5);
       expect(enqueuedEvents).toHaveLength(1);
-      expect(enqueuedEvents[0].action).toBe('create');
-      expect(enqueuedEvents[0].collectionName).toBe('test_users');
-      expect(enqueuedEvents[0].documentId.toString()).toBe(result._id.toString());
-      expect(enqueuedEvents[0].userContext?.userId.toString()).toBe(userContext.userId.toString());
-      expect(enqueuedEvents[0].metadata?.after).toBeDefined();
+      expect(enqueuedEvents[0]!.action).toBe('create');
+      expect(enqueuedEvents[0]!.collectionName).toBe('test_users');
+      expect(enqueuedEvents[0]!.documentId.toString()).toBe(result._id.toString());
+      expect(enqueuedEvents[0]!.userContext?.userId.toString()).toBe(userContext.userId.toString());
+      expect(enqueuedEvents[0]!.metadata?.after).toBeDefined();
     });
 
     it('should handle multiple operations with outbox queuing', async () => {
@@ -96,9 +96,9 @@ describe('Outbox Audit Integration Tests', () => {
       // Verify the sequence of operations
       const enqueuedEvents = await outboxTransport.dequeue(5);
       expect(enqueuedEvents).toHaveLength(3);
-      expect(enqueuedEvents[0].action).toBe('create');
-      expect(enqueuedEvents[1].action).toBe('update');
-      expect(enqueuedEvents[2].action).toBe('delete');
+      expect(enqueuedEvents[0]!.action).toBe('create');
+      expect(enqueuedEvents[1]!.action).toBe('update');
+      expect(enqueuedEvents[2]!.action).toBe('delete');
     });
 
     it('should fall back to in-transaction mode when outbox transport fails', async () => {
@@ -123,7 +123,7 @@ describe('Outbox Audit Integration Tests', () => {
       // Check that audit log was written directly (fallback behavior)
       const auditLogs = await collectionWithoutOutbox.getAuditCollection()!.find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].action).toBe('create');
+      expect(auditLogs[0]!.action).toBe('create');
     });
 
     it('should process outbox events and create actual audit logs', async () => {
@@ -141,7 +141,7 @@ describe('Outbox Audit Integration Tests', () => {
       expect(enqueuedEvents).toHaveLength(1);
 
       // Process the event (simulate what an actual worker would do)
-      const event = enqueuedEvents[0];
+      const event = enqueuedEvents[0]!;
       const auditLogData = {
         ref: {
           collection: event.collectionName,
@@ -164,8 +164,8 @@ describe('Outbox Audit Integration Tests', () => {
       // Verify audit log was created
       const auditLogs = await auditLogger.getAuditCollection().find({}).toArray();
       expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].action).toBe('create');
-      expect(auditLogs[0].ref.id.toString()).toBe(result._id.toString());
+      expect(auditLogs[0]!.action).toBe('create');
+      expect(auditLogs[0]!.ref.id.toString()).toBe(result._id.toString());
 
       // Verify event was removed from outbox
       expect(await outboxTransport.getQueueDepth()).toBe(0);
@@ -263,7 +263,7 @@ describe('Outbox Audit Integration Tests', () => {
       // Check that second audit log was written directly
       const directAuditLogs = await inTransactionCollection.getAuditCollection()!.find({}).toArray();
       expect(directAuditLogs).toHaveLength(1);
-      expect(directAuditLogs[0].action).toBe('create');
+      expect(directAuditLogs[0]!.action).toBe('create');
     });
   });
 });

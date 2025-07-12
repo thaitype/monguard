@@ -7,9 +7,10 @@ import { adaptDb, adaptObjectId } from '../mongodb-adapter';
 import { MonguardAuditLogger } from '../../src/audit-logger';
 import type { Db, Collection, ObjectId } from '../../src/mongodb-types';
 import type { OperationStrategyContext } from '../../src/strategies/operation-strategy';
+import type { BaseDocument } from '../../src/types';
 
 // Test class to access private fallback strategy for testing
-class TestableTransactionStrategy<T, TRefId = any> extends TransactionStrategy<T, TRefId> {
+class TestableTransactionStrategy<T extends BaseDocument, TRefId = any> extends TransactionStrategy<T, TRefId> {
   public getFallbackStrategy() {
     return (this as any).fallbackStrategy;
   }
@@ -27,7 +28,7 @@ describe('TransactionStrategy', () => {
     testDb = new TestDatabase();
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
-    collection = db.collection<TestUser>('test_users');
+    collection = db.collection<TestUser>('test_users') as Collection<TestUser>;
     auditLogger = new MonguardAuditLogger(db, 'audit_logs');
 
     const context: OperationStrategyContext<TestUser> = {
