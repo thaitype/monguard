@@ -138,6 +138,8 @@ export interface CreateOptions<TUserId = DefaultReferenceId> {
   skipAudit?: boolean;
   /** User context for audit trails and user-based fields */
   userContext?: UserContext<TUserId>;
+  /** Per-operation audit control options (overrides collection-level settings) */
+  auditControl?: Partial<AuditControlOptions>;
 }
 
 /**
@@ -161,6 +163,8 @@ export interface UpdateOptions<TUserId = DefaultReferenceId> {
   userContext?: UserContext<TUserId>;
   /** Whether to create the document if it doesn't exist */
   upsert?: boolean;
+  /** Per-operation audit control options (overrides collection-level settings) */
+  auditControl?: Partial<AuditControlOptions>;
 }
 
 export type HardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete extends true
@@ -179,6 +183,8 @@ export interface DeleteOptions<THardDelete extends boolean, TUserId = DefaultRef
   userContext?: UserContext<TUserId>;
   /** Whether to permanently delete the document (true) or soft delete (false) */
   hardDelete?: THardDelete;
+  /** Per-operation audit control options (overrides collection-level settings) */
+  auditControl?: Partial<AuditControlOptions>;
 }
 
 /**

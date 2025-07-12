@@ -172,7 +172,7 @@ describe('Delta Calculator Unit Tests', () => {
 
       expect(result.hasChanges).toBe(true);
       expect(result.changes['level1.level2']).toBeDefined();
-      expect(result.changes['level1.level2'].fullDocument).toBe(true);
+      expect(result.changes['level1.level2']!.fullDocument).toBe(true);
     });
 
     it('should handle deep changes within maxDepth', () => {
@@ -199,7 +199,7 @@ describe('Delta Calculator Unit Tests', () => {
         old: 'old',
         new: 'new',
       });
-      expect(result.changes['level1.level2.value'].fullDocument).toBeUndefined();
+      expect(result.changes['level1.level2.value']!.fullDocument).toBeUndefined();
     });
   });
 
@@ -214,9 +214,9 @@ describe('Delta Calculator Unit Tests', () => {
 
       expect(result.hasChanges).toBe(true);
       expect(result.changes['items']).toBeDefined();
-      expect(result.changes['items'].fullDocument).toBe(true);
-      expect(result.changes['items'].old).toEqual(smallArray);
-      expect(result.changes['items'].new).toEqual([...smallArray, 'new-item']);
+      expect(result.changes['items']!.fullDocument).toBe(true);
+      expect(result.changes['items']!.old).toEqual(smallArray);
+      expect(result.changes['items']!.new).toEqual([...smallArray, 'new-item']);
     });
 
     it('should use element-wise diff when array is small enough', () => {
@@ -243,7 +243,7 @@ describe('Delta Calculator Unit Tests', () => {
 
       expect(result.hasChanges).toBe(true);
       expect(result.changes['items']).toBeDefined();
-      expect(result.changes['items'].fullDocument).toBe(true);
+      expect(result.changes['items']!.fullDocument).toBe(true);
     });
   });
 
@@ -342,7 +342,7 @@ describe('Delta Calculator Unit Tests', () => {
       const largeArray = Array.from({ length: 25 }, (_, i) => i);
       const options: DeltaOptions = { arrayDiffMaxSize: 20 };
       expect(shouldUseFullDocument(largeArray, 'items', options)).toBe(true);
-      
+
       const smallArray = Array.from({ length: 15 }, (_, i) => i);
       expect(shouldUseFullDocument(smallArray, 'items', options)).toBe(false);
     });
@@ -359,7 +359,7 @@ describe('Delta Calculator Unit Tests', () => {
     it('should handle circular references gracefully', () => {
       const before: any = { name: 'John' };
       before.self = before;
-      
+
       const after: any = { name: 'Jane' };
       after.self = after;
 
@@ -408,7 +408,7 @@ describe('Delta Calculator Unit Tests', () => {
     it('should handle Date objects correctly', () => {
       const date1 = new Date('2023-01-01');
       const date2 = new Date('2023-01-02');
-      
+
       const before = { timestamp: date1 };
       const after = { timestamp: date2 };
 
@@ -427,13 +427,7 @@ describe('Delta Calculator Unit Tests', () => {
       expect(DEFAULT_DELTA_OPTIONS.maxDepth).toBe(3);
       expect(DEFAULT_DELTA_OPTIONS.arrayHandling).toBe('diff');
       expect(DEFAULT_DELTA_OPTIONS.arrayDiffMaxSize).toBe(20);
-      expect(DEFAULT_DELTA_OPTIONS.blacklist).toEqual([
-        'createdAt',
-        'updatedAt', 
-        'createdBy',
-        'updatedBy',
-        '__v'
-      ]);
+      expect(DEFAULT_DELTA_OPTIONS.blacklist).toEqual(['createdAt', 'updatedAt', 'createdBy', 'updatedBy', '__v']);
     });
 
     it('should apply default options when none provided', () => {

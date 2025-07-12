@@ -213,7 +213,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     this.strictValidation = options?.strictValidation ?? false;
     this.outboxTransport = options?.outboxTransport;
     this.defaultStorageMode = options?.storageMode ?? 'full';
-    
+
     // Configure delta computation options
     this.deltaOptions = {
       ...DEFAULT_DELTA_OPTIONS,
@@ -372,11 +372,11 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     // For UPDATE actions, apply storage mode logic
     if (action === 'update' && storageMode === 'delta') {
       const { before, after } = metadata;
-      
+
       if (before !== undefined && after !== undefined) {
         // Compute delta changes
         const deltaResult = computeDelta(before, after, this.deltaOptions);
-        
+
         if (deltaResult.hasChanges) {
           return {
             ...metadata,

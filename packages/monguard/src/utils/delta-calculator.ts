@@ -51,17 +51,13 @@ export const DEFAULT_DELTA_OPTIONS: Required<DeltaOptions> = {
 
 /**
  * Computes the delta between two document states.
- * 
+ *
  * @param before - The document state before changes
  * @param after - The document state after changes
  * @param options - Configuration options for delta computation
  * @returns Delta result containing all field changes
  */
-export function computeDelta(
-  before: any,
-  after: any,
-  options: DeltaOptions = {}
-): DeltaResult {
+export function computeDelta(before: any, after: any, options: DeltaOptions = {}): DeltaResult {
   const opts = { ...DEFAULT_DELTA_OPTIONS, ...options };
   const changes: Record<string, FieldChange> = {};
 
@@ -97,7 +93,7 @@ export function computeDelta(
 
 /**
  * Recursively computes differences between two objects/values.
- * 
+ *
  * @private
  */
 function computeFieldDifferences(
@@ -145,7 +141,7 @@ function computeFieldDifferences(
 
 /**
  * Handles differences between arrays.
- * 
+ *
  * @private
  */
 function handleArrayDifferences(
@@ -188,7 +184,7 @@ function handleArrayDifferences(
 
 /**
  * Handles differences between objects.
- * 
+ *
  * @private
  */
 function handleObjectDifferences(
@@ -212,7 +208,7 @@ function handleObjectDifferences(
 
 /**
  * Generates a field path for nested properties or array elements.
- * 
+ *
  * @param basePath - The base path
  * @param keyOrIndex - The property key or array index
  * @returns The generated field path
@@ -226,7 +222,7 @@ export function generateFieldPath(basePath: string, keyOrIndex: string | number)
 
 /**
  * Checks if a field should be excluded from delta computation.
- * 
+ *
  * @param fieldPath - The field path to check
  * @param blacklist - Array of blacklisted field patterns
  * @returns True if the field should be excluded
@@ -244,23 +240,25 @@ export function isFieldBlacklisted(fieldPath: string, blacklist: string[]): bool
       const regexPattern = pattern.replace(/\./g, '\\.').replace(/\*/g, '.*');
       return new RegExp(`^${regexPattern}$`).test(fieldPath);
     }
-    
+
     // Handle exact dot patterns (like 'meta.updatedAt')
     if (pattern.includes('.')) {
       return fieldPath === pattern;
     }
-    
+
     // Exact match, starts with pattern, or ends with pattern (for nested fields)
-    return fieldPath === pattern || 
-           fieldPath.startsWith(`${pattern}.`) ||
-           fieldPath.endsWith(`.${pattern}`) ||
-           fieldPath.includes(`.${pattern}.`);
+    return (
+      fieldPath === pattern ||
+      fieldPath.startsWith(`${pattern}.`) ||
+      fieldPath.endsWith(`.${pattern}`) ||
+      fieldPath.includes(`.${pattern}.`)
+    );
   });
 }
 
 /**
  * Checks if a value is an object (not array, null, or primitive).
- * 
+ *
  * @private
  */
 function isObject(value: any): boolean {
@@ -269,21 +267,21 @@ function isObject(value: any): boolean {
 
 /**
  * Performs deep equality comparison between two values.
- * 
+ *
  * @private
  */
 function deepEqual(a: any, b: any): boolean {
   if (a === b) return true;
-  
+
   if (a == null || b == null) return a === b;
-  
+
   if (typeof a !== typeof b) return false;
-  
+
   // Handle Date objects
   if (a instanceof Date && b instanceof Date) {
     return a.getTime() === b.getTime();
   }
-  
+
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
@@ -291,24 +289,24 @@ function deepEqual(a: any, b: any): boolean {
     }
     return true;
   }
-  
+
   if (isObject(a) && isObject(b)) {
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
     if (keysA.length !== keysB.length) return false;
-    
+
     for (const key of keysA) {
       if (!keysB.includes(key) || !deepEqual(a[key], b[key])) return false;
     }
     return true;
   }
-  
+
   return false;
 }
 
 /**
  * Determines if a value should be stored as a full document due to complexity.
- * 
+ *
  * @param value - The value to evaluate
  * @param path - The field path
  * @param options - Delta computation options
@@ -316,17 +314,17 @@ function deepEqual(a: any, b: any): boolean {
  */
 export function shouldUseFullDocument(value: any, path: string, options: DeltaOptions): boolean {
   const opts = { ...DEFAULT_DELTA_OPTIONS, ...options };
-  
+
   // Check depth limit
   const pathDepth = path.split('.').length - 1;
   if (pathDepth >= opts.maxDepth) {
     return true;
   }
-  
+
   // Check array size limit
   if (Array.isArray(value) && value.length > opts.arrayDiffMaxSize) {
     return true;
   }
-  
+
   return false;
 }

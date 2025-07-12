@@ -20,7 +20,7 @@ describe('Delta Audit Logging Integration Tests', () => {
     testDb = new TestDatabase();
     mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
-    
+
     auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
       storageMode: 'delta', // Explicitly enable delta mode for these tests
       maxDepth: 3,
@@ -28,7 +28,7 @@ describe('Delta Audit Logging Integration Tests', () => {
       arrayDiffMaxSize: 20,
       blacklist: ['createdAt', 'updatedAt', 'createdBy', 'updatedBy', '__v'],
     });
-    
+
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditLogger,
       concurrency: { transactionsEnabled: false },
@@ -43,19 +43,15 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should create delta audit log for simple field update', async () => {
       const userData = TestDataFactory.createUser({ name: 'John Doe', age: 30 });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update a single field
-      await collection.updateById(
-        doc._id,
-        { $set: { name: 'Jane Doe' } },
-        { userContext }
-      );
+      await collection.updateById(doc._id, { $set: { name: 'Jane Doe' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
@@ -67,29 +63,25 @@ describe('Delta Audit Logging Integration Tests', () => {
     });
 
     it('should create delta audit log for multiple field updates', async () => {
-      const userData = TestDataFactory.createUser({ 
-        name: 'John Doe', 
+      const userData = TestDataFactory.createUser({
+        name: 'John Doe',
         age: 30,
-        email: 'john@example.com' 
+        email: 'john@example.com',
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update multiple fields
-      await collection.update(
-        { _id: doc._id },
-        { $set: { name: 'Jane Doe', age: 31 } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $set: { name: 'Jane Doe', age: 31 } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
-      
+
       const deltaChanges = updateLog!.metadata?.deltaChanges!;
       expect(deltaChanges['name']).toEqual({
         old: 'John Doe',
@@ -105,12 +97,12 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should create full document audit log for CREATE action', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
-      
+
       await collection.create(userData, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const createLog = auditLogs.find(log => log.action === 'create');
-      
+
       expect(createLog).toBeDefined();
       expect(createLog!.metadata?.storageMode).toBe('full');
       expect(createLog!.metadata?.after).toBeDefined();
@@ -120,13 +112,13 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should create full document audit log for DELETE action', async () => {
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
       await collection.deleteById(doc._id, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const deleteLog = auditLogs.find(log => log.action === 'delete');
-      
+
       expect(deleteLog).toBeDefined();
       expect(deleteLog!.metadata?.storageMode).toBe('full');
       expect(deleteLog!.metadata?.before).toBeDefined();
@@ -149,19 +141,15 @@ describe('Delta Audit Logging Integration Tests', () => {
         },
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update nested field
-      await collection.update(
-        { _id: doc._id },
-        { $set: { 'profile.address.city': 'Chiang Mai' } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $set: { 'profile.address.city': 'Chiang Mai' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
@@ -186,27 +174,27 @@ describe('Delta Audit Logging Integration Tests', () => {
         },
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update multiple nested fields
       await collection.update(
         { _id: doc._id },
-        { 
-          $set: { 
+        {
+          $set: {
             'profile.address.city': 'Chiang Mai',
-            'profile.preferences.theme': 'light'
-          } 
+            'profile.preferences.theme': 'light',
+          },
         },
         { userContext }
       );
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
-      
+
       const deltaChanges = updateLog!.metadata?.deltaChanges!;
       expect(deltaChanges['profile.address.city']).toEqual({
         old: 'Bangkok',
@@ -225,19 +213,15 @@ describe('Delta Audit Logging Integration Tests', () => {
         tags: ['user', 'editor', 'active'],
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update array element
-      await collection.update(
-        { _id: doc._id },
-        { $set: { 'tags.1': 'premium' } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $set: { 'tags.1': 'premium' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
@@ -252,24 +236,20 @@ describe('Delta Audit Logging Integration Tests', () => {
         tags: ['user', 'editor'],
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Add element to array
-      await collection.update(
-        { _id: doc._id },
-        { $push: { tags: 'verified' } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $push: { tags: 'verified' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges!['tags.2']).toEqual({
-        old: undefined,
+        old: null,
         new: 'verified',
       });
     });
@@ -281,29 +261,25 @@ describe('Delta Audit Logging Integration Tests', () => {
         tags: largeTags,
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update large array
       const updatedTags = [...largeTags];
       updatedTags[0] = 'updated-tag0';
-      
-      await collection.update(
-        { _id: doc._id },
-        { $set: { tags: updatedTags } },
-        { userContext }
-      );
+
+      await collection.update({ _id: doc._id }, { $set: { tags: updatedTags } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges!['tags']).toBeDefined();
-      expect(updateLog!.metadata?.deltaChanges!['tags'].fullDocument).toBe(true);
-      expect(updateLog!.metadata?.deltaChanges!['tags'].old).toEqual(largeTags);
-      expect(updateLog!.metadata?.deltaChanges!['tags'].new).toEqual(updatedTags);
+      expect(updateLog!.metadata?.deltaChanges!['tags']!.fullDocument).toBe(true);
+      expect(updateLog!.metadata?.deltaChanges!['tags']!.old).toEqual(largeTags);
+      expect(updateLog!.metadata?.deltaChanges!['tags']!.new).toEqual(updatedTags);
     });
   });
 
@@ -311,19 +287,15 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should not track changes to blacklisted fields', async () => {
       const userData = TestDataFactory.createUser({ name: 'John Doe' });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // The collection automatically updates these fields, but they should be blacklisted
-      await collection.update(
-        { _id: doc._id },
-        { $set: { name: 'Jane Doe', updatedAt: new Date() } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $set: { name: 'Jane Doe', updatedAt: new Date() } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges!['name']).toBeDefined();
@@ -334,15 +306,15 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should always track soft delete fields even if in blacklist', async () => {
       const userData = TestDataFactory.createUser({ name: 'John Doe' });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Perform soft delete
       await collection.deleteById(doc._id, { userContext, hardDelete: false });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const deleteLog = auditLogs.find(log => log.action === 'delete');
-      
+
       expect(deleteLog).toBeDefined();
       expect(deleteLog!.metadata?.softDelete).toBe(true);
       // Should track deletedAt and deletedBy even if they were in blacklist
@@ -356,7 +328,7 @@ describe('Delta Audit Logging Integration Tests', () => {
         storageMode: 'delta',
         maxDepth: 1,
       });
-      
+
       const shallowCollection = new MonguardCollection<TestUser>(db, 'test_users_shallow', {
         auditLogger: shallowLogger,
         concurrency: { transactionsEnabled: false },
@@ -371,9 +343,9 @@ describe('Delta Audit Logging Integration Tests', () => {
         },
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await shallowCollection.create(userData, { userContext });
-      
+
       // Update deeply nested field
       await shallowCollection.update(
         { _id: doc._id },
@@ -383,10 +355,10 @@ describe('Delta Audit Logging Integration Tests', () => {
 
       const auditLogs = await shallowCollection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
-      
+
       // Should have fullDocument flag due to maxDepth limit
       const profileChange = updateLog!.metadata?.deltaChanges!['profile'];
       expect(profileChange?.fullDocument).toBe(true);
@@ -395,9 +367,9 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should allow per-operation storage mode override', async () => {
       const userData = TestDataFactory.createUser({ name: 'John Doe' });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Override to full mode for this specific operation
       await collection.update(
         { _id: doc._id },
@@ -407,7 +379,7 @@ describe('Delta Audit Logging Integration Tests', () => {
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('full');
       expect(updateLog!.metadata?.deltaChanges).toBeUndefined();
@@ -421,7 +393,7 @@ describe('Delta Audit Logging Integration Tests', () => {
       const fullLogger = new MonguardAuditLogger(db, 'audit_logs', {
         storageMode: 'full',
       });
-      
+
       const fullCollection = new MonguardCollection<TestUser>(db, 'test_users_full', {
         auditLogger: fullLogger,
         concurrency: { transactionsEnabled: false },
@@ -429,18 +401,14 @@ describe('Delta Audit Logging Integration Tests', () => {
 
       const userData = TestDataFactory.createUser({ name: 'John Doe' });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await fullCollection.create(userData, { userContext });
-      
-      await fullCollection.update(
-        { _id: doc._id },
-        { $set: { name: 'Jane Doe' } },
-        { userContext }
-      );
+
+      await fullCollection.update({ _id: doc._id }, { $set: { name: 'Jane Doe' } }, { userContext });
 
       const auditLogs = await fullCollection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.storageMode).toBe('full');
       expect(updateLog!.metadata?.deltaChanges).toBeUndefined();
@@ -453,47 +421,39 @@ describe('Delta Audit Logging Integration Tests', () => {
     it('should handle empty update operations', async () => {
       const userData = TestDataFactory.createUser({ name: 'John Doe' });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Update with same value (no actual change)
-      await collection.update(
-        { _id: doc._id },
-        { $set: { name: 'John Doe' } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $set: { name: 'John Doe' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLogs = auditLogs.filter(log => log.action === 'update');
-      
+
       // Should still create audit log even if no changes detected
       expect(updateLogs).toHaveLength(1);
     });
 
     it('should handle null and undefined values correctly', async () => {
-      const userData = TestDataFactory.createUser({ 
+      const userData = TestDataFactory.createUser({
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       });
       const userContext = TestDataFactory.createUserContext();
-      
+
       const doc = await collection.create(userData, { userContext });
-      
+
       // Set field to null
-      await collection.update(
-        { _id: doc._id },
-        { $unset: { email: '' } },
-        { userContext }
-      );
+      await collection.update({ _id: doc._id }, { $unset: { email: '' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');
-      
+
       expect(updateLog).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges!['email']).toEqual({
         old: 'john@example.com',
-        new: undefined,
+        new: null,
       });
     });
   });

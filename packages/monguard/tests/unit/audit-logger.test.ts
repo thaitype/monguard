@@ -198,7 +198,11 @@ describe('MonguardAuditLogger', () => {
 
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: metadata,
+          metadata: expect.objectContaining({
+            before: { name: 'old' },
+            after: { name: 'new' },
+            storageMode: 'full', // Audit logger adds storage mode to metadata
+          }),
         })
       );
     });

@@ -139,6 +139,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             mode: this.context.auditControl.mode,
             failOnError: this.context.auditControl.failOnError,
             logFailedAttempts: this.context.auditControl.logFailedAttempts,
+            storageMode: options.auditControl?.storageMode,
           }
         );
       } catch (auditError) {
@@ -256,6 +257,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                  storageMode: options.auditControl?.storageMode,
                 }
               );
             }
@@ -309,6 +311,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               mode: this.context.auditControl.mode,
               failOnError: this.context.auditControl.failOnError,
               logFailedAttempts: this.context.auditControl.logFailedAttempts,
+              storageMode: options.auditControl?.storageMode,
             }
           );
         } catch (auditError) {
@@ -380,6 +383,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                  storageMode: options.auditControl?.storageMode,
                 }
               );
             }
@@ -449,6 +453,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                     mode: this.context.auditControl.mode,
                     failOnError: this.context.auditControl.failOnError,
                     logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                    storageMode: options.auditControl?.storageMode,
                   }
                 );
               } catch (auditError) {
