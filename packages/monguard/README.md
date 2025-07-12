@@ -10,6 +10,7 @@
 * 🗑️ **Soft Delete** — Mark records as deleted without removing them from the database
 * ⏱️ **Auto Timestamps** — Automatically manage `createdAt` and `updatedAt` fields
 * 🕵️ **Audit Logging** — Track every `create`, `update`, and `delete` action with detailed metadata
+* 🚀 **Transaction-Aware Auditing** — In-transaction or outbox patterns for different consistency needs
 * 🧠 **TypeScript First** — Fully typed for safety and great DX
 * ⚙️ **Plug-and-Play** — Minimal setup, maximum control
 
@@ -30,7 +31,9 @@ npm install monguard
 * CRM systems with user-deletable data
 * E-commerce with order history tracking
 * Admin dashboards needing full audit trail
-* Any app where “delete” doesn’t really mean delete 😉
+* **Financial systems** requiring strict audit compliance
+* **High-throughput applications** with eventual consistency needs
+* Any app where "delete" doesn't really mean delete 😉
 
 > Guard your data. Track the truth. Sleep better.
 > — with **`monguard`** 🛡️
@@ -46,8 +49,10 @@ Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging,
 - [Core Features](#core-features)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
+- [Multi-Phase Operations](#multi-phase-operations)
 - [Concurrency Strategies](#concurrency-strategies)
 - [Audit Logging](#audit-logging)
+- [Transactions with Outbox Pattern](#transactions-with-outbox-pattern)
 - [Soft Deletes](#soft-deletes)
 - [User Tracking](#user-tracking)
 - [Manual Auto-Field Control](#manual-auto-field-control)
@@ -100,7 +105,11 @@ const db = client.db('myapp');
 
 // Create a Monguard collection
 const users = new MonguardCollection<User>(db, 'users', {
-  concurrency: { transactionsEnabled: true }
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    mode: 'inTransaction',     // Strong audit consistency
+    failOnError: false         // Graceful error handling
+  }
 });
 
 // Create a user with audit logging
@@ -122,6 +131,8 @@ try {
 
 ### 🔍 **Audit Logging**
 - Automatic tracking of all create, update, and delete operations
+- **Transaction-aware audit control** with in-transaction and outbox modes
+- **Flexible error handling** with fail-fast or resilient strategies
 - Customizable audit collection names and logger interfaces
 - Rich metadata including before/after states and field changes
 - Reference ID validation with configurable error handling
@@ -140,7 +151,7 @@ try {
 ### ⚡ **Concurrency Control**
 - Transaction-based strategy for MongoDB replica sets
 - Optimistic locking strategy for standalone/Cosmos DB
-- Clear error handling when strategies are misconfigured
+- Automatic fallback handling
 
 ### 🎯 **Type Safety**
 - Full TypeScript support with strict typing
@@ -181,6 +192,11 @@ interface AutoFieldControlOptions {
 interface AuditControlOptions {
   enableAutoAudit?: boolean;        // Default: true
   auditCustomOperations?: boolean;  // Default: false
+  
+  // Transaction-aware audit control options
+  mode?: 'inTransaction' | 'outbox';  // Default: 'inTransaction'
+  failOnError?: boolean;              // Default: false
+  logFailedAttempts?: boolean;        // Default: false
 }
 ```
 
@@ -215,7 +231,10 @@ const collection = new MonguardCollection<User>(db, 'users', {
   },
   auditControl: {
     enableAutoAudit: true,
-    auditCustomOperations: true
+    auditCustomOperations: true,
+    mode: 'inTransaction',        // Strong consistency
+    failOnError: false,           // Graceful degradation
+    logFailedAttempts: true       // Monitor audit health
   }
 });
 ```
@@ -251,6 +270,136 @@ const collection = new MonguardCollection<User>(db, 'users', {
   }
 });
 ```
+
+## Multi-Phase Operations
+
+Multi-phase operations are workflows where a single business process requires multiple sequential database updates, often involving different users, departments, or systems. Monguard's `newVersion` feature enables safe, conflict-free multi-phase operations using version-based optimistic locking.
+
+### Basic Version-Safe Chaining
+
+```typescript
+// Safe multi-phase operation using newVersion
+async function processOrder(orders: MonguardCollection, orderId: ObjectId) {
+  const customerService = { userId: 'cs-001' };
+  const warehouse = { userId: 'warehouse-001' };
+  
+  // Phase 1: Customer service validates
+  const validation = await orders.update(
+    { _id: orderId, status: 'pending' },
+    { $set: { status: 'processing' } },
+    { userContext: customerService }
+  );
+  
+  if (!validation.newVersion) {
+    throw new Error('Validation failed or version conflict');
+  }
+  
+  // Phase 2: Warehouse processes using newVersion from Phase 1
+  const processing = await orders.update(
+    { _id: orderId, version: validation.newVersion }, // Use newVersion for safety
+    { $set: { status: 'shipped' } },
+    { userContext: warehouse }
+  );
+  
+  return processing.newVersion;
+}
+```
+
+### When `newVersion` is Available
+
+| Condition | `newVersion` Value | Safe to Chain? |
+|-----------|-------------------|----------------|
+| Single document modified | `currentVersion + 1` | ✅ Yes |
+| No documents modified | `undefined` | ❌ Operation failed |
+| Multi-document operation | `undefined` | ❌ Ambiguous state |
+| Hard delete operation | `undefined` | ❌ Document removed |
+
+### Conflict Detection and Recovery
+
+```typescript
+async function retryableUpdate(collection: MonguardCollection, docId: ObjectId) {
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  while (retryCount < maxRetries) {
+    try {
+      // Get current document state
+      const currentDoc = await collection.findById(docId);
+      if (!currentDoc) throw new Error('Document not found');
+      
+      // Attempt version-safe update
+      const result = await collection.update(
+        { _id: docId, version: currentDoc.version },
+        { $set: { processed: true } },
+        { userContext: { userId: 'processor' } }
+      );
+      
+      if (result.modifiedCount > 0) {
+        return result.newVersion; // Success!
+      }
+      
+      // Version conflict - retry
+      retryCount++;
+      await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+      
+    } catch (error) {
+      retryCount++;
+      if (retryCount >= maxRetries) throw error;
+    }
+  }
+}
+```
+
+### Real-World Use Cases
+
+**Document Approval Workflow:**
+```typescript
+// Author → Reviewer → Approver → Publisher
+const submission = await docs.update(
+  { _id: docId, version: 1 },
+  { $set: { status: 'submitted' } },
+  { userContext: author }
+);
+
+const review = await docs.update(
+  { _id: docId, version: submission.newVersion },
+  { $set: { status: 'reviewed' } },
+  { userContext: reviewer }
+);
+
+const approval = await docs.update(
+  { _id: docId, version: review.newVersion },
+  { $set: { status: 'approved' } },
+  { userContext: approver }
+);
+```
+
+**E-Commerce Order Fulfillment:**
+```typescript
+// Validation → Packing → Billing → Completion
+const phases = [
+  { status: 'processing', user: customerService },
+  { status: 'shipped', user: warehouse },
+  { status: 'completed', user: billing }
+];
+
+let currentVersion = order.version;
+for (const phase of phases) {
+  const result = await orders.update(
+    { _id: orderId, version: currentVersion },
+    { $set: { status: phase.status } },
+    { userContext: phase.user }
+  );
+  
+  if (!result.newVersion) {
+    throw new Error(`Phase failed: ${phase.status}`);
+  }
+  
+  currentVersion = result.newVersion;
+}
+```
+
+For comprehensive documentation on multi-phase operations, including error handling patterns, performance considerations, and advanced use cases, see: [Multi-Phase Operations Guide](./docs/multi-phase-operations.md).
 
 ## API Reference
 
@@ -315,21 +464,55 @@ async update(
   filter: Filter<T>,
   update: UpdateFilter<T>,
   options?: UpdateOptions
-): Promise<UpdateResult>
+): Promise<ExtendedUpdateResult>
 
 // Update by ID
 async updateById(
   id: ObjectId,
   update: UpdateFilter<T>,
   options?: UpdateOptions
-): Promise<UpdateResult>
+): Promise<ExtendedUpdateResult>
 
 interface UpdateOptions {
   skipAudit?: boolean;
   userContext?: UserContext;
   upsert?: boolean;
 }
+
+interface ExtendedUpdateResult {
+  acknowledged: boolean;
+  modifiedCount: number;
+  upsertedCount: number;
+  upsertedId: any | null;
+  matchedCount: number;
+  newVersion?: number; // Available for single-document updates with Optimistic Locking
+}
 ```
+
+#### newVersion Field Behavior
+
+The `newVersion` field indicates the document version after update and provides insight into the operation type:
+
+**With Optimistic Locking Strategy (`transactionsEnabled: false`):**
+- ✅ **Single document update**: Returns `newVersion` (e.g., `3`)
+- ❌ **Multi-document update**: Returns `newVersion: undefined`
+
+**With Transaction Strategy (`transactionsEnabled: true`):**
+- ❌ **All updates**: Returns `newVersion: undefined` (no version tracking)
+
+```typescript
+// Example: Detecting operation type
+const result = await collection.update(filter, update);
+
+if (result.newVersion !== undefined) {
+  console.log(`Single document updated to version ${result.newVersion}`);
+  console.log('Concurrency protection was applied ✅');
+} else {
+  console.log(`${result.modifiedCount} documents updated`);
+  console.log('Multi-document operation or Transaction strategy ⚡');
+}
+```
+
 
 ### Deleting Documents
 
@@ -352,6 +535,43 @@ interface DeleteOptions {
   hardDelete?: boolean; // Default: false (soft delete)
 }
 ```
+
+
+#### Single vs Multi-Document Updates
+
+The Optimistic Locking Strategy behaves differently based on how many documents match your filter:
+
+**🔒 Single Document Updates** (Full concurrency protection):
+- **When**: Filter matches exactly 1 document
+- **Behavior**: Uses version control for concurrency safety
+- **Returns**: `newVersion` field for tracking document state
+- **Retry**: Automatic retry on version conflicts
+- **Examples**: 
+  ```typescript
+  // These get optimistic locking if they match 1 document:
+  await collection.updateById(id, update)
+  await collection.update({ email: "unique@example.com" }, update)
+  await collection.update({ externalId: "EXT123" }, update)
+  ```
+
+**⚡ Multi-Document Updates** (No concurrency protection):
+- **When**: Filter matches 2+ documents
+- **Behavior**: Updates all matching documents without version control
+- **Returns**: `newVersion: undefined`
+- **Retry**: No automatic conflict resolution
+- **Examples**:
+  ```typescript
+  // These lose optimistic locking:
+  await collection.update({ status: "active" }, update)    // matches many
+  await collection.update({ department: "eng" }, update)   // matches many
+  ```
+
+**Best Practices:**
+- ✅ Use unique field filters (email, externalId) for concurrent safety
+- ✅ Check `newVersion` field to confirm single-document operation
+- ⚠️ Use multi-document updates only when you understand the concurrency trade-offs
+- 🔄 For critical updates, prefer `updateById()` or unique field filters
+
 
 ### Restoring Soft-Deleted Documents
 
@@ -483,8 +703,8 @@ Used when `transactionsEnabled: true`. Provides ACID guarantees.
 - Consistent audit logging
 - No version fields required
 
-**Error Handling:**
-If transactions are not supported (e.g., standalone MongoDB), throws clear error messages to help identify configuration issues. Use `transactionsEnabled: false` for such environments.
+**Automatic Fallback:**
+If transactions fail (e.g., standalone MongoDB), automatically falls back to optimistic strategy behavior.
 
 ### Optimistic Locking Strategy
 
@@ -633,6 +853,224 @@ const users = new MonguardCollection<User>(db, 'users', {
 // All operations will skip audit logging
 await users.create(userData); // No audit log created
 ```
+
+## Transactions with Outbox Pattern
+
+Monguard provides advanced audit control modes that support both **in-transaction** and **outbox pattern** approaches for handling audit logs in distributed systems. This enables you to choose the right consistency and performance trade-offs for your application.
+
+### Audit Control Modes
+
+#### In-Transaction Mode (Strong Consistency)
+
+Best for financial systems, compliance scenarios, and applications requiring strict audit trails:
+
+```typescript
+const collection = new MonguardCollection<Order>(db, 'orders', {
+  auditLogger: new MonguardAuditLogger(db, 'order_audit_logs'),
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    mode: 'inTransaction',        // Audit logs in same transaction
+    failOnError: true,            // Rollback on audit failures
+    logFailedAttempts: true       // Monitor audit health
+  }
+});
+
+// Both order creation and audit log happen atomically
+await collection.create(orderData, { userContext: { userId: 'user123' } });
+```
+
+**Benefits:**
+- ✅ Strong consistency - audit logs and data changes are atomic
+- ✅ Immediate audit availability
+- ✅ No risk of orphaned operations
+
+**Considerations:**
+- ⚠️ Higher transaction overhead
+- ⚠️ Audit failures can block business operations
+
+#### Outbox Mode (High Performance)
+
+Best for high-throughput systems, eventual consistency scenarios, and decoupled audit processing:
+
+```typescript
+import { MongoOutboxTransport } from 'monguard';
+
+// Setup outbox transport
+const outboxTransport = new MongoOutboxTransport(db, {
+  outboxCollectionName: 'audit_outbox',
+  deadLetterCollectionName: 'audit_dead_letter',
+  maxRetryAttempts: 3
+});
+
+// Create audit logger with outbox transport
+const auditLogger = new MonguardAuditLogger(db, 'product_audit_logs', {
+  outboxTransport
+});
+
+const collection = new MonguardCollection<Product>(db, 'products', {
+  auditLogger,
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    mode: 'outbox',               // Queue audit events for later processing
+    failOnError: false,           // Don't block on audit issues
+    logFailedAttempts: true       // Track failures for monitoring
+  }
+});
+
+// Product creation succeeds even if audit processing fails
+await collection.create(productData, { userContext: { userId: 'admin' } });
+
+// Audit events are now queued in the outbox collection for processing
+const queueDepth = await outboxTransport.getQueueDepth();
+console.log(`${queueDepth} audit events queued for processing`);
+```
+
+**Benefits:**
+- ✅ Higher performance - no audit overhead in critical path
+- ✅ Resilient to audit system failures
+- ✅ Better scalability for high-volume operations
+
+**Considerations:**
+- ⚠️ Eventual consistency for audit logs
+- ⚠️ Requires outbox processor implementation
+- ⚠️ More complex error handling and monitoring
+
+### Error Handling Strategies
+
+#### Fail-Fast Strategy (Financial/Compliance)
+
+```typescript
+const collection = new MonguardCollection<CriticalData>(db, 'critical_data', {
+  auditLogger: new MonguardAuditLogger(db, 'critical_audit'),
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    mode: 'inTransaction',
+    failOnError: true,    // Fail immediately on audit issues
+    logFailedAttempts: false
+  }
+});
+
+try {
+  await collection.create(criticalData, { userContext });
+  // Success: both data and audit are committed
+} catch (error) {
+  // Failure: entire transaction rolled back
+  await notifyComplianceTeam(error);
+  throw error;
+}
+```
+
+#### Resilient Strategy (High-Throughput)
+
+```typescript
+// Setup outbox transport for high-throughput scenarios
+const outboxTransport = new MongoOutboxTransport(db, {
+  outboxCollectionName: 'user_actions_outbox'
+});
+
+const collection = new MonguardCollection<UserAction>(db, 'user_actions', {
+  auditLogger: new MonguardAuditLogger(db, 'action_audit', { outboxTransport }),
+  concurrency: { transactionsEnabled: false },
+  auditControl: {
+    mode: 'outbox',
+    failOnError: false,   // Continue despite audit issues
+    logFailedAttempts: true
+  }
+});
+
+// Operation succeeds, audit queued for later processing
+await collection.create(userAction, { userContext });
+```
+
+### Hybrid Context-Aware Configuration
+
+```typescript
+class OrderService {
+  private financialCollection: MonguardCollection<FinancialRecord>;
+  private inventoryCollection: MonguardCollection<InventoryItem>;
+
+  constructor(db: Db) {
+    // Financial operations: strict audit compliance
+    this.financialCollection = new MonguardCollection(db, 'financial_records', {
+      auditLogger: new MonguardAuditLogger(db, 'financial_audit'),
+      concurrency: { transactionsEnabled: true },
+      auditControl: {
+        mode: 'inTransaction',
+        failOnError: true,
+        logFailedAttempts: true
+      }
+    });
+
+    // Inventory operations: eventual consistency acceptable
+    this.inventoryCollection = new MonguardCollection(db, 'inventory', {
+      auditLogger: new MonguardAuditLogger(db, 'inventory_audit'),
+      concurrency: { transactionsEnabled: true },
+      auditControl: {
+        mode: 'outbox',
+        failOnError: false,
+        logFailedAttempts: true
+      }
+    });
+  }
+
+  async processOrder(order: Order) {
+    const userContext = { userId: order.userId, orderId: order.id };
+
+    // Financial charge: must have audit trail
+    await this.financialCollection.create({
+      type: 'charge',
+      amount: order.total,
+      orderId: order.id
+    }, { userContext });
+
+    // Inventory update: can be eventually consistent
+    await this.inventoryCollection.update(
+      { productId: order.productId },
+      { $inc: { quantity: -order.quantity } },
+      { userContext }
+    );
+  }
+}
+```
+
+### Configuration Guide
+
+| Use Case | Mode | failOnError | Reasoning |
+|----------|------|-------------|-----------|
+| Financial transactions | `inTransaction` | `true` | Regulatory compliance requires audit atomicity |
+| User authentication | `inTransaction` | `true` | Security events must be audited |
+| Content management | `outbox` | `false` | High volume, eventual consistency acceptable |
+| System metrics | `outbox` | `false` | Performance over perfect audit coverage |
+
+### Monitoring and Health Checks
+
+```typescript
+// Monitor audit system health
+interface AuditMetrics {
+  auditLatency: number;           // Time to write audit logs
+  outboxQueueDepth: number;       // Pending audit events
+  processingRate: number;         // Events processed per second
+  auditFailureRate: number;       // % of failed audit attempts
+  retryCount: number;             // Failed events being retried
+  deadLetterCount: number;        // Permanently failed events
+}
+
+// Health check implementation
+async function checkAuditHealth() {
+  const metrics = await getAuditMetrics();
+  
+  return {
+    status: metrics.auditFailureRate < 0.01 ? 'healthy' : 'degraded',
+    details: {
+      latency: `${metrics.auditLatency}ms`,
+      queueDepth: metrics.outboxQueueDepth,
+      failureRate: `${(metrics.auditFailureRate * 100).toFixed(2)}%`
+    }
+  };
+}
+```
+
+For comprehensive implementation details, outbox pattern examples, and monitoring strategies, see: [**Transactions, Outbox Pattern, and Audit Logging Guide**](./docs/transactions-outbox-audit.md).
 
 ### Querying Audit Logs
 
@@ -1267,10 +1705,8 @@ const config = process.env.NODE_ENV === 'production'
   ? { transactionsEnabled: true }  // Atlas/Replica Set
   : { transactionsEnabled: false }; // Local development
 
-// Enable audit logging
-const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditLogger,
+  auditCollectionName: 'audit_logs',
   concurrency: config
 });
 ```
@@ -1301,6 +1737,114 @@ const productionLogger = {
 
 ## Examples
 
+### Concurrency and Update Patterns
+
+#### Single Document Updates with Optimistic Locking
+
+```typescript
+// ✅ Safe concurrent updates - Gets version control
+const userContext = { userId: 'admin123' };
+
+// Update by ID (always single document)
+const result1 = await collection.updateById(
+  userId, 
+  { $set: { lastLogin: new Date() } },
+  { userContext }
+);
+console.log('Version after update:', result1.newVersion); // e.g., 5
+
+// Update by unique field (single document if email is unique)
+const result2 = await collection.update(
+  { email: 'user@example.com' },
+  { $set: { name: 'John Doe Updated' } },
+  { userContext }
+);
+console.log('Version after update:', result2.newVersion); // e.g., 6
+
+// Update by external ID (single document if externalId is unique)
+const result3 = await collection.update(
+  { externalId: 'EXT123' },
+  { $set: { status: 'verified' } },
+  { userContext }
+);
+console.log('Version after update:', result3.newVersion); // e.g., 7
+```
+
+#### Multi-Document Updates (No Optimistic Locking)
+
+```typescript
+// ⚠️ Bulk updates - Loses version control for concurrency
+const userContext = { userId: 'admin123' };
+
+// Update all active users (multiple documents)
+const bulkResult = await collection.update(
+  { status: 'active' },
+  { $set: { lastNotified: new Date() } },
+  { userContext }
+);
+console.log('Documents updated:', bulkResult.modifiedCount); // e.g., 150
+console.log('Version tracking:', bulkResult.newVersion);     // undefined
+
+// Update all users in a department (multiple documents)
+const deptResult = await collection.update(
+  { department: 'engineering' },
+  { $inc: { budget: 1000 } },
+  { userContext }
+);
+console.log('Departments updated:', deptResult.modifiedCount); // e.g., 25
+console.log('Version tracking:', deptResult.newVersion);       // undefined
+```
+
+#### Handling Mixed Scenarios
+
+```typescript
+// Function that handles both single and multi-document updates
+async function updateUsersByFilter(filter: any, update: any) {
+  const result = await collection.update(filter, update, { userContext });
+  
+  if (result.newVersion !== undefined) {
+    console.log(`✅ Single document updated to version ${result.newVersion}`);
+    console.log('✅ Concurrency protection was applied');
+  } else {
+    console.log(`⚡ ${result.modifiedCount} documents updated in bulk`);
+    console.log('⚠️ No concurrency protection (multi-document operation)');
+  }
+  
+  return result;
+}
+
+// Usage examples:
+await updateUsersByFilter({ email: 'unique@example.com' }, update); // Single doc
+await updateUsersByFilter({ department: 'sales' }, update);         // Multi doc
+```
+
+#### Error Handling and Retry Logic
+
+```typescript
+async function safeConcurrentUpdate(userId: string, updateData: any) {
+  try {
+    const result = await collection.updateById(userId, updateData, { userContext });
+    
+    if (result.newVersion) {
+      console.log(`✅ Update successful, new version: ${result.newVersion}`);
+      return result;
+    } else {
+      console.log('⚠️ Update completed but no version tracking');
+      return result;
+    }
+  } catch (error) {
+    if (error.message.includes('Version conflict')) {
+      console.log('🔄 Version conflict detected, document was modified by another operation');
+      // The optimistic locking strategy automatically retries, but you can add custom logic here
+      throw error;
+    } else {
+      console.log('❌ Update failed:', error.message);
+      throw error;
+    }
+  }
+}
+```
+
 ### E-commerce User Management
 
 ```typescript
@@ -1324,9 +1868,8 @@ class UserService {
   private users: MonguardCollection<User>;
 
   constructor(db: Db) {
-    const auditLogger = new MonguardAuditLogger(db, 'user_audit_logs');
     this.users = new MonguardCollection<User>(db, 'users', {
-      auditLogger,
+      auditCollectionName: 'user_audit_logs',
       concurrency: { transactionsEnabled: true }
     });
   }
@@ -1400,9 +1943,8 @@ class TenantUserService {
   private users: MonguardCollection<User>;
 
   constructor(db: Db) {
-    const auditLogger = new MonguardAuditLogger(db, 'tenant_audit_logs');
     this.users = new MonguardCollection<User>(db, 'users', {
-      auditLogger,
+      auditCollectionName: 'tenant_audit_logs',
       concurrency: { transactionsEnabled: true }
     });
   }
@@ -1904,9 +2446,8 @@ class ScheduledTaskService {
 **Solution**: Use optimistic locking strategy for standalone MongoDB:
 
 ```typescript
-const auditLogger = new MonguardAuditLogger(db, 'audit_logs');
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditLogger,
+  auditCollectionName: 'audit_logs',
   concurrency: { transactionsEnabled: false } // Disable transactions
 });
 ```
@@ -2051,9 +2592,9 @@ async function bulkUpdateUsers(userIds: ObjectId[], updateData: any, userContext
 
 1. **Enable audit logging temporarily**:
 ```typescript
-const auditLogger = new MonguardAuditLogger(db, 'debug_audit_logs');
 const collection = new MonguardCollection<User>(db, 'users', {
-  auditLogger, // Enable auditing with debug collection
+  auditCollectionName: 'debug_audit_logs',
+  disableAudit: false, // Ensure auditing is enabled
   concurrency: { transactionsEnabled: true }
 });
 ```
