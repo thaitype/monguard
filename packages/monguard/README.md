@@ -700,7 +700,7 @@ Used when `transactionsEnabled: true`. Provides ACID guarantees.
 **Features:**
 - Atomic operations with automatic rollback
 - Consistent audit logging
-- No version fields required
+- No __v fields required
 
 **Automatic Fallback:**
 If transactions fail (e.g., standalone MongoDB), automatically falls back to optimistic strategy behavior.

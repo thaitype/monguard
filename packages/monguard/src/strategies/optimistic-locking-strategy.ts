@@ -114,7 +114,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
    * @throws Error if the operation fails
    */
   async create(document: any, options: CreateOptions<TRefId> = {}): Promise<T & { _id: ObjectId }> {
-    // Add version field and timestamps for new documents
+    // Add __v field and timestamps for new documents
     const versionedDoc = {
       ...document,
       __v: 1, // Start with version 1 for new documents

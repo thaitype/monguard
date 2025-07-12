@@ -170,8 +170,8 @@ const optimisticResult = await optimisticCollection.create(userData, { userConte
 
 ### Version Handling Differences
 ```javascript
-// Test: should handle version field differently between strategies
-// Transaction strategy: No version field used
+// Test: should handle __v field differently between strategies
+// Transaction strategy: No __v field used
 // Optimistic strategy: Version field incremented on updates
 ```
 

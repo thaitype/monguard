@@ -10,7 +10,7 @@
 
 ### **Feature Completed: Return `newVersion` for Version-Aware Operations**
 
-The MonguardCollection library now returns the updated document version (`newVersion`) from operations that increment the version field. This enables safe multi-phase workflows without requiring extra database queries.
+The MonguardCollection library now returns the updated document version (`newVersion`) from operations that increment the __v field. This enables safe multi-phase workflows without requiring extra database queries.
 
 #### **✅ What's Been Implemented**
 

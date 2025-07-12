@@ -120,7 +120,7 @@ async create(document: any, options: CreateOptions) {
 **When to use**: `config.transactionsEnabled = false`
 
 **Characteristics**:
-- Uses version fields for conflict detection
+- Uses __v fields for conflict detection
 - Retry logic with exponential backoff
 - Audit-after-success pattern
 - Eventually consistent
@@ -318,7 +318,7 @@ export class StrategyFactory {
 1. **Batch Operations**: Process multiple documents efficiently
 2. **Retry Configuration**: Tune retry attempts and delays
 3. **Connection Pooling**: Reuse database connections
-4. **Index Optimization**: Ensure version fields are indexed
+4. **Index Optimization**: Ensure __v fields are indexed
 
 ## Testing Strategy
 
@@ -365,7 +365,7 @@ Total Coverage:   118 tests passing
    interface User extends BaseDocument {
      name: string;
      email: string;
-     // version field is automatically managed
+     // __v field is automatically managed
    }
    ```
 
@@ -395,7 +395,7 @@ Total Coverage:   118 tests passing
 
 - **Retry Tuning**: Adjust retry parameters based on workload
 - **Bulk Operations**: Use bulk operations when possible
-- **Index Management**: Ensure proper indexing on version fields
+- **Index Management**: Ensure proper indexing on __v fields
 
 ### Monitoring
 
@@ -407,7 +407,7 @@ Total Coverage:   118 tests passing
 
 ### Planned Features
 
-1. **Automatic Migration**: Tools to migrate existing data to include version fields
+1. **Automatic Migration**: Tools to migrate existing data to include __v fields
 2. **Distributed Locking**: Alternative to optimistic locking for specific use cases
 3. **Audit Log Compression**: Compress audit logs for long-term storage
 4. **Performance Metrics**: Built-in performance monitoring
