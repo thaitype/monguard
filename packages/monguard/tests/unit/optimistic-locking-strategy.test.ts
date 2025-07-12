@@ -308,11 +308,11 @@ describe('OptimisticLockingStrategy', () => {
       );
 
       expect(updateResult.modifiedCount).toBe(1);
-      expect(updateResult.__v).toBe(2); // Should be version 2 after first MonGuard update
+      expect(updateResult.__v).toBe(1); // Should be version 1 for first MonGuard update on legacy doc
 
       // Verify the document now has __v field
       const updatedDoc = await collection.findOne({ _id: legacyDoc._id });
-      expect(updatedDoc!.__v).toBe(2);
+      expect(updatedDoc!.__v).toBe(1);
       expect(updatedDoc!.name).toBe('Updated Name');
     });
 
@@ -335,11 +335,11 @@ describe('OptimisticLockingStrategy', () => {
       });
 
       expect(deleteResult.modifiedCount).toBe(1);
-      expect(deleteResult.__v).toBe(2); // Should be version 2 after soft delete
+      expect(deleteResult.__v).toBe(1); // Should be version 1 for first MonGuard operation on legacy doc
 
       // Verify the document is soft deleted and has __v field
       const deletedDoc = await collection.findOne({ _id: legacyDoc._id });
-      expect(deletedDoc!.__v).toBe(2);
+      expect(deletedDoc!.__v).toBe(1);
       expect(deletedDoc!.deletedAt).toBeDefined();
     });
 
@@ -362,11 +362,11 @@ describe('OptimisticLockingStrategy', () => {
       const restoreResult = await strategy.restore({ _id: legacyDoc._id }, TestDataFactory.createUserContext());
 
       expect(restoreResult.modifiedCount).toBe(1);
-      expect(restoreResult.__v).toBe(2); // Should be version 2 after restore
+      expect(restoreResult.__v).toBe(1); // Should be version 1 for first MonGuard operation on legacy doc
 
       // Verify the document is restored and has __v field
       const restoredDoc = await collection.findOne({ _id: legacyDoc._id });
-      expect(restoredDoc!.__v).toBe(2);
+      expect(restoredDoc!.__v).toBe(1);
       expect(restoredDoc!.deletedAt).toBeUndefined();
       expect(restoredDoc!.deletedBy).toBeUndefined();
     });
@@ -384,27 +384,27 @@ describe('OptimisticLockingStrategy', () => {
 
       await collection.insertOne(legacyDoc);
 
-      // First update - converts from no __v to __v: 2
+      // First update - converts from no __v to __v: 1
       const firstUpdate = await strategy.updateById(
         legacyDoc._id,
         { $set: { name: 'First Update' } },
         { userContext: TestDataFactory.createUserContext() }
       );
       expect(firstUpdate.modifiedCount).toBe(1);
-      expect(firstUpdate.__v).toBe(2);
+      expect(firstUpdate.__v).toBe(1);
 
-      // Second update - should use regular version checking (not $or logic)
+      // Second update - should use regular version checking (not special logic for missing __v)
       const secondUpdate = await strategy.updateById(
         legacyDoc._id,
         { $set: { name: 'Second Update' } },
         { userContext: TestDataFactory.createUserContext() }
       );
       expect(secondUpdate.modifiedCount).toBe(1);
-      expect(secondUpdate.__v).toBe(3);
+      expect(secondUpdate.__v).toBe(2);
 
       // Verify final state
       const finalDoc = await collection.findOne({ _id: legacyDoc._id });
-      expect(finalDoc!.__v).toBe(3);
+      expect(finalDoc!.__v).toBe(2);
       expect(finalDoc!.name).toBe('Second Update');
     });
 
@@ -448,7 +448,7 @@ describe('OptimisticLockingStrategy', () => {
 
       if (successfulResults.length > 0) {
         expect(successfulResults[0]!.value.modifiedCount).toBe(1);
-        expect(successfulResults[0]!.value.__v).toBe(2);
+        expect(successfulResults[0]!.value.__v).toBe(1);
       }
 
       // If there were conflicts, they should be version conflicts

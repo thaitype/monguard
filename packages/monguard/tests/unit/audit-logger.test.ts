@@ -171,7 +171,7 @@ describe('MonguardAuditLogger', () => {
         timestamp: expect.any(Date),
         createdAt: expect.any(Date),
         updatedAt: expect.any(Date),
-        metadata: undefined,
+        metadata: { storageMode: 'full' },
       });
     });
 

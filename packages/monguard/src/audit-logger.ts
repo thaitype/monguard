@@ -287,6 +287,11 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     const storageMode = auditControl?.storageMode ?? this.defaultStorageMode;
     const processedMetadata = this.processMetadata(metadata, action, storageMode);
 
+    // Skip logging if processMetadata returned undefined (no meaningful changes in delta mode)
+    if (processedMetadata === undefined) {
+      return;
+    }
+
     try {
       if (auditMode === 'outbox' && this.outboxTransport) {
         // Outbox mode: enqueue audit event for later processing
@@ -357,24 +362,23 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     action: AuditAction,
     storageMode: 'full' | 'delta'
   ): AuditLogMetadata | undefined {
-    if (!metadata) {
-      return metadata;
-    }
+    // If no metadata provided, start with empty metadata object
+    const workingMetadata = metadata || {};
 
     // For CREATE and DELETE actions, always use full document storage
     if (action === 'create' || action === 'delete') {
       return {
-        ...metadata,
+        ...workingMetadata,
         storageMode: 'full',
       };
     }
 
     // For UPDATE actions, apply storage mode logic
     if (action === 'update' && storageMode === 'delta') {
-      const { before, after } = metadata;
+      const { before, after } = workingMetadata;
 
       if (before !== undefined && after !== undefined) {
-        // Compute delta changes
+        // We have full metadata - compute delta changes
         const deltaResult = computeDelta(before, after, this.deltaOptions);
 
         if (deltaResult.hasChanges) {
@@ -383,13 +387,19 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
             storageMode: 'delta',
             // Only store delta changes in delta mode - exclude before/after/changes for storage optimization
           };
+        } else {
+          // No meaningful changes when we have full metadata - skip audit logging entirely
+          return undefined;
         }
       }
+
+      // If before/after are undefined in delta mode, fall through to normal full mode logging
+      // This handles direct API calls, unit tests, or cases where metadata is minimal
     }
 
-    // Fallback to full storage mode
+    // For non-delta modes, use full storage mode
     return {
-      ...metadata,
+      ...workingMetadata,
       storageMode: 'full',
     };
   }
