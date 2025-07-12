@@ -284,4 +284,177 @@ describe('OptimisticLockingStrategy', () => {
       expect(attemptCount).toBe(3); // Should have tried 3 times
     });
   });
+
+  describe('documents without __v field handling', () => {
+    it('should handle update operations on documents without __v field', async () => {
+      // Create a document without __v field (simulating legacy data)
+      const userData = TestDataFactory.createUser();
+      const legacyDoc = {
+        ...userData,
+        _id: adaptObjectId(TestDataFactory.createObjectId()),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        // Note: no __v field
+      };
+
+      // Insert directly to collection to simulate legacy document
+      await collection.insertOne(legacyDoc);
+
+      // Update using MonGuard - should work without version conflict
+      const updateResult = await strategy.updateById(
+        legacyDoc._id,
+        { $set: { name: 'Updated Name' } },
+        { userContext: TestDataFactory.createUserContext() }
+      );
+
+      expect(updateResult.modifiedCount).toBe(1);
+      expect(updateResult.__v).toBe(2); // Should be version 2 after first MonGuard update
+
+      // Verify the document now has __v field
+      const updatedDoc = await collection.findOne({ _id: legacyDoc._id });
+      expect(updatedDoc!.__v).toBe(2);
+      expect(updatedDoc!.name).toBe('Updated Name');
+    });
+
+    it('should handle delete operations on documents without __v field', async () => {
+      // Create a document without __v field
+      const userData = TestDataFactory.createUser();
+      const legacyDoc = {
+        ...userData,
+        _id: adaptObjectId(TestDataFactory.createObjectId()),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        // Note: no __v field
+      };
+
+      await collection.insertOne(legacyDoc);
+
+      // Soft delete using MonGuard - should work without version conflict
+      const deleteResult = await strategy.deleteById(legacyDoc._id, {
+        userContext: TestDataFactory.createUserContext(),
+      });
+
+      expect(deleteResult.modifiedCount).toBe(1);
+      expect(deleteResult.__v).toBe(2); // Should be version 2 after soft delete
+
+      // Verify the document is soft deleted and has __v field
+      const deletedDoc = await collection.findOne({ _id: legacyDoc._id });
+      expect(deletedDoc!.__v).toBe(2);
+      expect(deletedDoc!.deletedAt).toBeDefined();
+    });
+
+    it('should handle restore operations on soft-deleted documents without __v field', async () => {
+      // Create a soft-deleted document without __v field
+      const userData = TestDataFactory.createUser();
+      const legacyDoc = {
+        ...userData,
+        _id: adaptObjectId(TestDataFactory.createObjectId()),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: new Date(),
+        deletedBy: TestDataFactory.createUserContext().userId,
+        // Note: no __v field
+      };
+
+      await collection.insertOne(legacyDoc);
+
+      // Restore using MonGuard - should work without version conflict
+      const restoreResult = await strategy.restore({ _id: legacyDoc._id }, TestDataFactory.createUserContext());
+
+      expect(restoreResult.modifiedCount).toBe(1);
+      expect(restoreResult.__v).toBe(2); // Should be version 2 after restore
+
+      // Verify the document is restored and has __v field
+      const restoredDoc = await collection.findOne({ _id: legacyDoc._id });
+      expect(restoredDoc!.__v).toBe(2);
+      expect(restoredDoc!.deletedAt).toBeUndefined();
+      expect(restoredDoc!.deletedBy).toBeUndefined();
+    });
+
+    it('should work correctly for subsequent operations after first MonGuard operation', async () => {
+      // Create a document without __v field
+      const userData = TestDataFactory.createUser();
+      const legacyDoc = {
+        ...userData,
+        _id: adaptObjectId(TestDataFactory.createObjectId()),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        // Note: no __v field
+      };
+
+      await collection.insertOne(legacyDoc);
+
+      // First update - converts from no __v to __v: 2
+      const firstUpdate = await strategy.updateById(
+        legacyDoc._id,
+        { $set: { name: 'First Update' } },
+        { userContext: TestDataFactory.createUserContext() }
+      );
+      expect(firstUpdate.modifiedCount).toBe(1);
+      expect(firstUpdate.__v).toBe(2);
+
+      // Second update - should use regular version checking (not $or logic)
+      const secondUpdate = await strategy.updateById(
+        legacyDoc._id,
+        { $set: { name: 'Second Update' } },
+        { userContext: TestDataFactory.createUserContext() }
+      );
+      expect(secondUpdate.modifiedCount).toBe(1);
+      expect(secondUpdate.__v).toBe(3);
+
+      // Verify final state
+      const finalDoc = await collection.findOne({ _id: legacyDoc._id });
+      expect(finalDoc!.__v).toBe(3);
+      expect(finalDoc!.name).toBe('Second Update');
+    });
+
+    it('should handle concurrent operations on documents without __v field gracefully', async () => {
+      // Create a document without __v field
+      const userData = TestDataFactory.createUser();
+      const legacyDoc = {
+        ...userData,
+        _id: adaptObjectId(TestDataFactory.createObjectId()),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        // Note: no __v field
+      };
+
+      await collection.insertOne(legacyDoc);
+
+      // Simulate two concurrent updates
+      const userContext1 = TestDataFactory.createUserContext();
+      const userContext2 = TestDataFactory.createUserContext();
+
+      const promise1 = strategy.updateById(
+        legacyDoc._id,
+        { $set: { name: 'Update 1' } },
+        { userContext: userContext1 }
+      );
+
+      const promise2 = strategy.updateById(
+        legacyDoc._id,
+        { $set: { name: 'Update 2' } },
+        { userContext: userContext2 }
+      );
+
+      // One should succeed, one might fail due to version conflict
+      const results = await Promise.allSettled([promise1, promise2]);
+
+      const successfulResults = results.filter(r => r.status === 'fulfilled') as PromiseFulfilledResult<any>[];
+      const failedResults = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
+
+      // At least one should succeed
+      expect(successfulResults.length).toBeGreaterThan(0);
+
+      if (successfulResults.length > 0) {
+        expect(successfulResults[0]!.value.modifiedCount).toBe(1);
+        expect(successfulResults[0]!.value.__v).toBe(2);
+      }
+
+      // If there were conflicts, they should be version conflicts
+      failedResults.forEach(result => {
+        expect(result.reason.message).toContain('Version conflict');
+      });
+    });
+  });
 });
