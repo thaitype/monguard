@@ -56,7 +56,7 @@ class TestableMonguardCollection<
     this.getCollection().find = () => {
       throw new Error('Database connection failed');
     };
-    
+
     try {
       await this.find({});
     } finally {
@@ -70,7 +70,7 @@ class TestableMonguardCollection<
     this.getCollection().findOne = () => {
       throw new Error('Database connection failed');
     };
-    
+
     try {
       await this.findOne({});
     } finally {
@@ -84,7 +84,7 @@ class TestableMonguardCollection<
     this.getCollection().countDocuments = () => {
       throw new Error('Database connection failed');
     };
-    
+
     try {
       await this.count({});
     } finally {
@@ -98,7 +98,7 @@ class TestableMonguardCollection<
     this.getCollection().findOne = () => {
       throw new Error('Database connection failed');
     };
-    
+
     try {
       await this.findById(id);
     } finally {
@@ -793,7 +793,7 @@ describe('MonguardCollection Internal Methods', () => {
       collection.getCollection().find = () => {
         throw 'Non-Error object';
       };
-      
+
       try {
         await expect(collection.find({})).rejects.toThrow('Find operation failed');
       } finally {
@@ -806,7 +806,7 @@ describe('MonguardCollection Internal Methods', () => {
       collection.getCollection().findOne = () => {
         throw 'Non-Error object';
       };
-      
+
       try {
         await expect(collection.findOne({})).rejects.toThrow('Find operation failed');
       } finally {
@@ -826,7 +826,7 @@ describe('MonguardCollection Internal Methods', () => {
         collection.getCollection().countDocuments = () => {
           throw 'Non-Error object';
         };
-        
+
         try {
           await expect(collection.count({})).rejects.toThrow('Count operation failed');
         } finally {
@@ -846,7 +846,7 @@ describe('MonguardCollection Internal Methods', () => {
         collection.getCollection().findOne = () => {
           throw 'Non-Error object';
         };
-        
+
         try {
           const testId = TestDataFactory.createObjectId();
           await expect(collection.findById(testId)).rejects.toThrow('Find operation failed');
@@ -870,11 +870,13 @@ describe('MonguardCollection Internal Methods', () => {
           },
         });
 
-        const entries = [{
-          action: 'create',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }];
+        const entries = [
+          {
+            action: 'create',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+        ];
 
         // This should complete without error and return early
         await expect(collectionWithDisabledAudit.testCreateAuditLogs(entries)).resolves.toBeUndefined();
@@ -891,15 +893,18 @@ describe('MonguardCollection Internal Methods', () => {
           },
         });
 
-        const entries = [{
-          action: 'create',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }, {
-          action: 'custom',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }];
+        const entries = [
+          {
+            action: 'create',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+          {
+            action: 'custom',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+        ];
 
         // This should complete without error, filtering happens in the method
         await expect(collectionWithDisabledAudit.testCreateAuditLogs(entries)).resolves.toBeUndefined();
@@ -919,11 +924,13 @@ describe('MonguardCollection Internal Methods', () => {
         // This creates a scenario where the early return (line 464) is bypassed
         // but the filter function (line 469) needs to handle the case where
         // enableAutoAudit=true but auditCustomOperations=false
-        const entries = [{
-          action: 'create',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }];
+        const entries = [
+          {
+            action: 'create',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+        ];
 
         // This should complete without error, exercising the filter logic
         await expect(collectionWithPartiallyEnabledAudit.testCreateAuditLogs(entries)).resolves.toBeUndefined();
@@ -940,15 +947,18 @@ describe('MonguardCollection Internal Methods', () => {
           },
         });
 
-        const entries = [{
-          action: 'create',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }, {
-          action: 'custom',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }];
+        const entries = [
+          {
+            action: 'create',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+          {
+            action: 'custom',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+        ];
 
         // This should complete without error, custom entries should be filtered
         await expect(collectionWithDisabledCustomAudit.testCreateAuditLogs(entries)).resolves.toBeUndefined();
@@ -967,15 +977,18 @@ describe('MonguardCollection Internal Methods', () => {
           },
         });
 
-        const entries = [{
-          action: 'create',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }, {
-          action: 'custom',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }];
+        const entries = [
+          {
+            action: 'create',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+          {
+            action: 'custom',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+        ];
 
         // This bypasses the early return and exercises the filter logic including line 469
         await expect(collectionWithMixedAudit.testCreateAuditLogs(entries)).resolves.toBeUndefined();
@@ -1007,22 +1020,25 @@ describe('MonguardCollection Internal Methods', () => {
         };
 
         // Test the filter logic with both audit controls disabled
-        const entries = [{
-          action: 'create',
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }, {
-          action: 'update', 
-          documentId: TestDataFactory.createObjectId(),
-          userContext: TestDataFactory.createUserContext(),
-        }];
+        const entries = [
+          {
+            action: 'create',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+          {
+            action: 'update',
+            documentId: TestDataFactory.createObjectId(),
+            userContext: TestDataFactory.createUserContext(),
+          },
+        ];
 
         const auditControl = { enableAutoAudit: false, auditCustomOperations: false };
         const filteredEntries = testFilterLogic(auditControl, entries);
-        
+
         // The filter should return an empty array when both audit controls are disabled
         expect(filteredEntries).toEqual([]);
-        
+
         // Verify the original method also handles this case (early return)
         await expect(collectionWithSpecificConfig.testCreateAuditLogs(entries)).resolves.toBeUndefined();
       });
@@ -1044,11 +1060,9 @@ describe('MonguardCollection Internal Methods', () => {
         const userContext = TestDataFactory.createUserContext();
 
         // This should complete without error and return early
-        await expect(collectionWithDisabledCustomAudit.testCreateAuditLog(
-          'custom',
-          documentId,
-          userContext
-        )).resolves.toBeUndefined();
+        await expect(
+          collectionWithDisabledCustomAudit.testCreateAuditLog('custom', documentId, userContext)
+        ).resolves.toBeUndefined();
       });
 
       it('should return early when both audit controls are disabled', async () => {
@@ -1066,18 +1080,20 @@ describe('MonguardCollection Internal Methods', () => {
         const userContext = TestDataFactory.createUserContext();
 
         // This should complete without error and return early
-        await expect(collectionWithDisabledAudit.testCreateAuditLog(
-          'create',
-          documentId,
-          userContext
-        )).resolves.toBeUndefined();
+        await expect(
+          collectionWithDisabledAudit.testCreateAuditLog('create', documentId, userContext)
+        ).resolves.toBeUndefined();
       });
     });
   });
 
   describe('restore operation tests', () => {
     it('should handle restore operation with timestamps and user tracking enabled', () => {
-      const document: TestDocumentWithAuditFields = { name: 'John', deletedAt: new Date(), deletedBy: TestDataFactory.createObjectId() };
+      const document: TestDocumentWithAuditFields = {
+        name: 'John',
+        deletedAt: new Date(),
+        deletedBy: TestDataFactory.createObjectId(),
+      };
       const userContext = TestDataFactory.createUserContext();
       const timeRange = TestHelpers.createDateRange();
 
@@ -1103,7 +1119,11 @@ describe('MonguardCollection Internal Methods', () => {
           enableAutoUserTracking: true,
         },
       });
-      const document: TestDocumentWithAuditFields = { name: 'John', deletedAt: new Date(), deletedBy: TestDataFactory.createObjectId() };
+      const document: TestDocumentWithAuditFields = {
+        name: 'John',
+        deletedAt: new Date(),
+        deletedBy: TestDataFactory.createObjectId(),
+      };
       const userContext = TestDataFactory.createUserContext();
 
       const result = collectionWithDisabledTimestamps.testUpdateAutoFields(document, {
@@ -1127,7 +1147,11 @@ describe('MonguardCollection Internal Methods', () => {
           enableAutoUserTracking: false,
         },
       });
-      const document: TestDocumentWithAuditFields = { name: 'John', deletedAt: new Date(), deletedBy: TestDataFactory.createObjectId() };
+      const document: TestDocumentWithAuditFields = {
+        name: 'John',
+        deletedAt: new Date(),
+        deletedBy: TestDataFactory.createObjectId(),
+      };
       const timeRange = TestHelpers.createDateRange();
 
       const result = collectionWithDisabledUserTracking.testUpdateAutoFields(document, {
@@ -1142,7 +1166,11 @@ describe('MonguardCollection Internal Methods', () => {
     });
 
     it('should handle restore operation with fields configuration', () => {
-      const document: TestDocumentWithAuditFields = { name: 'John', deletedAt: new Date(), deletedBy: TestDataFactory.createObjectId() };
+      const document: TestDocumentWithAuditFields = {
+        name: 'John',
+        deletedAt: new Date(),
+        deletedBy: TestDataFactory.createObjectId(),
+      };
       const userContext = TestDataFactory.createUserContext();
 
       const result = collection.testUpdateAutoFields(document, {
@@ -1158,7 +1186,11 @@ describe('MonguardCollection Internal Methods', () => {
     });
 
     it('should handle restore operation with custom timestamp', () => {
-      const document: TestDocumentWithAuditFields = { name: 'John', deletedAt: new Date(), deletedBy: TestDataFactory.createObjectId() };
+      const document: TestDocumentWithAuditFields = {
+        name: 'John',
+        deletedAt: new Date(),
+        deletedBy: TestDataFactory.createObjectId(),
+      };
       const userContext = TestDataFactory.createUserContext();
       const customTimestamp = new Date('2023-01-01T00:00:00Z');
 

@@ -200,7 +200,7 @@ export interface AuditControlOptions {
   enableAutoAudit?: boolean;
   /** Whether to create audit logs for custom operations */
   auditCustomOperations?: boolean;
-  
+
   // Transaction-aware audit control options
   /** Audit logging mode - 'inTransaction' writes audit in same TX, 'outbox' queues for later processing */
   mode?: 'inTransaction' | 'outbox';

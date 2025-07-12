@@ -30,7 +30,7 @@ describe('MongoOutboxTransport', () => {
         userContext: { userId: 'user123' },
         metadata: { after: { name: 'Test User' } },
         timestamp: new Date(),
-        retryCount: 0
+        retryCount: 0,
       };
 
       await transport.enqueue(event);
@@ -48,7 +48,7 @@ describe('MongoOutboxTransport', () => {
           collectionName: 'test_users',
           documentId: '507f1f77bcf86cd799439011',
           timestamp: new Date(),
-          retryCount: 0
+          retryCount: 0,
         },
         {
           id: 'test-event-2',
@@ -56,8 +56,8 @@ describe('MongoOutboxTransport', () => {
           collectionName: 'test_users',
           documentId: '507f1f77bcf86cd799439012',
           timestamp: new Date(),
-          retryCount: 0
-        }
+          retryCount: 0,
+        },
       ];
 
       // Enqueue events
@@ -79,7 +79,7 @@ describe('MongoOutboxTransport', () => {
         collectionName: 'test_users',
         documentId: '507f1f77bcf86cd799439011',
         timestamp: new Date(),
-        retryCount: 0
+        retryCount: 0,
       };
 
       await transport.enqueue(event);
@@ -96,7 +96,7 @@ describe('MongoOutboxTransport', () => {
         collectionName: 'test_users',
         documentId: '507f1f77bcf86cd799439011',
         timestamp: new Date(),
-        retryCount: 0
+        retryCount: 0,
       };
 
       await transport.enqueue(event);
@@ -120,7 +120,7 @@ describe('MongoOutboxTransport', () => {
         collectionName: 'test_users',
         documentId: '507f1f77bcf86cd799439011',
         timestamp: new Date(),
-        retryCount: 0
+        retryCount: 0,
       };
 
       await testTransport.enqueue(event);
@@ -131,7 +131,7 @@ describe('MongoOutboxTransport', () => {
 
       // Event should now be in dead letter queue
       expect(await testTransport.getQueueDepth()).toBe(0);
-      
+
       // Check dead letter collection has the event
       const deadLetterEvents = await testTransport.getDeadLetterCollection().find({}).toArray();
       expect(deadLetterEvents).toHaveLength(1);
@@ -148,7 +148,7 @@ describe('MongoOutboxTransport', () => {
           collectionName: 'test_users',
           documentId: `507f1f77bcf86cd79943901${i}`,
           timestamp: new Date(),
-          retryCount: 0
+          retryCount: 0,
         });
       }
 
@@ -162,7 +162,7 @@ describe('MongoOutboxTransport', () => {
       const timestamps = [
         new Date('2023-01-01T10:00:00Z'),
         new Date('2023-01-01T10:01:00Z'),
-        new Date('2023-01-01T10:02:00Z')
+        new Date('2023-01-01T10:02:00Z'),
       ];
 
       // Enqueue events with different timestamps
@@ -173,7 +173,7 @@ describe('MongoOutboxTransport', () => {
           collectionName: 'test_users',
           documentId: `507f1f77bcf86cd79943901${i + 1}`,
           timestamp: timestamps[i],
-          retryCount: 0
+          retryCount: 0,
         });
       }
 

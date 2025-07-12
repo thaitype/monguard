@@ -35,21 +35,23 @@ describe('TransactionStrategy', () => {
       auditLogger,
       collectionName: 'test_users',
       config: { transactionsEnabled: true },
-      auditControl: { 
+      auditControl: {
         enableAutoAudit: true,
         failOnError: false,
-        logFailedAttempts: false
+        logFailedAttempts: false,
       },
       addTimestamps: (doc, isUpdate, userContext) => ({
         ...doc,
         ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
         ...(userContext && {
-          ...(isUpdate ? { updatedBy: userContext.userId } : { createdBy: userContext.userId, updatedBy: userContext.userId })
-        })
+          ...(isUpdate
+            ? { updatedBy: userContext.userId }
+            : { createdBy: userContext.userId, updatedBy: userContext.userId }),
+        }),
       }),
-      mergeSoftDeleteFilter: (filter) => ({ ...filter, deletedAt: { $exists: false } }),
+      mergeSoftDeleteFilter: filter => ({ ...filter, deletedAt: { $exists: false } }),
       getChangedFields: (before, after) => Object.keys({ ...before, ...after }),
-      shouldAudit: (skipAudit) => !skipAudit,
+      shouldAudit: skipAudit => !skipAudit,
     };
 
     strategy = new TestableTransactionStrategy(context);
@@ -67,14 +69,14 @@ describe('TransactionStrategy', () => {
 
       // Mock successful transaction execution
       const mockSession = {
-        withTransaction: vi.fn().mockImplementation(async (callback) => {
+        withTransaction: vi.fn().mockImplementation(async callback => {
           await callback();
         }),
-        endSession: vi.fn().mockResolvedValue(undefined)
+        endSession: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockClient = {
-        startSession: vi.fn().mockReturnValue(mockSession)
+        startSession: vi.fn().mockReturnValue(mockSession),
       };
 
       // Mock collection operations
@@ -82,14 +84,14 @@ describe('TransactionStrategy', () => {
       const mockCollection = {
         ...collection,
         insertOne: vi.fn().mockResolvedValue(mockInsertResult),
-        db: { client: mockClient }
+        db: { client: mockClient },
       };
 
       // Mock audit logger
       const mockAuditLogger = {
         ...auditLogger,
         logOperation: vi.fn().mockResolvedValue(undefined),
-        isEnabled: () => true
+        isEnabled: () => true,
       };
 
       // Create strategy with mocked dependencies
@@ -98,21 +100,23 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { 
+        auditControl: {
           enableAutoAudit: true,
           failOnError: false,
-          logFailedAttempts: false
+          logFailedAttempts: false,
         },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
           ...(userContext && {
-            ...(isUpdate ? { updatedBy: userContext.userId } : { createdBy: userContext.userId, updatedBy: userContext.userId })
-          })
+            ...(isUpdate
+              ? { updatedBy: userContext.userId }
+              : { createdBy: userContext.userId, updatedBy: userContext.userId }),
+          }),
         }),
-        mergeSoftDeleteFilter: (filter) => ({ ...filter, deletedAt: { $exists: false } }),
+        mergeSoftDeleteFilter: filter => ({ ...filter, deletedAt: { $exists: false } }),
         getChangedFields: (before, after) => Object.keys({ ...before, ...after }),
-        shouldAudit: (skipAudit) => !skipAudit,
+        shouldAudit: skipAudit => !skipAudit,
       };
 
       const mockedStrategy = new TransactionStrategy(context);
@@ -128,7 +132,7 @@ describe('TransactionStrategy', () => {
           createdAt: expect.any(Date),
           updatedAt: expect.any(Date),
           createdBy: userContext.userId,
-          updatedBy: userContext.userId
+          updatedBy: userContext.userId,
         }),
         { session: mockSession }
       );
@@ -140,7 +144,7 @@ describe('TransactionStrategy', () => {
         expect.objectContaining({ after: expect.any(Object) }),
         expect.objectContaining({
           failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean)
+          logFailedAttempts: expect.any(Boolean),
         })
       );
       expect(mockSession.endSession).toHaveBeenCalled();
@@ -151,35 +155,46 @@ describe('TransactionStrategy', () => {
       const filter = { name: 'Test User' };
       const update = { $set: { email: 'updated@example.com' } };
       const userContext = TestDataFactory.createUserContext();
-      const beforeDoc = { _id: adaptObjectId(TestDataFactory.createObjectId()), name: 'Test User', email: 'old@example.com' };
+      const beforeDoc = {
+        _id: adaptObjectId(TestDataFactory.createObjectId()),
+        name: 'Test User',
+        email: 'old@example.com',
+      };
       const afterDoc = { ...beforeDoc, email: 'updated@example.com', updatedAt: new Date() };
 
       // Mock successful transaction execution
       const mockSession = {
-        withTransaction: vi.fn().mockImplementation(async (callback) => {
+        withTransaction: vi.fn().mockImplementation(async callback => {
           await callback();
         }),
-        endSession: vi.fn().mockResolvedValue(undefined)
+        endSession: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockClient = {
-        startSession: vi.fn().mockReturnValue(mockSession)
+        startSession: vi.fn().mockReturnValue(mockSession),
       };
 
-      const mockUpdateResult = { acknowledged: true, modifiedCount: 1, upsertedCount: 0, upsertedId: null, matchedCount: 1 };
+      const mockUpdateResult = {
+        acknowledged: true,
+        modifiedCount: 1,
+        upsertedCount: 0,
+        upsertedId: null,
+        matchedCount: 1,
+      };
       const mockCollection = {
         ...collection,
-        findOne: vi.fn()
+        findOne: vi
+          .fn()
           .mockResolvedValueOnce(beforeDoc) // First call for before state
           .mockResolvedValueOnce(afterDoc), // Second call for after state
         updateMany: vi.fn().mockResolvedValue(mockUpdateResult),
-        db: { client: mockClient }
+        db: { client: mockClient },
       };
 
       const mockAuditLogger = {
         ...auditLogger,
         logOperation: vi.fn().mockResolvedValue(undefined),
-        isEnabled: () => true
+        isEnabled: () => true,
       };
 
       const context: OperationStrategyContext<TestUser> = {
@@ -187,21 +202,23 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { 
+        auditControl: {
           enableAutoAudit: true,
           failOnError: false,
-          logFailedAttempts: false
+          logFailedAttempts: false,
         },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
           ...(userContext && {
-            ...(isUpdate ? { updatedBy: userContext.userId } : { createdBy: userContext.userId, updatedBy: userContext.userId })
-          })
+            ...(isUpdate
+              ? { updatedBy: userContext.userId }
+              : { createdBy: userContext.userId, updatedBy: userContext.userId }),
+          }),
         }),
-        mergeSoftDeleteFilter: (filter) => ({ ...filter, deletedAt: { $exists: false } }),
+        mergeSoftDeleteFilter: filter => ({ ...filter, deletedAt: { $exists: false } }),
         getChangedFields: (before, after) => Object.keys({ ...before, ...after }),
-        shouldAudit: (skipAudit) => !skipAudit,
+        shouldAudit: skipAudit => !skipAudit,
       };
 
       const mockedStrategy = new TransactionStrategy(context);
@@ -218,8 +235,8 @@ describe('TransactionStrategy', () => {
           $set: expect.objectContaining({
             email: 'updated@example.com',
             updatedAt: expect.any(Date),
-            updatedBy: userContext.userId
-          })
+            updatedBy: userContext.userId,
+          }),
         }),
         { upsert: undefined, session: mockSession }
       );
@@ -231,11 +248,11 @@ describe('TransactionStrategy', () => {
         expect.objectContaining({
           before: beforeDoc,
           after: afterDoc,
-          changes: expect.any(Array)
+          changes: expect.any(Array),
         }),
         expect.objectContaining({
           failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean)
+          logFailedAttempts: expect.any(Boolean),
         })
       );
       expect(result.modifiedCount).toBe(1);
@@ -247,14 +264,14 @@ describe('TransactionStrategy', () => {
       const docToDelete = { _id: adaptObjectId(TestDataFactory.createObjectId()), name: 'Test User' };
 
       const mockSession = {
-        withTransaction: vi.fn().mockImplementation(async (callback) => {
+        withTransaction: vi.fn().mockImplementation(async callback => {
           await callback();
         }),
-        endSession: vi.fn().mockResolvedValue(undefined)
+        endSession: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockClient = {
-        startSession: vi.fn().mockReturnValue(mockSession)
+        startSession: vi.fn().mockReturnValue(mockSession),
       };
 
       const mockDeleteResult = { acknowledged: true, deletedCount: 1 };
@@ -262,13 +279,13 @@ describe('TransactionStrategy', () => {
         ...collection,
         find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([docToDelete]) }),
         deleteMany: vi.fn().mockResolvedValue(mockDeleteResult),
-        db: { client: mockClient }
+        db: { client: mockClient },
       };
 
       const mockAuditLogger = {
         ...auditLogger,
         logOperation: vi.fn().mockResolvedValue(undefined),
-        isEnabled: () => true
+        isEnabled: () => true,
       };
 
       const context: OperationStrategyContext<TestUser> = {
@@ -276,21 +293,23 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { 
+        auditControl: {
           enableAutoAudit: true,
           failOnError: false,
-          logFailedAttempts: false
+          logFailedAttempts: false,
         },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
           ...(userContext && {
-            ...(isUpdate ? { updatedBy: userContext.userId } : { createdBy: userContext.userId, updatedBy: userContext.userId })
-          })
+            ...(isUpdate
+              ? { updatedBy: userContext.userId }
+              : { createdBy: userContext.userId, updatedBy: userContext.userId }),
+          }),
         }),
-        mergeSoftDeleteFilter: (filter) => ({ ...filter, deletedAt: { $exists: false } }),
+        mergeSoftDeleteFilter: filter => ({ ...filter, deletedAt: { $exists: false } }),
         getChangedFields: (before, after) => Object.keys({ ...before, ...after }),
-        shouldAudit: (skipAudit) => !skipAudit,
+        shouldAudit: skipAudit => !skipAudit,
       };
 
       const mockedStrategy = new TransactionStrategy(context);
@@ -309,11 +328,11 @@ describe('TransactionStrategy', () => {
         userContext,
         expect.objectContaining({
           hardDelete: true,
-          before: docToDelete
+          before: docToDelete,
         }),
         expect.objectContaining({
           failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean)
+          logFailedAttempts: expect.any(Boolean),
         })
       );
       expect(result.deletedCount).toBe(1);
@@ -325,28 +344,34 @@ describe('TransactionStrategy', () => {
       const beforeDoc = { _id: adaptObjectId(TestDataFactory.createObjectId()), name: 'Test User' };
 
       const mockSession = {
-        withTransaction: vi.fn().mockImplementation(async (callback) => {
+        withTransaction: vi.fn().mockImplementation(async callback => {
           await callback();
         }),
-        endSession: vi.fn().mockResolvedValue(undefined)
+        endSession: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockClient = {
-        startSession: vi.fn().mockReturnValue(mockSession)
+        startSession: vi.fn().mockReturnValue(mockSession),
       };
 
-      const mockUpdateResult = { acknowledged: true, modifiedCount: 1, upsertedCount: 0, upsertedId: null, matchedCount: 1 };
+      const mockUpdateResult = {
+        acknowledged: true,
+        modifiedCount: 1,
+        upsertedCount: 0,
+        upsertedId: null,
+        matchedCount: 1,
+      };
       const mockCollection = {
         ...collection,
         findOne: vi.fn().mockResolvedValue(beforeDoc),
         updateMany: vi.fn().mockResolvedValue(mockUpdateResult),
-        db: { client: mockClient }
+        db: { client: mockClient },
       };
 
       const mockAuditLogger = {
         ...auditLogger,
         logOperation: vi.fn().mockResolvedValue(undefined),
-        isEnabled: () => true
+        isEnabled: () => true,
       };
 
       const context: OperationStrategyContext<TestUser> = {
@@ -354,21 +379,23 @@ describe('TransactionStrategy', () => {
         auditLogger: mockAuditLogger as any,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
-        auditControl: { 
+        auditControl: {
           enableAutoAudit: true,
           failOnError: false,
-          logFailedAttempts: false
+          logFailedAttempts: false,
         },
         addTimestamps: (doc, isUpdate, userContext) => ({
           ...doc,
           ...(isUpdate ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
           ...(userContext && {
-            ...(isUpdate ? { updatedBy: userContext.userId } : { createdBy: userContext.userId, updatedBy: userContext.userId })
-          })
+            ...(isUpdate
+              ? { updatedBy: userContext.userId }
+              : { createdBy: userContext.userId, updatedBy: userContext.userId }),
+          }),
         }),
-        mergeSoftDeleteFilter: (filter) => ({ ...filter, deletedAt: { $exists: false } }),
+        mergeSoftDeleteFilter: filter => ({ ...filter, deletedAt: { $exists: false } }),
         getChangedFields: (before, after) => Object.keys({ ...before, ...after }),
-        shouldAudit: (skipAudit) => !skipAudit,
+        shouldAudit: skipAudit => !skipAudit,
       };
 
       const mockedStrategy = new TransactionStrategy(context);
@@ -388,8 +415,8 @@ describe('TransactionStrategy', () => {
           $set: expect.objectContaining({
             deletedAt: expect.any(Date),
             updatedAt: expect.any(Date),
-            deletedBy: userContext.userId
-          })
+            deletedBy: userContext.userId,
+          }),
         }),
         { session: mockSession }
       );
@@ -400,11 +427,11 @@ describe('TransactionStrategy', () => {
         userContext,
         expect.objectContaining({
           softDelete: true,
-          before: beforeDoc
+          before: beforeDoc,
         }),
         expect.objectContaining({
           failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean)
+          logFailedAttempts: expect.any(Boolean),
         })
       );
       expect(result.modifiedCount).toBe(1);
@@ -412,20 +439,20 @@ describe('TransactionStrategy', () => {
 
     it('should handle transaction errors and throw them (lines 229, 415)', async () => {
       const userData = TestDataFactory.createUser();
-      
+
       // Mock transaction that throws a non-replica set error
       const mockSession = {
         withTransaction: vi.fn().mockRejectedValue(new Error('Connection timeout')),
-        endSession: vi.fn().mockResolvedValue(undefined)
+        endSession: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockClient = {
-        startSession: vi.fn().mockReturnValue(mockSession)
+        startSession: vi.fn().mockReturnValue(mockSession),
       };
 
       const mockCollection = {
         ...collection,
-        db: { client: mockClient }
+        db: { client: mockClient },
       };
 
       const context: OperationStrategyContext<TestUser> = {
@@ -435,9 +462,9 @@ describe('TransactionStrategy', () => {
         config: { transactionsEnabled: true },
         auditControl: { enableAutoAudit: true },
         addTimestamps: (doc, isUpdate, userContext) => ({ ...doc }),
-        mergeSoftDeleteFilter: (filter) => filter,
+        mergeSoftDeleteFilter: filter => filter,
         getChangedFields: (before, after) => [],
-        shouldAudit: (skipAudit) => !skipAudit,
+        shouldAudit: skipAudit => !skipAudit,
       };
 
       const mockedStrategy = new TransactionStrategy(context);
@@ -449,30 +476,30 @@ describe('TransactionStrategy', () => {
 
     it('should handle operation errors and wrap them (lines 236, 423, 499)', async () => {
       const userData = TestDataFactory.createUser();
-      
+
       // Mock session that works but collection operation fails
       const mockSession = {
-        withTransaction: vi.fn().mockImplementation(async (callback) => {
+        withTransaction: vi.fn().mockImplementation(async callback => {
           await callback();
         }),
-        endSession: vi.fn().mockResolvedValue(undefined)
+        endSession: vi.fn().mockResolvedValue(undefined),
       };
 
       const mockClient = {
-        startSession: vi.fn().mockReturnValue(mockSession)
+        startSession: vi.fn().mockReturnValue(mockSession),
       };
 
       const mockCollection = {
         ...collection,
         insertOne: vi.fn().mockRejectedValue(new Error('Insert failed')),
         findOne: vi.fn().mockRejectedValue(new Error('Find failed')),
-        find: vi.fn().mockReturnValue({ 
-          toArray: vi.fn().mockRejectedValue(new Error('Find failed'))
+        find: vi.fn().mockReturnValue({
+          toArray: vi.fn().mockRejectedValue(new Error('Find failed')),
         }),
         updateMany: vi.fn().mockRejectedValue(new Error('Update failed')),
         deleteMany: vi.fn().mockRejectedValue(new Error('Delete failed')),
         updateOne: vi.fn().mockRejectedValue(new Error('Restore failed')),
-        db: { client: mockClient }
+        db: { client: mockClient },
       };
 
       const context: OperationStrategyContext<TestUser> = {
@@ -482,9 +509,9 @@ describe('TransactionStrategy', () => {
         config: { transactionsEnabled: true },
         auditControl: { enableAutoAudit: true },
         addTimestamps: (doc, isUpdate, userContext) => ({ ...doc }),
-        mergeSoftDeleteFilter: (filter) => filter,
+        mergeSoftDeleteFilter: filter => filter,
         getChangedFields: (before, after) => [],
-        shouldAudit: (skipAudit) => !skipAudit,
+        shouldAudit: skipAudit => !skipAudit,
       };
 
       const mockedStrategy = new TransactionStrategy(context);
@@ -496,5 +523,4 @@ describe('TransactionStrategy', () => {
       await expect(mockedStrategy.restore({})).rejects.toThrow('Update failed'); // restore uses updateMany
     });
   });
-
 });

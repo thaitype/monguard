@@ -73,7 +73,7 @@ describe('StrategyFactory', () => {
 
       expect(() => StrategyFactory.validateConfig(config)).toThrow(
         'transactionsEnabled must be explicitly set to true or false. ' +
-        'For MongoDB Atlas/native use true, for Cosmos DB use false.'
+          'For MongoDB Atlas/native use true, for Cosmos DB use false.'
       );
     });
 
@@ -83,9 +83,7 @@ describe('StrategyFactory', () => {
         retryAttempts: 0,
       };
 
-      expect(() => StrategyFactory.validateConfig(config)).toThrow(
-        'retryAttempts must be at least 1'
-      );
+      expect(() => StrategyFactory.validateConfig(config)).toThrow('retryAttempts must be at least 1');
     });
 
     it('should throw error when retryAttempts is negative (line 77)', () => {
@@ -94,9 +92,7 @@ describe('StrategyFactory', () => {
         retryAttempts: -1,
       };
 
-      expect(() => StrategyFactory.validateConfig(config)).toThrow(
-        'retryAttempts must be at least 1'
-      );
+      expect(() => StrategyFactory.validateConfig(config)).toThrow('retryAttempts must be at least 1');
     });
 
     it('should throw error when retryDelayMs is negative (line 81)', () => {
@@ -105,9 +101,7 @@ describe('StrategyFactory', () => {
         retryDelayMs: -100,
       };
 
-      expect(() => StrategyFactory.validateConfig(config)).toThrow(
-        'retryDelayMs must be non-negative'
-      );
+      expect(() => StrategyFactory.validateConfig(config)).toThrow('retryDelayMs must be non-negative');
     });
 
     it('should accept retryDelayMs of zero', () => {

@@ -243,19 +243,24 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
     // Determine audit mode - default to 'inTransaction' if not specified
     const auditMode = auditControl?.mode || 'inTransaction';
-    
+
     // Validate outbox transport is available when using outbox mode
     if (auditMode === 'outbox' && !this.outboxTransport) {
       const errorMessage = 'Outbox transport is required when audit control mode is "outbox"';
-      
+
       if (auditControl?.logFailedAttempts) {
-        this.logger.warn('Audit configuration error:', { action, collectionName, documentId: processedRefId, error: errorMessage });
+        this.logger.warn('Audit configuration error:', {
+          action,
+          collectionName,
+          documentId: processedRefId,
+          error: errorMessage,
+        });
       }
-      
+
       if (auditControl?.failOnError) {
         throw new Error(errorMessage);
       }
-      
+
       // Fallback to in-transaction mode if outbox transport is not available
       this.logger.warn('Falling back to in-transaction mode due to missing outbox transport');
     }
@@ -271,7 +276,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           userContext,
           metadata,
           timestamp: new Date(),
-          retryCount: 0
+          retryCount: 0,
         };
 
         await this.outboxTransport.enqueue(auditEvent);
@@ -295,30 +300,30 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
     } catch (error) {
       // Log the error for debugging
       this.logger.error(`Failed to ${auditMode === 'outbox' ? 'enqueue audit event' : 'create audit log'}:`, error);
-      
+
       // Log failed attempts if requested
       if (auditControl?.logFailedAttempts) {
-        this.logger.warn('Audit failure logged for investigation:', { 
-          action, 
-          collectionName, 
-          documentId: processedRefId, 
+        this.logger.warn('Audit failure logged for investigation:', {
+          action,
+          collectionName,
+          documentId: processedRefId,
           mode: auditMode,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
       }
-      
+
       // Respect failOnError setting - if true, re-throw to cause transaction rollback
       if (auditControl?.failOnError) {
         throw error;
       }
-      
+
       // Default behavior: swallow error to avoid breaking main operation
     }
   }
 
   /**
    * Generates a unique event ID for outbox audit events.
-   * 
+   *
    * @private
    * @returns A unique string identifier
    */

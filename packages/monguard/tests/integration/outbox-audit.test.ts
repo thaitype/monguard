@@ -18,18 +18,18 @@ describe('Outbox Audit Integration Tests', () => {
     testDb = new TestDatabase();
     const mongoDb = await testDb.start();
     db = adaptDb(mongoDb);
-    
+
     // Setup outbox transport
     outboxTransport = new MongoOutboxTransport(db, {
       outboxCollectionName: 'test_outbox',
-      deadLetterCollectionName: 'test_dead_letter'
+      deadLetterCollectionName: 'test_dead_letter',
     });
-    
+
     // Setup audit logger with outbox transport
     auditLogger = new MonguardAuditLogger(db, 'test_audit_logs', {
-      outboxTransport
+      outboxTransport,
     });
-    
+
     // Setup collection with outbox mode
     collection = new MonguardCollection<TestUser>(db, 'test_users', {
       auditLogger,
@@ -37,8 +37,8 @@ describe('Outbox Audit Integration Tests', () => {
       auditControl: {
         mode: 'outbox',
         failOnError: false,
-        logFailedAttempts: true
-      }
+        logFailedAttempts: true,
+      },
     });
   });
 
@@ -109,8 +109,8 @@ describe('Outbox Audit Integration Tests', () => {
         auditControl: {
           mode: 'outbox',
           failOnError: false,
-          logFailedAttempts: true
-        }
+          logFailedAttempts: true,
+        },
       });
 
       const userData = TestDataFactory.createUser();
@@ -145,14 +145,14 @@ describe('Outbox Audit Integration Tests', () => {
       const auditLogData = {
         ref: {
           collection: event.collectionName,
-          id: event.documentId
+          id: event.documentId,
         },
         action: event.action,
         userId: event.userContext?.userId,
         timestamp: event.timestamp,
         createdAt: new Date(),
         updatedAt: new Date(),
-        metadata: event.metadata
+        metadata: event.metadata,
       };
 
       // Write to audit collection
@@ -180,7 +180,7 @@ describe('Outbox Audit Integration Tests', () => {
       })(db);
 
       const faultyAuditLogger = new MonguardAuditLogger(db, 'faulty_audit_logs', {
-        outboxTransport: faultyTransport
+        outboxTransport: faultyTransport,
       });
 
       const faultyCollection = new MonguardCollection<TestUser>(db, 'test_users_faulty', {
@@ -189,8 +189,8 @@ describe('Outbox Audit Integration Tests', () => {
         auditControl: {
           mode: 'outbox',
           failOnError: false, // Don't fail on audit errors
-          logFailedAttempts: true
-        }
+          logFailedAttempts: true,
+        },
       });
 
       const userData = TestDataFactory.createUser();
@@ -215,8 +215,8 @@ describe('Outbox Audit Integration Tests', () => {
           concurrency: { transactionsEnabled: true },
           auditControl: {
             mode: 'outbox',
-            failOnError: true // This should cause validation to fail
-          }
+            failOnError: true, // This should cause validation to fail
+          },
         });
       }).toThrow('Outbox transport is required when audit control mode is "outbox"');
     });
@@ -227,8 +227,8 @@ describe('Outbox Audit Integration Tests', () => {
           // No auditLogger provided - will use NoOpAuditLogger
           concurrency: { transactionsEnabled: true },
           auditControl: {
-            mode: 'outbox' // This should be fine with NoOpAuditLogger
-          }
+            mode: 'outbox', // This should be fine with NoOpAuditLogger
+          },
         });
       }).not.toThrow();
     });
@@ -250,8 +250,8 @@ describe('Outbox Audit Integration Tests', () => {
         concurrency: { transactionsEnabled: true },
         auditControl: {
           mode: 'inTransaction',
-          failOnError: false
-        }
+          failOnError: false,
+        },
       });
 
       // Create second document with in-transaction mode

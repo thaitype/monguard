@@ -144,14 +144,16 @@ describe('Audit Logging Integration Tests', () => {
 
     it('should handle audit log creation failure gracefully', async () => {
       // Mock the audit collection to throw an error
-      const auditSpy = vi.spyOn(collection.getAuditCollection()!, 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
+      const auditSpy = vi
+        .spyOn(collection.getAuditCollection()!, 'insertOne')
+        .mockRejectedValue(new Error('Audit insert failed'));
 
       const userData = TestDataFactory.createUser();
 
-      // For OptimisticLockingStrategy (transactionsEnabled: false), 
+      // For OptimisticLockingStrategy (transactionsEnabled: false),
       // operation should still succeed despite audit failure
       const result = await collection.create(userData);
-      
+
       // Verify the document was created successfully
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();

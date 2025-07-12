@@ -19,7 +19,7 @@ import type { AuditLogMetadata } from '../audit-logger';
 
 /**
  * TransactionStrategy uses MongoDB transactions to ensure ACID properties for operations.
- * When transactions are not supported, it gracefully falls back to non-transactional operations.
+ * When transactions are not supported, it throws clear error messages indicating the configuration issue.
  *
  * @template T - The document type extending BaseDocument
  * @template TRefId - The type used for document reference IDs in audit logs
@@ -35,13 +35,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
   constructor(private context: OperationStrategyContext<T, TRefId>) {}
 
   /**
-   * Creates a new document within a transaction when possible.
-   * Falls back to non-transactional operation if transactions are not supported.
+   * Creates a new document within a transaction.
+   * Throws an error if transactions are not supported by the database.
    *
    * @param document - The document data to create
    * @param options - Options for the create operation
    * @returns Promise resolving to the created document
-   * @throws Error if the operation fails
+   * @throws Error if the operation fails or transactions are not supported
    */
   async create(document: any, options: CreateOptions<TRefId> = {}): Promise<T & { _id: ObjectId }> {
     const session = (this.context.collection.db as any).client.startSession();
@@ -70,7 +70,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
             {
               mode: this.context.auditControl.mode,
               failOnError: this.context.auditControl.failOnError,
-              logFailedAttempts: this.context.auditControl.logFailedAttempts
+              logFailedAttempts: this.context.auditControl.logFailedAttempts,
             }
           );
         }
@@ -85,14 +85,14 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
   }
 
   /**
-   * Updates documents within a transaction when possible.
-   * Falls back to non-transactional operation if transactions are not supported.
+   * Updates documents within a transaction.
+   * Throws an error if transactions are not supported by the database.
    *
    * @param filter - MongoDB filter criteria
    * @param update - Update operations to apply
    * @param options - Options for the update operation
    * @returns Promise resolving to update result information
-   * @throws Error if the operation fails
+   * @throws Error if the operation fails or transactions are not supported
    */
   async update(
     filter: Filter<T>,
@@ -153,7 +153,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               {
                 mode: this.context.auditControl.mode,
                 failOnError: this.context.auditControl.failOnError,
-                logFailedAttempts: this.context.auditControl.logFailedAttempts
+                logFailedAttempts: this.context.auditControl.logFailedAttempts,
               }
             );
           }
@@ -187,13 +187,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
   }
 
   /**
-   * Deletes documents within a transaction when possible (soft delete by default).
-   * Falls back to non-transactional operation if transactions are not supported.
+   * Deletes documents within a transaction (soft delete by default).
+   * Throws an error if transactions are not supported by the database.
    *
    * @param filter - MongoDB filter criteria
    * @param options - Options for the delete operation
    * @returns Promise resolving to delete/update result information
-   * @throws Error if the operation fails
+   * @throws Error if the operation fails or transactions are not supported
    */
   async delete<THardDelete extends boolean = false>(
     filter: Filter<T>,
@@ -230,7 +230,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
                 {
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
-                  logFailedAttempts: this.context.auditControl.logFailedAttempts
+                  logFailedAttempts: this.context.auditControl.logFailedAttempts,
                 }
               );
             }
@@ -277,7 +277,7 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               {
                 mode: this.context.auditControl.mode,
                 failOnError: this.context.auditControl.failOnError,
-                logFailedAttempts: this.context.auditControl.logFailedAttempts
+                logFailedAttempts: this.context.auditControl.logFailedAttempts,
               }
             );
           }
@@ -310,13 +310,13 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
   }
 
   /**
-   * Restores soft-deleted documents within a transaction when possible.
-   * Falls back to non-transactional operation if transactions are not supported.
+   * Restores soft-deleted documents within a transaction.
+   * Throws an error if transactions are not supported by the database.
    *
    * @param filter - MongoDB filter criteria for documents to restore
    * @param userContext - Optional user context for audit trails
    * @returns Promise resolving to update result information
-   * @throws Error if the operation fails
+   * @throws Error if the operation fails or transactions are not supported
    */
   async restore(filter: Filter<T>, userContext?: UserContext<TRefId>): Promise<ExtendedUpdateResult> {
     const session = (this.context.collection.db as any).client.startSession();

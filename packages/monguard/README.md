@@ -140,7 +140,7 @@ try {
 ### ⚡ **Concurrency Control**
 - Transaction-based strategy for MongoDB replica sets
 - Optimistic locking strategy for standalone/Cosmos DB
-- Automatic fallback handling
+- Clear error handling when strategies are misconfigured
 
 ### 🎯 **Type Safety**
 - Full TypeScript support with strict typing
@@ -483,8 +483,8 @@ Used when `transactionsEnabled: true`. Provides ACID guarantees.
 - Consistent audit logging
 - No version fields required
 
-**Automatic Fallback:**
-If transactions fail (e.g., standalone MongoDB), automatically falls back to optimistic strategy behavior.
+**Error Handling:**
+If transactions are not supported (e.g., standalone MongoDB), throws clear error messages to help identify configuration issues. Use `transactionsEnabled: false` for such environments.
 
 ### Optimistic Locking Strategy
 

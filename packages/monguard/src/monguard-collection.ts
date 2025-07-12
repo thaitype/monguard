@@ -164,13 +164,12 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
           if (finalAuditControl.failOnError) {
             throw new Error(
               'Outbox transport is required when audit control mode is "outbox". ' +
-              'Please provide an outboxTransport option when creating the MonguardAuditLogger.'
+                'Please provide an outboxTransport option when creating the MonguardAuditLogger.'
             );
           } else {
             // Warn about missing outbox transport but allow fallback
             console.warn(
-              'Outbox transport is missing for outbox mode. ' +
-              'Audit logger will fall back to in-transaction mode.'
+              'Outbox transport is missing for outbox mode. ' + 'Audit logger will fall back to in-transaction mode.'
             );
           }
         }
@@ -178,7 +177,7 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         // For custom audit loggers, we can't validate but should warn
         console.warn(
           'Using custom audit logger with outbox mode. ' +
-          'Please ensure your audit logger implementation supports outbox mode.'
+            'Please ensure your audit logger implementation supports outbox mode.'
         );
       } else {
         // NoOpAuditLogger with outbox mode - this is fine, auditing is disabled

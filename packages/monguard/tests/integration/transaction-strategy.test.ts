@@ -147,14 +147,16 @@ describe('Transaction Strategy Integration Tests', () => {
         auditControl: {
           enableAutoAudit: true,
           failOnError: true, // Enable strict audit failure handling
-        }
+        },
       });
 
       const userData = TestDataFactory.createUser();
       const userContext = TestDataFactory.createUserContext();
 
       // Mock audit collection to fail
-      const auditSpy = vi.spyOn(strictCollection.getAuditCollection()!, 'insertOne').mockRejectedValue(new Error('Audit insert failed'));
+      const auditSpy = vi
+        .spyOn(strictCollection.getAuditCollection()!, 'insertOne')
+        .mockRejectedValue(new Error('Audit insert failed'));
 
       // TransactionStrategy: Should throw error due to transaction rollback
       await expect(strictCollection.create(userData, { userContext })).rejects.toThrow();

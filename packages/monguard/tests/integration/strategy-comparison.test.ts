@@ -27,7 +27,7 @@ describe('Strategy Comparison Tests', () => {
       auditControl: {
         enableAutoAudit: true,
         failOnError: true, // Enable strict audit failure handling for transaction tests
-      }
+      },
     });
 
     optimisticCollection = new MonguardCollection<TestUser>(db, 'optimistic_users', {
@@ -342,7 +342,7 @@ describe('Strategy Comparison Tests', () => {
 
       // TransactionStrategy: Should fail completely due to transaction rollback
       await expect(transactionCollection.create(userData, { userContext })).rejects.toThrow();
-      
+
       // OptimisticLockingStrategy: Should succeed despite audit failure
       const optimisticResult = await optimisticCollection.create(userData, { userContext });
       expect(optimisticResult).toBeDefined();
@@ -351,10 +351,10 @@ describe('Strategy Comparison Tests', () => {
       // Verify document creation outcomes
       const transactionDocs = await transactionCollection.find({});
       const optimisticDocs = await optimisticCollection.find({});
-      
+
       // Transaction strategy: No documents created due to rollback
       expect(transactionDocs).toHaveLength(0);
-      
+
       // Optimistic strategy: Document created despite audit failure
       expect(optimisticDocs).toHaveLength(1);
 
