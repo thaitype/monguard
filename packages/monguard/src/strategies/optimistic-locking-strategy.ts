@@ -166,10 +166,10 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     options: UpdateOptions<TRefId> = {}
   ): Promise<ExtendedUpdateResult> {
     const result = await this.retryWithBackoff(async () => {
-      // Get current document with version
-      const beforeDoc = await this.context.collection.findOne(this.context.mergeSoftDeleteFilter(filter));
+      // Get all matching documents to determine if this is a single or multi-document operation
+      const beforeDocs = await this.context.collection.find(this.context.mergeSoftDeleteFilter(filter)).toArray();
 
-      if (!beforeDoc) {
+      if (beforeDocs.length === 0) {
         if (options.upsert) {
           // For upsert, create with version 1
           const timestampedUpdate = {
@@ -192,13 +192,83 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         }
 
         // No document to update
-        return { acknowledged: true, modifiedCount: 0, upsertedCount: 0, upsertedId: null, matchedCount: 0 };
+        return {
+          acknowledged: true,
+          modifiedCount: 0,
+          upsertedCount: 0,
+          upsertedId: null,
+          matchedCount: 0,
+          newVersion: undefined,
+        };
       }
 
-      const currentVersion = beforeDoc.version || 1;
-      const newVersion = currentVersion + 1;
+      // Handle single document update with optimistic locking
+      if (beforeDocs.length === 1) {
+        const beforeDoc = beforeDocs[0]!;
+        const currentVersion = beforeDoc.version || 1;
+        const newVersion = currentVersion + 1;
 
-      // Create version-controlled update
+        // Create version-controlled update
+        const timestampedUpdate = {
+          ...update,
+          $set: {
+            ...((update as any).$set || {}),
+            updatedAt: new Date(),
+            ...(options.userContext && { updatedBy: options.userContext.userId }),
+          },
+          $inc: {
+            ...((update as any).$inc || {}),
+            version: 1,
+          },
+        };
+
+        // Use version in filter for optimistic locking
+        const versionedFilter = {
+          ...this.context.mergeSoftDeleteFilter(filter),
+          version: currentVersion,
+        };
+
+        const updateResult = await this.context.collection.updateMany(versionedFilter, timestampedUpdate);
+
+        // Check if update succeeded (version conflict if modifiedCount = 0)
+        if (updateResult.modifiedCount === 0) {
+          throw new Error('Version conflict: Document was modified by another operation');
+        }
+
+        // Create audit log after successful update
+        if (this.context.shouldAudit(options.skipAudit) && updateResult.modifiedCount > 0) {
+          try {
+            const afterDoc = await this.context.collection.findOne({ _id: beforeDoc._id });
+            if (afterDoc) {
+              const changes = this.context.getChangedFields(beforeDoc, afterDoc);
+              const metadata: AuditLogMetadata = {
+                before: beforeDoc,
+                after: afterDoc,
+                changes,
+              };
+              await this.context.auditLogger.logOperation(
+                'update',
+                this.context.collectionName,
+                beforeDoc._id,
+                options.userContext,
+                metadata,
+                {
+                  mode: this.context.auditControl.mode,
+                  failOnError: this.context.auditControl.failOnError,
+                  logFailedAttempts: this.context.auditControl.logFailedAttempts,
+                }
+              );
+            }
+          } catch (auditError) {
+            console.error('Failed to create audit log for update operation:', auditError);
+          }
+        }
+
+        // Return result with newVersion only for single document updates
+        return { ...updateResult, newVersion: updateResult.modifiedCount > 0 ? newVersion : undefined };
+      }
+
+      // Handle multi-document update without version control (no optimistic locking)
       const timestampedUpdate = {
         ...update,
         $set: {
@@ -212,50 +282,42 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
         },
       };
 
-      // Use version in filter for optimistic locking
-      const versionedFilter = {
-        ...this.context.mergeSoftDeleteFilter(filter),
-        version: currentVersion,
-      };
+      const updateResult = await this.context.collection.updateMany(
+        this.context.mergeSoftDeleteFilter(filter),
+        timestampedUpdate
+      );
 
-      const updateResult = await this.context.collection.updateMany(versionedFilter, timestampedUpdate);
-
-      // Check if update succeeded (version conflict if modifiedCount = 0)
-      if (updateResult.modifiedCount === 0 && beforeDoc) {
-        throw new Error('Version conflict: Document was modified by another operation');
-      }
-
-      // Create audit log after successful update
+      // Create audit logs for multi-document updates (basic logging without detailed change tracking)
       if (this.context.shouldAudit(options.skipAudit) && updateResult.modifiedCount > 0) {
         try {
-          const afterDoc = await this.context.collection.findOne({ _id: beforeDoc._id });
-          if (afterDoc) {
-            const changes = this.context.getChangedFields(beforeDoc, afterDoc);
-            const metadata: AuditLogMetadata = {
-              before: beforeDoc,
-              after: afterDoc,
-              changes,
-            };
-            await this.context.auditLogger.logOperation(
-              'update',
-              this.context.collectionName,
-              beforeDoc._id,
-              options.userContext,
-              metadata,
-              {
-                mode: this.context.auditControl.mode,
-                failOnError: this.context.auditControl.failOnError,
-                logFailedAttempts: this.context.auditControl.logFailedAttempts,
-              }
-            );
-          }
+          // For multi-document updates, we log a summary audit entry
+          const metadata: AuditLogMetadata = {
+            multiDocumentUpdate: true,
+            documentsModified: updateResult.modifiedCount,
+            filter: filter,
+          };
+
+          // Use the first document's ID as reference, or generate a summary entry
+          const referenceId = beforeDocs[0]!._id;
+          await this.context.auditLogger.logOperation(
+            'update',
+            this.context.collectionName,
+            referenceId,
+            options.userContext,
+            metadata,
+            {
+              mode: this.context.auditControl.mode,
+              failOnError: this.context.auditControl.failOnError,
+              logFailedAttempts: this.context.auditControl.logFailedAttempts,
+            }
+          );
         } catch (auditError) {
-          console.error('Failed to create audit log for update operation:', auditError);
+          console.error('Failed to create audit log for multi-document update operation:', auditError);
         }
       }
 
-      // Return result with newVersion only if document was actually modified
-      return { ...updateResult, newVersion: updateResult.modifiedCount > 0 ? newVersion : undefined };
+      // For multi-document updates, newVersion is always undefined
+      return { ...updateResult, newVersion: undefined };
     });
 
     return result;
