@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TransactionStrategy } from '../../src/strategies/transaction-strategy';
 import { TestDataFactory, TestUser } from '../factories';
 import type { OperationStrategyContext } from '../../src/strategies/operation-strategy';
-import { NoOpAuditLogger } from '../../src/audit-logger';
+import { NoOpAuditLogger, ConsoleLogger } from '../../src/audit-logger';
 
 describe('TransactionStrategy Error Handling', () => {
   let mockCollection: any;
@@ -38,6 +38,7 @@ describe('TransactionStrategy Error Handling', () => {
     const context: OperationStrategyContext<TestUser> = {
       collection: mockCollection,
       auditLogger: new NoOpAuditLogger(),
+      logger: ConsoleLogger,
       collectionName: 'test_users',
       config: { transactionsEnabled: true },
       auditControl: { enableAutoAudit: true },

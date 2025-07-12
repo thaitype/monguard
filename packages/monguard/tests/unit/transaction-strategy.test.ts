@@ -4,7 +4,7 @@ import { TransactionStrategy } from '../../src/strategies/transaction-strategy';
 import { TestDatabase } from '../setup';
 import { TestDataFactory, TestUser } from '../factories';
 import { adaptDb, adaptObjectId } from '../mongodb-adapter';
-import { MonguardAuditLogger } from '../../src/audit-logger';
+import { MonguardAuditLogger, ConsoleLogger } from '../../src/audit-logger';
 import type { Db, Collection, ObjectId } from '../../src/mongodb-types';
 import type { OperationStrategyContext } from '../../src/strategies/operation-strategy';
 import type { BaseDocument } from '../../src/types';
@@ -34,6 +34,7 @@ describe('TransactionStrategy', () => {
     const context: OperationStrategyContext<TestUser> = {
       collection,
       auditLogger,
+      logger: ConsoleLogger,
       collectionName: 'test_users',
       config: { transactionsEnabled: true },
       auditControl: {
@@ -99,6 +100,7 @@ describe('TransactionStrategy', () => {
       const context: OperationStrategyContext<TestUser> = {
         collection: mockCollection as any,
         auditLogger: mockAuditLogger as any,
+        logger: ConsoleLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
         auditControl: {
@@ -201,6 +203,7 @@ describe('TransactionStrategy', () => {
       const context: OperationStrategyContext<TestUser> = {
         collection: mockCollection as any,
         auditLogger: mockAuditLogger as any,
+        logger: ConsoleLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
         auditControl: {
@@ -292,6 +295,7 @@ describe('TransactionStrategy', () => {
       const context: OperationStrategyContext<TestUser> = {
         collection: mockCollection as any,
         auditLogger: mockAuditLogger as any,
+        logger: ConsoleLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
         auditControl: {
@@ -378,6 +382,7 @@ describe('TransactionStrategy', () => {
       const context: OperationStrategyContext<TestUser> = {
         collection: mockCollection as any,
         auditLogger: mockAuditLogger as any,
+        logger: ConsoleLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
         auditControl: {
@@ -459,6 +464,7 @@ describe('TransactionStrategy', () => {
       const context: OperationStrategyContext<TestUser> = {
         collection: mockCollection as any,
         auditLogger,
+        logger: ConsoleLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
         auditControl: { enableAutoAudit: true },
@@ -506,6 +512,7 @@ describe('TransactionStrategy', () => {
       const context: OperationStrategyContext<TestUser> = {
         collection: mockCollection as any,
         auditLogger,
+        logger: ConsoleLogger,
         collectionName: 'test_users',
         config: { transactionsEnabled: true },
         auditControl: { enableAutoAudit: true },

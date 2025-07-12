@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { StrategyFactory } from '../../src/strategies/strategy-factory';
 import { TransactionStrategy } from '../../src/strategies/transaction-strategy';
 import { OptimisticLockingStrategy } from '../../src/strategies/optimistic-locking-strategy';
+import { ConsoleLogger } from '../../src/audit-logger';
 import type { MonguardConcurrencyConfig } from '../../src/types';
 
 describe('StrategyFactory', () => {
@@ -11,6 +12,7 @@ describe('StrategyFactory', () => {
         config: { transactionsEnabled: true },
         collection: {} as any,
         auditLogger: {} as any,
+        logger: ConsoleLogger,
         collectionName: 'test',
         auditControl: { enableAutoAudit: true },
         addTimestamps: () => ({}),
@@ -28,6 +30,7 @@ describe('StrategyFactory', () => {
         config: { transactionsEnabled: false },
         collection: {} as any,
         auditLogger: {} as any,
+        logger: ConsoleLogger,
         collectionName: 'test',
         auditControl: { enableAutoAudit: true },
         addTimestamps: () => ({}),
