@@ -117,7 +117,7 @@ describe('Delta Calculator Unit Tests', () => {
 
       expect(result.hasChanges).toBe(true);
       expect(result.changes).toEqual({
-        value: { old: null, new: undefined },
+        value: { old: null }, // 'new' property omitted when field removed (undefined)
       });
     });
 
@@ -439,6 +439,82 @@ describe('Delta Calculator Unit Tests', () => {
       expect(result.hasChanges).toBe(true);
       expect(result.changes['name']).toBeDefined();
       expect(result.changes['updatedAt']).toBeUndefined(); // Should be blacklisted by default
+    });
+  });
+
+  describe('Semantic Correctness', () => {
+    it('should correctly distinguish undefined vs null semantics', () => {
+      // Field added (didn't exist before)
+      const added = computeDelta({ name: 'John' }, { name: 'John', email: 'john@example.com' });
+      expect(added.changes.email).toEqual({ old: undefined, new: 'john@example.com' });
+      expect(added.changes.email?.old).toBe(undefined);
+
+      // Field removed (was there, now gone)
+      const removed = computeDelta({ name: 'John', email: 'john@example.com' }, { name: 'John' });
+      expect(removed.changes.email).toEqual({ old: 'john@example.com', new: undefined });
+      expect(removed.changes.email?.new).toBe(undefined);
+
+      // Field explicitly set to null
+      const setToNull = computeDelta({ name: 'John', email: 'john@example.com' }, { name: 'John', email: null });
+      expect(setToNull.changes.email).toEqual({ old: 'john@example.com', new: null });
+
+      // Field changed from null to value
+      const fromNull = computeDelta({ name: 'John', email: null }, { name: 'John', email: 'john@example.com' });
+      expect(fromNull.changes.email).toEqual({ old: null, new: 'john@example.com' });
+    });
+
+    it('should handle array semantic correctness', () => {
+      // Array element added
+      const arrayAdded = computeDelta({ tags: ['user', 'editor'] }, { tags: ['user', 'editor', 'verified'] });
+      expect(arrayAdded.changes['tags.2']).toEqual({ old: undefined, new: 'verified' });
+      expect(arrayAdded.changes['tags.2']?.old).toBe(undefined);
+
+      // Array element removed
+      const arrayRemoved = computeDelta({ tags: ['user', 'editor', 'verified'] }, { tags: ['user', 'editor'] });
+      expect(arrayRemoved.changes['tags.2']).toEqual({ old: 'verified', new: undefined });
+      expect(arrayRemoved.changes['tags.2']?.new).toBe(undefined);
+
+      // Array element changed
+      const arrayChanged = computeDelta(
+        { tags: ['user', 'editor', 'verified'] },
+        { tags: ['user', 'premium', 'verified'] }
+      );
+      expect(arrayChanged.changes['tags.1']).toEqual({ old: 'editor', new: 'premium' });
+    });
+
+    it('should handle nested object semantic correctness', () => {
+      // Nested field added
+      const nestedAdded = computeDelta(
+        { profile: { name: 'John' } },
+        { profile: { name: 'John', email: 'john@example.com' } }
+      );
+      expect(nestedAdded.changes['profile.email']).toEqual({ old: undefined, new: 'john@example.com' });
+      expect(nestedAdded.changes['profile.email']?.old).toBe(undefined);
+
+      // Nested field removed
+      const nestedRemoved = computeDelta(
+        { profile: { name: 'John', email: 'john@example.com' } },
+        { profile: { name: 'John' } }
+      );
+      expect(nestedRemoved.changes['profile.email']).toEqual({ old: 'john@example.com', new: undefined });
+      expect(nestedRemoved.changes['profile.email']?.new).toBe(undefined);
+    });
+
+    it('should preserve JSON serialization semantics', () => {
+      const result = computeDelta({ existing: 'value', willBeRemoved: 'old' }, { existing: 'value', added: 'new' });
+
+      // Serialize to JSON (simulating MongoDB storage)
+      const serialized = JSON.parse(JSON.stringify(result.changes));
+
+      // Added field: 'old' property omitted when serialized (was undefined)
+      expect(serialized.added).toEqual({ new: 'new' });
+      expect(serialized.added).not.toHaveProperty('old');
+
+      // Removed field: 'new' property omitted when serialized (was undefined)
+      expect(serialized.willBeRemoved).toEqual({ old: 'old' });
+      expect(serialized.willBeRemoved).not.toHaveProperty('new');
+
+      // This demonstrates that undefined properties are correctly omitted in JSON
     });
   });
 });

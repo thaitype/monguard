@@ -1106,6 +1106,134 @@ await users.updateById(id, update, {
 });
 ```
 
+### Delta Change Semantics: Understanding Undefined vs Null
+
+Delta mode preserves important semantic distinctions between different types of field changes. Understanding these semantics is crucial for correctly interpreting audit logs and building reliable restoration logic.
+
+#### Field Change Types
+
+| Change Type | Example | Delta Structure | Meaning |
+|-------------|---------|-----------------|---------|
+| **Field Added** | Field didn't exist → Field has value | `{ new: "value" }` | Property omitted means "didn't exist" |
+| **Field Removed** | Field had value → Field deleted | `{ old: "value" }` | Property omitted means "no longer exists" |
+| **Field Set to Null** | Field had value → Field explicitly nulled | `{ old: "value", new: null }` | Explicit `null` means "intentionally empty" |
+| **Field Changed** | Value A → Value B | `{ old: "A", new: "B" }` | Standard value change |
+
+#### Important: MonGuard Undefined Value Handling
+
+MonGuard explicitly removes `undefined` `old` and `new` properties from delta changes before storing in MongoDB. This **intentional cleaning** maintains semantic correctness and ensures clear field change meanings:
+
+```typescript
+// ✅ Field added (before: didn't exist, after: has value)
+{
+  action: 'update',
+  metadata: {
+    deltaChanges: {
+      'email': { new: 'john@example.com' }
+      // No 'old' property = field was added
+    }
+  }
+}
+
+// ✅ Field removed (before: had value, after: doesn't exist)  
+{
+  action: 'update',
+  metadata: {
+    deltaChanges: {
+      'email': { old: 'john@example.com' }
+      // No 'new' property = field was removed
+    }
+  }
+}
+
+// ✅ Field explicitly set to null (before: had value, after: intentionally null)
+{
+  action: 'update', 
+  metadata: {
+    deltaChanges: {
+      'email': { old: 'john@example.com', new: null }
+      // Both properties present = intentional null assignment
+    }
+  }
+}
+```
+
+#### How MonGuard Processes Delta Changes
+
+MonGuard uses a focused approach to handle undefined values in delta changes:
+
+```typescript
+// Internal processing: MonGuard's cleanDeltaChanges method
+// Input from delta calculator:
+const rawDeltaChanges = {
+  'email': { old: undefined, new: 'john@example.com' },
+  'name': { old: 'John', new: 'Jane' },
+  'phone': { old: '123-456', new: undefined }
+};
+
+// After MonGuard cleaning (before MongoDB storage):
+const cleanedDeltaChanges = {
+  'email': { new: 'john@example.com' },        // 'old' removed
+  'name': { old: 'John', new: 'Jane' },        // unchanged
+  'phone': { old: '123-456' }                  // 'new' removed
+};
+```
+
+**Key Implementation Details:**
+
+- **Scope**: Only cleans top-level `old`/`new` properties in delta changes
+- **Method**: Uses `cleanDeltaChanges()` method in the audit logger
+- **Timing**: Cleaning happens before sending to MongoDB
+- **Nested Objects**: MongoDB handles nested object serialization naturally
+- **Performance**: Simple, non-recursive approach for better performance
+
+#### Restoration Logic Examples
+
+```typescript
+// Correctly interpret delta changes for restoration
+function applyDeltaChange(document: any, fieldPath: string, change: any) {
+  if ('old' in change && !('new' in change)) {
+    // Field was removed - restore by adding it back
+    setNestedField(document, fieldPath, change.old);
+  } else if (!('old' in change) && 'new' in change) {
+    // Field was added - restore by removing it
+    deleteNestedField(document, fieldPath);
+  } else if ('old' in change && 'new' in change) {
+    if (change.new === null) {
+      // Field was set to null - restore original value
+      setNestedField(document, fieldPath, change.old);
+    } else {
+      // Field was changed - restore old value
+      setNestedField(document, fieldPath, change.old);
+    }
+  }
+}
+```
+
+#### Array Element Semantics
+
+Arrays follow the same semantic principles:
+
+```typescript
+// Array element added: tags[2] didn't exist → now has value
+{
+  'tags.2': { new: 'verified' }
+  // No 'old' property = element was added at index 2
+}
+
+// Array element removed: tags[2] had value → now doesn't exist
+{
+  'tags.2': { old: 'editor' }
+  // No 'new' property = element at index 2 was removed  
+}
+
+// Array element changed: tags[1] changed value
+{
+  'tags.1': { old: 'editor', new: 'premium' }
+  // Both properties = element value changed
+}
+```
+
 ### Configuration
 
 #### Global Delta Mode Configuration
@@ -3571,6 +3699,55 @@ try {
   });
 }
 ```
+
+## Migration Notes
+
+### Breaking Changes: Audit Log Date Fields (v0.12.0)
+
+**What Changed**: Audit logs now only store a single `timestamp` field instead of redundant `createdAt`, `updatedAt`, and `deletedAt` fields.
+
+**Why**: This change reduces audit log storage by ~40% and eliminates conceptual confusion since audit logs are immutable historical records.
+
+**Impact**: 
+- **AuditLogDocument interface** no longer extends BaseDocument
+- **Existing audit logs** in your database will have legacy `createdAt`/`updatedAt` fields
+- **Code reading audit logs** should use `timestamp` instead of `createdAt`
+
+**Migration Steps**:
+
+1. **Update your code** to use `timestamp` instead of `createdAt`/`updatedAt`:
+```typescript
+// Before
+const auditLog = await auditLogger.getAuditLogs('users', userId);
+console.log('Created at:', auditLog[0].createdAt); // ❌ No longer available
+
+// After  
+console.log('Action occurred at:', auditLog[0].timestamp); // ✅ Use timestamp
+```
+
+2. **Database cleanup** (optional): Remove legacy fields from existing audit logs:
+```javascript
+// MongoDB shell script to clean up existing audit logs
+db.audit_logs.updateMany(
+  { createdAt: { $exists: true } },
+  { $unset: { createdAt: 1, updatedAt: 1, deletedAt: 1 } }
+);
+```
+
+3. **Update TypeScript types** if you were explicitly typing audit logs:
+```typescript
+// Before
+interface CustomAuditLog extends AuditLogDocument {
+  createdAt: Date; // ❌ No longer available
+}
+
+// After
+interface CustomAuditLog extends AuditLogDocument {
+  timestamp: Date; // ✅ Use timestamp
+}
+```
+
+**Compatibility**: Legacy audit logs with extra fields will continue to work - only new audit logs will use the streamlined format.
 
 ---
 
