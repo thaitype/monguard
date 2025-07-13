@@ -15,7 +15,7 @@ import {
   ExtendedHardOrSoftDeleteResult,
 } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
-import type { AuditLogMetadata } from '../audit-logger';
+import type { AuditLogMetadata, AuditOperationOptions } from '../audit-logger';
 
 /**
  * OptimisticLockingStrategy uses version numbers to detect and handle concurrent modifications.
@@ -154,20 +154,27 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
     // Create audit log after successful creation
     if (this.context.shouldAudit(options.skipAudit)) {
       try {
-        const metadata: AuditLogMetadata = { after: createdDoc };
-        await this.context.auditLogger.logOperation(
-          'create',
-          this.context.collectionName,
-          result.insertedId as TRefId,
-          options.userContext,
+        const metadata: AuditLogMetadata = {
+          after: createdDoc,
+          ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
+        };
+
+        const auditOptions: AuditOperationOptions<TRefId> = {
+          action: 'create',
+          collectionName: this.context.collectionName,
+          documentId: result.insertedId as TRefId,
+          userContext: options.userContext,
           metadata,
-          {
+          auditControl: {
             mode: this.context.auditControl.mode,
             failOnError: this.context.auditControl.failOnError,
             logFailedAttempts: this.context.auditControl.logFailedAttempts,
             storageMode: options.auditControl?.storageMode,
-          }
-        );
+          },
+          traceId: options.auditMetadata?.traceId,
+        };
+
+        await this.context.auditLogger.logOperation(auditOptions);
       } catch (auditError) {
         // Log audit error but don't fail the operation
         this.context.logger.error('Failed to create audit log for create operation:', auditError);
@@ -270,20 +277,25 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                 before: beforeDoc,
                 after: afterDoc,
                 changes,
+                ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
               };
-              await this.context.auditLogger.logOperation(
-                'update',
-                this.context.collectionName,
-                beforeDoc._id,
-                options.userContext,
+
+              const auditOptions: AuditOperationOptions<TRefId> = {
+                action: 'update',
+                collectionName: this.context.collectionName,
+                documentId: beforeDoc._id,
+                userContext: options.userContext,
                 metadata,
-                {
+                auditControl: {
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
                   storageMode: options.auditControl?.storageMode,
-                }
-              );
+                },
+                traceId: options.auditMetadata?.traceId,
+              };
+
+              await this.context.auditLogger.logOperation(auditOptions);
             }
           } catch (auditError) {
             this.context.logger.error('Failed to create audit log for update operation:', auditError);
@@ -321,23 +333,28 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
             multiDocumentUpdate: true,
             documentsModified: updateResult.modifiedCount,
             filter: filter,
+            ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
           };
 
           // Use the first document's ID as reference, or generate a summary entry
           const referenceId = beforeDocs[0]!._id;
-          await this.context.auditLogger.logOperation(
-            'update',
-            this.context.collectionName,
-            referenceId,
-            options.userContext,
+
+          const auditOptions: AuditOperationOptions<TRefId> = {
+            action: 'update',
+            collectionName: this.context.collectionName,
+            documentId: referenceId,
+            userContext: options.userContext,
             metadata,
-            {
+            auditControl: {
               mode: this.context.auditControl.mode,
               failOnError: this.context.auditControl.failOnError,
               logFailedAttempts: this.context.auditControl.logFailedAttempts,
               storageMode: options.auditControl?.storageMode,
-            }
-          );
+            },
+            traceId: options.auditMetadata?.traceId,
+          };
+
+          await this.context.auditLogger.logOperation(auditOptions);
         } catch (auditError) {
           this.context.logger.error('Failed to create audit log for multi-document update operation:', auditError);
         }
@@ -396,20 +413,25 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
               const metadata: AuditLogMetadata = {
                 hardDelete: true,
                 before: doc,
+                ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
               };
-              await this.context.auditLogger.logOperation(
-                'delete',
-                this.context.collectionName,
-                doc._id,
-                options.userContext,
+
+              const auditOptions: AuditOperationOptions<TRefId> = {
+                action: 'delete',
+                collectionName: this.context.collectionName,
+                documentId: doc._id,
+                userContext: options.userContext,
                 metadata,
-                {
+                auditControl: {
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
                   storageMode: options.auditControl?.storageMode,
-                }
-              );
+                },
+                traceId: options.auditMetadata?.traceId,
+              };
+
+              await this.context.auditLogger.logOperation(auditOptions);
             }
           } catch (auditError) {
             this.context.logger.error('Failed to create audit log for hard delete operation:', auditError);
@@ -467,20 +489,25 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
                 const metadata: AuditLogMetadata = {
                   softDelete: true,
                   before: beforeDoc,
+                  ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
                 };
-                await this.context.auditLogger.logOperation(
-                  'delete',
-                  this.context.collectionName,
-                  beforeDoc._id,
-                  options.userContext,
+
+                const auditOptions: AuditOperationOptions<TRefId> = {
+                  action: 'delete',
+                  collectionName: this.context.collectionName,
+                  documentId: beforeDoc._id,
+                  userContext: options.userContext,
                   metadata,
-                  {
+                  auditControl: {
                     mode: this.context.auditControl.mode,
                     failOnError: this.context.auditControl.failOnError,
                     logFailedAttempts: this.context.auditControl.logFailedAttempts,
                     storageMode: options.auditControl?.storageMode,
-                  }
-                );
+                  },
+                  traceId: options.auditMetadata?.traceId,
+                };
+
+                await this.context.auditLogger.logOperation(auditOptions);
               } catch (auditError) {
                 this.context.logger.error('Failed to create audit log for soft delete operation:', auditError);
               }

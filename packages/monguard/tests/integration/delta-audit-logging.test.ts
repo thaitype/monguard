@@ -481,7 +481,7 @@ describe('Delta Audit Logging Integration Tests', () => {
 
       await collection.getCollection().insertOne(legacyDoc);
 
-      // Update using MonGuard - this will add __v field but only change infrastructure fields
+      // Update using Monguard - this will add __v field but only change infrastructure fields
       await collection.updateById(legacyDoc._id, { $set: { name: 'John Doe' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();

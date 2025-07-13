@@ -131,6 +131,27 @@ export interface AuditLogMetadata {
 }
 
 /**
+ * Options for audit logging operations.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface AuditOperationOptions<TRefId = any> {
+  /** The type of action performed (create, update, delete) */
+  action: AuditAction;
+  /** Name of the collection containing the modified document */
+  collectionName: string;
+  /** ID of the document that was modified */
+  documentId: TRefId;
+  /** Optional user context for the operation */
+  userContext?: UserContext<TRefId>;
+  /** Additional metadata about the operation */
+  metadata?: AuditLogMetadata;
+  /** Optional audit control settings */
+  auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>;
+  /** Optional trace ID for request tracking */
+  traceId?: string;
+}
+
+/**
  * Abstract base class for audit logging implementations.
  * Provides a consistent interface for tracking document changes with type-safe reference IDs.
  *
@@ -140,21 +161,10 @@ export abstract class AuditLogger<TRefId = any> {
   /**
    * Creates an audit log entry for a document operation.
    *
-   * @param action - The type of action performed (create, update, delete)
-   * @param collectionName - Name of the collection containing the modified document
-   * @param documentId - ID of the document that was modified
-   * @param userContext - Optional user context for the operation
-   * @param metadata - Additional metadata about the operation
+   * @param options - Options for the audit logging operation
    * @returns Promise that resolves when the audit log is created
    */
-  abstract logOperation(
-    action: AuditAction,
-    collectionName: string,
-    documentId: TRefId,
-    userContext?: UserContext<TRefId>,
-    metadata?: AuditLogMetadata,
-    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>
-  ): Promise<void>;
+  abstract logOperation(options: AuditOperationOptions<TRefId>): Promise<void>;
 
   /**
    * Retrieves audit logs for a specific document.
@@ -228,20 +238,10 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
    * Creates an audit log entry in the MongoDB collection.
    * Handles errors gracefully to ensure operations continue even if audit logging fails.
    *
-   * @param action - The type of action performed (create, update, delete)
-   * @param collectionName - Name of the collection containing the modified document
-   * @param documentId - ID of the document that was modified
-   * @param userContext - Optional user context for the operation
-   * @param metadata - Additional metadata about the operation
+   * @param options - Options for the audit logging operation
    */
-  async logOperation(
-    action: AuditAction,
-    collectionName: string,
-    documentId: TRefId,
-    userContext?: UserContext<TRefId>,
-    metadata?: AuditLogMetadata,
-    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>
-  ): Promise<void> {
+  async logOperation(options: AuditOperationOptions<TRefId>): Promise<void> {
+    const { action, collectionName, documentId, userContext, metadata, auditControl, traceId } = options;
     // Process reference ID through config if available
     let processedRefId = documentId;
     if (this.refIdConfig?.convertRefId) {
@@ -303,6 +303,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           userContext,
           metadata: processedMetadata,
           timestamp: new Date(),
+          traceId,
           retryCount: 0,
         };
 
@@ -318,6 +319,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           userId: userContext?.userId,
           timestamp: new Date(),
           metadata: processedMetadata,
+          ...(traceId && { traceId }),
         };
 
         await this.auditCollection.insertOne(auditLog as any);
@@ -505,14 +507,7 @@ export class NoOpAuditLogger extends AuditLogger<any> {
   /**
    * No-op implementation that does nothing.
    */
-  async logOperation(
-    action: AuditAction,
-    collectionName: string,
-    documentId: any,
-    userContext?: UserContext<any>,
-    metadata?: AuditLogMetadata,
-    auditControl?: Pick<AuditControlOptions, 'mode' | 'failOnError' | 'logFailedAttempts' | 'storageMode'>
-  ): Promise<void> {
+  async logOperation(options: AuditOperationOptions<any>): Promise<void> {
     // Intentionally empty - no audit logging performed
   }
 

@@ -15,7 +15,7 @@ import {
   ExtendedHardOrSoftDeleteResult,
 } from '../types';
 import { OperationStrategy, OperationStrategyContext } from './operation-strategy';
-import type { AuditLogMetadata } from '../audit-logger';
+import type { AuditLogMetadata, AuditOperationOptions } from '../audit-logger';
 
 /**
  * TransactionStrategy uses MongoDB transactions to ensure ACID properties for operations.
@@ -60,20 +60,25 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
         if (this.context.shouldAudit(options.skipAudit)) {
           const metadata: AuditLogMetadata = {
             after: result,
+            ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
           };
-          await this.context.auditLogger.logOperation(
-            'create',
-            this.context.collectionName,
-            insertResult.insertedId as TRefId,
-            options.userContext,
+
+          const auditOptions: AuditOperationOptions<TRefId> = {
+            action: 'create',
+            collectionName: this.context.collectionName,
+            documentId: insertResult.insertedId as TRefId,
+            userContext: options.userContext,
             metadata,
-            {
+            auditControl: {
               mode: this.context.auditControl.mode,
               failOnError: this.context.auditControl.failOnError,
               logFailedAttempts: this.context.auditControl.logFailedAttempts,
               storageMode: options.auditControl?.storageMode,
-            }
-          );
+            },
+            traceId: options.auditMetadata?.traceId,
+          };
+
+          await this.context.auditLogger.logOperation(auditOptions);
         }
       });
 
@@ -144,20 +149,25 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               before: beforeDoc,
               after: afterDoc,
               changes,
+              ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
             };
-            await this.context.auditLogger.logOperation(
-              'update',
-              this.context.collectionName,
-              beforeDoc._id as TRefId,
-              options.userContext,
+
+            const auditOptions: AuditOperationOptions<TRefId> = {
+              action: 'update',
+              collectionName: this.context.collectionName,
+              documentId: beforeDoc._id as TRefId,
+              userContext: options.userContext,
               metadata,
-              {
+              auditControl: {
                 mode: this.context.auditControl.mode,
                 failOnError: this.context.auditControl.failOnError,
                 logFailedAttempts: this.context.auditControl.logFailedAttempts,
                 storageMode: options.auditControl?.storageMode,
-              }
-            );
+              },
+              traceId: options.auditMetadata?.traceId,
+            };
+
+            await this.context.auditLogger.logOperation(auditOptions);
           }
         }
       });
@@ -222,20 +232,25 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
               const metadata: AuditLogMetadata = {
                 hardDelete: true,
                 before: doc,
+                ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
               };
-              await this.context.auditLogger.logOperation(
-                'delete',
-                this.context.collectionName,
-                doc._id as TRefId,
-                options.userContext,
+
+              const auditOptions: AuditOperationOptions<TRefId> = {
+                action: 'delete',
+                collectionName: this.context.collectionName,
+                documentId: doc._id as TRefId,
+                userContext: options.userContext,
                 metadata,
-                {
+                auditControl: {
                   mode: this.context.auditControl.mode,
                   failOnError: this.context.auditControl.failOnError,
                   logFailedAttempts: this.context.auditControl.logFailedAttempts,
                   storageMode: options.auditControl?.storageMode,
-                }
-              );
+                },
+                traceId: options.auditMetadata?.traceId,
+              };
+
+              await this.context.auditLogger.logOperation(auditOptions);
             }
           }
         } else {
@@ -270,20 +285,25 @@ export class TransactionStrategy<T extends BaseDocument, TRefId = DefaultReferen
             const metadata: AuditLogMetadata = {
               softDelete: true,
               before: beforeDoc,
+              ...(options.auditMetadata?.customData && { customData: options.auditMetadata.customData }),
             };
-            await this.context.auditLogger.logOperation(
-              'delete',
-              this.context.collectionName,
-              beforeDoc._id as TRefId,
-              options.userContext,
+
+            const auditOptions: AuditOperationOptions<TRefId> = {
+              action: 'delete',
+              collectionName: this.context.collectionName,
+              documentId: beforeDoc._id as TRefId,
+              userContext: options.userContext,
               metadata,
-              {
+              auditControl: {
                 mode: this.context.auditControl.mode,
                 failOnError: this.context.auditControl.failOnError,
                 logFailedAttempts: this.context.auditControl.logFailedAttempts,
                 storageMode: options.auditControl?.storageMode,
-              }
-            );
+              },
+              traceId: options.auditMetadata?.traceId,
+            };
+
+            await this.context.auditLogger.logOperation(auditOptions);
           }
         }
       });

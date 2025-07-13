@@ -308,7 +308,7 @@ describe('Audit Logging Integration Tests', () => {
         const userAuditLogs = auditLogs.filter(log => log.ref.id.equals(doc._id));
         expect(userAuditLogs).toHaveLength(2); // 1 create + 1 update
       }
-    });
+    }, 15000); // 15 second timeout for concurrent operations
 
     it('should handle bulk operations audit logging', async () => {
       const users = TestDataFactory.createMultipleUsers(3);

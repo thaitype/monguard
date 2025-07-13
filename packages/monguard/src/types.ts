@@ -104,6 +104,8 @@ export interface AuditLogDocument<TId = DefaultReferenceId> extends AuditLogBase
   userId?: TId;
   /** Timestamp when the action occurred */
   timestamp: Date;
+  /** Optional trace ID for request tracking */
+  traceId?: string;
   /** Additional metadata about the change */
   metadata?: {
     /** Document state before the change */
@@ -143,6 +145,16 @@ export interface UserContext<TUserId = DefaultReferenceId> {
 }
 
 /**
+ * Additional metadata that can be included in audit logs for CRUD operations.
+ */
+export interface AuditMetadataOptions {
+  /** Optional trace ID for request tracking */
+  traceId?: string;
+  /** Custom data to include in the audit log */
+  customData?: Record<string, any>;
+}
+
+/**
  * Options for document creation operations.
  * @template TUserId - The type of the user ID
  */
@@ -153,6 +165,8 @@ export interface CreateOptions<TUserId = DefaultReferenceId> {
   userContext?: UserContext<TUserId>;
   /** Per-operation audit control options (overrides collection-level settings) */
   auditControl?: Partial<AuditControlOptions>;
+  /** Additional metadata to include in audit logs */
+  auditMetadata?: AuditMetadataOptions;
 }
 
 /**
@@ -178,6 +192,8 @@ export interface UpdateOptions<TUserId = DefaultReferenceId> {
   upsert?: boolean;
   /** Per-operation audit control options (overrides collection-level settings) */
   auditControl?: Partial<AuditControlOptions>;
+  /** Additional metadata to include in audit logs */
+  auditMetadata?: AuditMetadataOptions;
 }
 
 export type HardOrSoftDeleteResult<THardDelete extends boolean> = THardDelete extends true
@@ -198,6 +214,8 @@ export interface DeleteOptions<THardDelete extends boolean, TUserId = DefaultRef
   hardDelete?: THardDelete;
   /** Per-operation audit control options (overrides collection-level settings) */
   auditControl?: Partial<AuditControlOptions>;
+  /** Additional metadata to include in audit logs */
+  auditMetadata?: AuditMetadataOptions;
 }
 
 /**
@@ -275,8 +293,25 @@ export interface ManualAuditOptions<TRefId = DefaultReferenceId> {
   afterDocument?: any;
   /** Custom data to include in the audit log */
   customData?: Record<string, any>;
+  /** Optional trace ID for request tracking */
+  traceId?: string;
   /** Whether to skip updating auto-managed fields in the audit log document */
   skipAutoFields?: boolean;
+}
+
+/**
+ * Options for creating audit log entries via the public API.
+ * @template TRefId - The type used for document reference IDs
+ */
+export interface CreateAuditLogOptions<TRefId = DefaultReferenceId> {
+  /** The type of action performed (create, update, delete) */
+  action: AuditAction;
+  /** ID of the document that was modified */
+  documentId: TRefId;
+  /** Optional user context for the operation */
+  userContext?: UserContext<TRefId>;
+  /** Additional metadata for the audit log */
+  metadata?: ManualAuditOptions<TRefId>;
 }
 
 /**

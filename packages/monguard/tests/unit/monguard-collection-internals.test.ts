@@ -8,17 +8,11 @@ import { TestHelpers } from '../test-utils';
 import { adaptDb, adaptObjectId } from '../mongodb-adapter';
 import type { Db, ObjectId } from '../../src/mongodb-types';
 import type { AuditLogDocument, AuditAction, UserContext, AuditControlOptions } from '../../src/types';
+import type { AuditOperationOptions } from '../../src/audit-logger';
 
 // Custom audit logger for testing
 class CustomAuditLogger extends AuditLogger<ObjectId> {
-  async logOperation(
-    action: AuditAction,
-    collectionName: string,
-    documentId: ObjectId,
-    userContext?: UserContext<ObjectId>,
-    metadata?: any,
-    auditControl?: any
-  ): Promise<void> {
+  async logOperation(options: AuditOperationOptions<ObjectId>): Promise<void> {
     // Custom implementation
   }
 
@@ -135,7 +129,12 @@ class TestableMonguardCollection<
 
   // Method to test createAuditLog for coverage
   public async testCreateAuditLog(action: any, documentId: any, userContext?: any, metadata?: any) {
-    return this.createAuditLog(action, documentId, userContext, metadata);
+    return this.createAuditLog({
+      action,
+      documentId,
+      userContext,
+      metadata,
+    });
   }
 
   // Method to test createAuditLogs for coverage

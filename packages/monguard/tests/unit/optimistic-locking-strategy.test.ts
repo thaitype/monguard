@@ -300,7 +300,7 @@ describe('OptimisticLockingStrategy', () => {
       // Insert directly to collection to simulate legacy document
       await collection.insertOne(legacyDoc);
 
-      // Update using MonGuard - should work without version conflict
+      // Update using Monguard - should work without version conflict
       const updateResult = await strategy.updateById(
         legacyDoc._id,
         { $set: { name: 'Updated Name' } },
@@ -308,7 +308,7 @@ describe('OptimisticLockingStrategy', () => {
       );
 
       expect(updateResult.modifiedCount).toBe(1);
-      expect(updateResult.__v).toBe(1); // Should be version 1 for first MonGuard update on legacy doc
+      expect(updateResult.__v).toBe(1); // Should be version 1 for first Monguard update on legacy doc
 
       // Verify the document now has __v field
       const updatedDoc = await collection.findOne({ _id: legacyDoc._id });
@@ -329,13 +329,13 @@ describe('OptimisticLockingStrategy', () => {
 
       await collection.insertOne(legacyDoc);
 
-      // Soft delete using MonGuard - should work without version conflict
+      // Soft delete using Monguard - should work without version conflict
       const deleteResult = await strategy.deleteById(legacyDoc._id, {
         userContext: TestDataFactory.createUserContext(),
       });
 
       expect(deleteResult.modifiedCount).toBe(1);
-      expect(deleteResult.__v).toBe(1); // Should be version 1 for first MonGuard operation on legacy doc
+      expect(deleteResult.__v).toBe(1); // Should be version 1 for first Monguard operation on legacy doc
 
       // Verify the document is soft deleted and has __v field
       const deletedDoc = await collection.findOne({ _id: legacyDoc._id });
@@ -358,11 +358,11 @@ describe('OptimisticLockingStrategy', () => {
 
       await collection.insertOne(legacyDoc);
 
-      // Restore using MonGuard - should work without version conflict
+      // Restore using Monguard - should work without version conflict
       const restoreResult = await strategy.restore({ _id: legacyDoc._id }, TestDataFactory.createUserContext());
 
       expect(restoreResult.modifiedCount).toBe(1);
-      expect(restoreResult.__v).toBe(1); // Should be version 1 for first MonGuard operation on legacy doc
+      expect(restoreResult.__v).toBe(1); // Should be version 1 for first Monguard operation on legacy doc
 
       // Verify the document is restored and has __v field
       const restoredDoc = await collection.findOne({ _id: legacyDoc._id });
@@ -371,7 +371,7 @@ describe('OptimisticLockingStrategy', () => {
       expect(restoredDoc!.deletedBy).toBeUndefined();
     });
 
-    it('should work correctly for subsequent operations after first MonGuard operation', async () => {
+    it('should work correctly for subsequent operations after first Monguard operation', async () => {
       // Create a document without __v field
       const userData = TestDataFactory.createUser();
       const legacyDoc = {

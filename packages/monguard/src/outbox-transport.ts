@@ -25,6 +25,8 @@ export interface AuditEvent<TRefId = DefaultReferenceId> {
   metadata?: AuditLogMetadata;
   /** Timestamp when the event was created */
   timestamp: Date;
+  /** Optional trace ID for request tracking */
+  traceId?: string;
   /** Number of processing attempts (for retry logic) */
   retryCount?: number;
   /** Timestamp when the event was last processed */

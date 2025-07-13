@@ -145,11 +145,9 @@ try {
 - Zero runtime dependencies on MongoDB driver
 
 
-For more examples and advanced usage patterns, see the test files in the repository. For issues and feature requests, please visit the GitHub repository.
-
 ## Documentation
 
-- [Monguard Full Documentation](packages/monguard/README.md)
+For detailed documentation, including configuration options, API reference, and best practices, please refer to the [Monguard User Manual](/docs/README.md)
 
 ## License
 
