@@ -105,5 +105,141 @@ try {
 - MongoDB-compatible type definitions
 - Zero runtime dependencies on MongoDB driver
 
+## Soft Deletes
+
+### How Soft Deletes Work
+
+Soft deletes add a `deletedAt` timestamp instead of removing documents:
+
+```typescript
+// Soft delete (default)
+await users.deleteById(userId, {
+  userContext: { userId: 'admin' }
+});
+
+// Document now has deletedAt field
+// { _id: ..., name: 'John', deletedAt: Date, deletedBy: 'admin' }
+```
+
+### Finding Soft-Deleted Documents
+
+```typescript
+// Normal queries exclude soft-deleted documents
+const activeUsers = await users.find({}); // Only active users
+
+// Include soft-deleted documents explicitly
+const allUsers = await users.find({}, { 
+  includeSoftDeleted: true 
+});
+
+// Find only soft-deleted documents
+const deletedUsers = await users.find({
+  deletedAt: { $exists: true }
+}, { 
+  includeSoftDeleted: true 
+});
+```
+
+### Restoring Soft-Deleted Documents
+
+```typescript
+// Restore by ID
+try {
+  const result = await users.restore(
+    { _id: userId },
+    { userId: 'admin' }
+  );
+  console.log(`Restored ${result.modifiedCount} documents`);
+} catch (error) {
+  console.error('Restore failed:', error.message);
+}
+
+// Restore multiple documents
+try {
+  const result = await users.restore(
+    { deletedBy: 'old-admin' },
+    { userId: 'current-admin' }
+  );
+  console.log(`Restored ${result.modifiedCount} documents`);
+} catch (error) {
+  console.error('Restore failed:', error.message);
+}
+```
+
+### Hard Deletes
+
+```typescript
+// Permanently delete document
+try {
+  const result = await users.deleteById(userId, {
+    userContext: { userId: 'admin' },
+    hardDelete: true
+  });
+  console.log(`Deleted ${result.deletedCount} documents permanently`);
+  // Document is completely removed from database
+} catch (error) {
+  console.error('Hard delete failed:', error.message);
+}
+```
+
+## User Tracking
+
+### Automatic User Tracking
+
+When documents extend `AuditableDocument`, Monguard automatically tracks user information:
+
+```typescript
+interface User extends AuditableDocument {
+  name: string;
+  email: string;
+  // Inherited from AuditableDocument:
+  // createdBy?: any;
+  // updatedBy?: any;
+  // deletedBy?: any;
+}
+
+// Create with user tracking
+try {
+  const user = await users.create({
+    name: 'John Doe',
+    email: 'john@example.com'
+  }, {
+    userContext: { userId: 'admin-123' }
+  });
+
+  // User includes user tracking:
+  // {
+  //   name: 'John Doe',
+  //   email: 'john@example.com',
+  //   createdBy: 'admin-123',
+  //   updatedBy: 'admin-123',
+  //   createdAt: Date,
+  //   updatedAt: Date
+  // }
+} catch (error) {
+  console.error('Create failed:', error.message);
+}
+```
+
+### User Context Types
+
+```typescript
+// String user IDs
+const userContext = { userId: 'admin-123' };
+
+// ObjectId user IDs
+import { ObjectId } from 'mongodb';
+const userContext = { userId: new ObjectId() };
+
+// Custom user objects
+const userContext = { 
+  userId: { 
+    type: 'service',
+    name: 'auth-service',
+    __v: '1.0.0'
+  }
+};
+```
+
 ---
 [>> Table of Contents](/docs/README.md)
