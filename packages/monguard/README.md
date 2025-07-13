@@ -9,6 +9,7 @@
 * 🗑️ **Soft Delete** — Mark records as deleted without removing them from the database
 * ⏱️ **Auto Timestamps** — Automatically manage `createdAt` and `updatedAt` fields
 * 🕵️ **Audit Logging** — Track every `create`, `update`, and `delete` action with detailed metadata
+* 🎯 **Delta Mode Auditing** — Reduce audit log storage by 70-90% with smart field-level change tracking
 * 🚀 **Transaction-Aware Auditing** — In-transaction or outbox patterns for different consistency needs
 * 🧠 **TypeScript First** — Fully typed for safety and great DX
 * ⚙️ **Plug-and-Play** — Minimal setup, maximum control
@@ -37,24 +38,119 @@ npm install monguard
 > Guard your data. Track the truth. Sleep better.
 > — with **`monguard`** 🛡️
 
-# Monguard User Manual
+## Installation
 
-Monguard is an audit-safe MongoDB wrapper that provides automatic audit logging, soft deletes, user tracking, and concurrent operation handling with zero runtime MongoDB dependencies in your application code.
+```bash
+npm install monguard
+# or
+yarn add monguard
+# or
+pnpm add monguard
+```
 
-## Table of Contents
+**Important**: You must install a MongoDB driver separately, as Monguard has zero runtime dependencies:
 
-- [Introduction](/docs/introduction.md)
-- [Configuration](#configuration)
-- [API Reference](#api-reference)
-- [Multi-Phase Operations](#multi-phase-operations)
-- [Concurrency Strategies](#concurrency-strategies)
-- [Audit Logging](#audit-logging)
-- [Delta Mode Audit Logging](#delta-mode-audit-logging)
-- [Transactions with Outbox Pattern](#transactions-with-outbox-pattern)
-- [Soft Deletes](#soft-deletes)
-- [User Tracking](#user-tracking)
-- [Manual Auto-Field Control](#manual-auto-field-control)
-- [Manual Audit Logging](#manual-audit-logging)
-- [Best Practices](#best-practices)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
+```bash
+npm install mongodb
+# or any MongoDB-compatible driver
+```
+
+## Quick Start
+
+```typescript
+import { MongoClient } from 'mongodb';
+import { MonguardCollection, MonguardAuditLogger } from 'monguard';
+
+// Define your document interface
+interface User {
+  _id?: any;
+  name: string;
+  email: string;
+  age?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+  deletedAt?: Date;
+  createdBy?: ObjectId;
+  updatedBy?: ObjectId;
+  deletedBy?: ObjectId;
+}
+
+// Connect to MongoDB
+const client = new MongoClient('mongodb://localhost:27017');
+await client.connect();
+const db = client.db('myapp');
+
+// Create audit logger with delta mode for 70-90% storage reduction
+const auditLogger = new MonguardAuditLogger(db, 'audit_logs', {
+  storageMode: 'delta',        // Enable delta mode
+  maxDepth: 3,                 // Track nested changes up to 3 levels
+  arrayDiffMaxSize: 20,        // Smart array handling
+});
+
+// Create a Monguard collection
+const users = new MonguardCollection<User>(db, 'users', {
+  auditLogger,
+  concurrency: { transactionsEnabled: true },
+  auditControl: {
+    mode: 'inTransaction',     // Strong audit consistency
+    failOnError: false         // Graceful error handling
+  }
+});
+
+// Create a user with audit logging
+try {
+  const user = await users.create({
+    name: 'John Doe',
+    email: 'john@example.com'
+  }, {
+    userContext: { userId: 'admin-123' }
+  });
+  
+  console.log('User created:', user);
+} catch (error) {
+  console.error('Failed to create user:', error.message);
+}
+```
+
+## Core Features
+
+### 🔍 **Audit Logging**
+- Automatic tracking of all create, update, and delete operations
+- **Delta mode auditing** with 70-90% storage reduction via field-level change tracking
+- **Transaction-aware audit control** with in-transaction and outbox modes
+- **Flexible error handling** with fail-fast or resilient strategies
+- Customizable audit collection names and logger interfaces
+- Rich metadata including before/after states and field changes
+- Reference ID validation with configurable error handling
+- Support for custom logging services (Winston, Pino, etc.)
+
+### 🗑️ **Soft Deletes**
+- Safe deletion that preserves data integrity
+- Option for hard deletes when needed
+- Automatic filtering of soft-deleted documents
+
+### 👤 **User Tracking**
+- Track who created, updated, or deleted each document
+- Flexible user ID types (string, ObjectId, custom objects)
+- Automatic timestamp management
+
+### ⚡ **Concurrency Control**
+- Transaction-based strategy for MongoDB replica sets
+- Optimistic locking strategy for standalone/Cosmos DB
+- Automatic fallback handling
+
+### 🎯 **Type Safety**
+- Full TypeScript support with strict typing
+- MongoDB-compatible type definitions
+- Zero runtime dependencies on MongoDB driver
+
+
+## Documentation
+
+For detailed documentation, including configuration options, API reference, and best practices, please refer to the [Monguard User Manual](/docs/README.md)
+
+## License
+
+MIT License © 2025
+Created by [@thaitype](https://github.com/thaitype)
+
