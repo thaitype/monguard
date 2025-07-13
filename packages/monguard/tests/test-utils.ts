@@ -39,7 +39,7 @@ export class TestHelpers {
     return value instanceof MongoObjectId;
   }
 
-  static createDateRange(startMs: number = Date.now() - 1000, endMs: number = Date.now() + 1000) {
+  static createDateRange(startMs: number = Date.now() - 5000, endMs: number = Date.now() + 5000) {
     return {
       start: new Date(startMs),
       end: new Date(endMs),

@@ -22,7 +22,7 @@ describe('Transaction Strategy Integration Tests', () => {
       auditLogger: new MonguardAuditLogger(db, 'audit_logs'),
       concurrency: { transactionsEnabled: true }, // Test transaction strategy
     });
-  });
+  }, 60000); // 60 second timeout for MongoDB setup
 
   afterEach(async () => {
     await testDb.stop();

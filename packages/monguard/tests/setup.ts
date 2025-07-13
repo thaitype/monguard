@@ -24,6 +24,11 @@ export class TestDatabase {
           count: 1, // Single node replica set for simplicity
           storageEngine: 'wiredTiger', // Required for transactions
         },
+        instanceOpts: [
+          {
+            launchTimeout: 30000, // 30 seconds timeout for instance startup
+          },
+        ],
       });
     }
 

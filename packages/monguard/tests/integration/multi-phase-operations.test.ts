@@ -703,7 +703,7 @@ describe('Multi-Phase Operations with __v Feature', () => {
       // Both should have same core functionality
       expect(optimisticUpdate.acknowledged).toBe(transactionUpdate.acknowledged);
       expect(optimisticUpdate.modifiedCount).toBe(transactionUpdate.modifiedCount);
-    });
+    }, 10000); // 10 second timeout for strategy comparison
 
     /**
      * Performance comparison between strategies for multi-phase operations

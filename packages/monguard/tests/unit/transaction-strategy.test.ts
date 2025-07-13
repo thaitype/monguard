@@ -140,14 +140,17 @@ describe('TransactionStrategy', () => {
         { session: mockSession }
       );
       expect(mockAuditLogger.logOperation).toHaveBeenCalledWith(
-        'create',
-        'test_users',
-        insertedId,
-        userContext,
-        expect.objectContaining({ after: expect.any(Object) }),
         expect.objectContaining({
-          failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean),
+          action: 'create',
+          collectionName: 'test_users',
+          documentId: insertedId,
+          userContext,
+          metadata: expect.objectContaining({ after: expect.any(Object) }),
+          auditControl: expect.objectContaining({
+            failOnError: expect.any(Boolean),
+            logFailedAttempts: expect.any(Boolean),
+          }),
+          traceId: undefined,
         })
       );
       expect(mockSession.endSession).toHaveBeenCalled();
@@ -245,18 +248,21 @@ describe('TransactionStrategy', () => {
         { upsert: undefined, session: mockSession }
       );
       expect(mockAuditLogger.logOperation).toHaveBeenCalledWith(
-        'update',
-        'test_users',
-        beforeDoc._id,
-        userContext,
         expect.objectContaining({
-          before: beforeDoc,
-          after: afterDoc,
-          changes: expect.any(Array),
-        }),
-        expect.objectContaining({
-          failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean),
+          action: 'update',
+          collectionName: 'test_users',
+          documentId: beforeDoc._id,
+          userContext,
+          metadata: expect.objectContaining({
+            before: beforeDoc,
+            after: afterDoc,
+            changes: expect.any(Array),
+          }),
+          auditControl: expect.objectContaining({
+            failOnError: expect.any(Boolean),
+            logFailedAttempts: expect.any(Boolean),
+          }),
+          traceId: undefined,
         })
       );
       expect(result.modifiedCount).toBe(1);
@@ -327,17 +333,20 @@ describe('TransactionStrategy', () => {
       expect(mockCollection.find).toHaveBeenCalledWith(filter, { session: mockSession });
       expect(mockCollection.deleteMany).toHaveBeenCalledWith(filter, { session: mockSession });
       expect(mockAuditLogger.logOperation).toHaveBeenCalledWith(
-        'delete',
-        'test_users',
-        docToDelete._id,
-        userContext,
         expect.objectContaining({
-          hardDelete: true,
-          before: docToDelete,
-        }),
-        expect.objectContaining({
-          failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean),
+          action: 'delete',
+          collectionName: 'test_users',
+          documentId: docToDelete._id,
+          userContext,
+          metadata: expect.objectContaining({
+            hardDelete: true,
+            before: docToDelete,
+          }),
+          auditControl: expect.objectContaining({
+            failOnError: expect.any(Boolean),
+            logFailedAttempts: expect.any(Boolean),
+          }),
+          traceId: undefined,
         })
       );
       expect(result.deletedCount).toBe(1);
@@ -427,17 +436,20 @@ describe('TransactionStrategy', () => {
         { session: mockSession }
       );
       expect(mockAuditLogger.logOperation).toHaveBeenCalledWith(
-        'delete',
-        'test_users',
-        beforeDoc._id,
-        userContext,
         expect.objectContaining({
-          softDelete: true,
-          before: beforeDoc,
-        }),
-        expect.objectContaining({
-          failOnError: expect.any(Boolean),
-          logFailedAttempts: expect.any(Boolean),
+          action: 'delete',
+          collectionName: 'test_users',
+          documentId: beforeDoc._id,
+          userContext,
+          metadata: expect.objectContaining({
+            softDelete: true,
+            before: beforeDoc,
+          }),
+          auditControl: expect.objectContaining({
+            failOnError: expect.any(Boolean),
+            logFailedAttempts: expect.any(Boolean),
+          }),
+          traceId: undefined,
         })
       );
       expect(result.modifiedCount).toBe(1);
