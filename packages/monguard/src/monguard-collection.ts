@@ -33,13 +33,14 @@ import type {
   AuditControlOptions,
   AutoFieldUpdateOptions,
   ManualAuditOptions,
+  CreateAuditLogOptions,
   BatchAuditEntry,
   ExtendedUpdateResult,
   ExtendedHardOrSoftDeleteResult,
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
-import { AuditLogger, NoOpAuditLogger, MonguardAuditLogger, Logger, ConsoleLogger } from './audit-logger';
+import { AuditLogger, NoOpAuditLogger, MonguardAuditLogger, Logger, ConsoleLogger, AuditOperationOptions } from './audit-logger';
 
 /**
  * Configuration options for MonguardCollection initialization.
@@ -431,32 +432,26 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
    * Manually creates an audit log entry for a document operation.
    * This allows external applications to create audit logs for custom operations or bypass automatic logging.
    *
-   * @param action - The type of action performed
-   * @param documentId - ID of the document that was affected
-   * @param userContext - Optional user context for the operation
-   * @param metadata - Optional metadata for the audit log entry
+   * @param options - Options for creating the audit log
    * @returns Promise that resolves when the audit log is created
    *
    * @example
    * ```typescript
-   * await collection.createAuditLog(
-   *   'custom',
-   *   docId,
-   *   { userId: 'user123' },
-   *   {
+   * await collection.createAuditLog({
+   *   action: 'custom',
+   *   documentId: docId,
+   *   userContext: { userId: 'user123' },
+   *   metadata: {
    *     beforeDocument: oldDoc,
    *     afterDocument: newDoc,
-   *     customData: { reason: 'bulk_import' }
+   *     customData: { reason: 'bulk_import' },
+   *     traceId: 'trace-123'
    *   }
-   * );
+   * });
    * ```
    */
-  public async createAuditLog(
-    action: AuditAction,
-    documentId: ObjectId,
-    userContext?: UserContext<TRefId>,
-    metadata?: ManualAuditOptions<TRefId>
-  ): Promise<void> {
+  public async createAuditLog(options: CreateAuditLogOptions<TRefId>): Promise<void> {
+    const { action, documentId, userContext, metadata } = options;
     const auditControl = this.options.auditControl || defaultOptions.auditControl!;
 
     if (!auditControl.enableAutoAudit && !auditControl.auditCustomOperations) {
@@ -473,7 +468,16 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
       ...(metadata?.customData && { customData: metadata.customData }),
     };
 
-    await this.auditLogger.logOperation(action, this.collectionName, documentId as TRefId, userContext, auditMetadata);
+    const auditOptions: AuditOperationOptions<TRefId> = {
+      action,
+      collectionName: this.collectionName,
+      documentId: documentId as TRefId,
+      userContext,
+      metadata: auditMetadata,
+      traceId: metadata?.traceId,
+    };
+
+    await this.auditLogger.logOperation(auditOptions);
   }
 
   /**
@@ -525,13 +529,16 @@ export class MonguardCollection<T extends BaseDocument, TRefId = DefaultReferenc
         ...(entry.metadata?.customData && { customData: entry.metadata.customData }),
       };
 
-      return this.auditLogger.logOperation(
-        entry.action,
-        this.collectionName,
-        entry.documentId,
-        entry.userContext,
-        auditMetadata
-      );
+      const auditOptions: AuditOperationOptions<TRefId> = {
+        action: entry.action,
+        collectionName: this.collectionName,
+        documentId: entry.documentId,
+        userContext: entry.userContext,
+        metadata: auditMetadata,
+        traceId: entry.metadata?.traceId,
+      };
+
+      return this.auditLogger.logOperation(auditOptions);
     });
 
     await Promise.all(auditPromises);
