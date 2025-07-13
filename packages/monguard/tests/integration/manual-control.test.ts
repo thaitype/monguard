@@ -235,10 +235,15 @@ describe('Manual Control Functionality', () => {
       const beforeDoc = { name: 'John', email: 'john@example.com' };
       const afterDoc = { name: 'John Updated', email: 'john.updated@example.com' };
 
-      await collection.createAuditLog('custom', docId, userContext, {
-        beforeDocument: beforeDoc,
-        afterDocument: afterDoc,
-        customData: { reason: 'manual_update' },
+      await collection.createAuditLog({
+        action: 'custom',
+        documentId: docId,
+        userContext,
+        metadata: {
+          beforeDocument: beforeDoc,
+          afterDocument: afterDoc,
+          customData: { reason: 'manual_update' },
+        },
       });
 
       const auditLogs = await auditLogger.getAuditLogs('test_documents', docId);
@@ -302,7 +307,11 @@ describe('Manual Control Functionality', () => {
       const docId = new MongoObjectId();
 
       // Should not create audit log when disabled
-      await disabledCollection.createAuditLog('custom', docId, { userId: 'user123' });
+      await disabledCollection.createAuditLog({
+        action: 'custom',
+        documentId: docId,
+        userContext: { userId: 'user123' },
+      });
 
       const auditLogs = await auditLogger.getAuditLogs('test_documents', docId);
       expect(auditLogs).toHaveLength(0);

@@ -159,7 +159,11 @@ describe('MonguardAuditLogger', () => {
       const logger = new MonguardAuditLogger(mockDb, 'audit_logs');
       const documentId = new MongoObjectId();
 
-      await logger.logOperation('create', 'users', documentId);
+      await logger.logOperation({
+        action: 'create',
+        collectionName: 'users',
+        documentId,
+      });
 
       expect(mockCollection.insertOne).toHaveBeenCalledWith({
         ref: {
@@ -178,7 +182,12 @@ describe('MonguardAuditLogger', () => {
       const documentId = new MongoObjectId();
       const userId = new MongoObjectId();
 
-      await logger.logOperation('update', 'users', documentId, { userId });
+      await logger.logOperation({
+        action: 'update',
+        collectionName: 'users',
+        documentId,
+        userContext: { userId },
+      });
 
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -192,7 +201,13 @@ describe('MonguardAuditLogger', () => {
       const documentId = new MongoObjectId();
       const metadata = { before: { name: 'old' }, after: { name: 'new' } };
 
-      await logger.logOperation('update', 'users', documentId, undefined, metadata);
+      await logger.logOperation({
+        action: 'update',
+        collectionName: 'users',
+        documentId,
+        userContext: undefined,
+        metadata,
+      });
 
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -215,7 +230,13 @@ describe('MonguardAuditLogger', () => {
       mockCollection.insertOne = vi.fn().mockRejectedValue(error);
 
       // Should not throw error
-      await expect(logger.logOperation('create', 'users', new MongoObjectId())).resolves.toBeUndefined();
+      await expect(
+        logger.logOperation({
+          action: 'create',
+          collectionName: 'users',
+          documentId: new MongoObjectId(),
+        })
+      ).resolves.toBeUndefined();
 
       // Should log error
       expect(customLogger.error).toHaveBeenCalledWith('Failed to create audit log:', error);
@@ -233,7 +254,11 @@ describe('MonguardAuditLogger', () => {
 
       const invalidId = 'invalid-objectid';
 
-      await logger.logOperation('create', 'users', invalidId as any);
+      await logger.logOperation({
+        action: 'create',
+        collectionName: 'users',
+        documentId: invalidId as any,
+      });
 
       expect(customLogger.warn).toHaveBeenCalledWith(
         'Invalid reference ID type for audit log. Expected ObjectId, got: string',
@@ -254,7 +279,11 @@ describe('MonguardAuditLogger', () => {
 
       const validId = new MongoObjectId();
 
-      await logger.logOperation('create', 'users', validId);
+      await logger.logOperation({
+        action: 'create',
+        collectionName: 'users',
+        documentId: validId,
+      });
 
       expect(customLogger.warn).not.toHaveBeenCalled();
       expect(mockCollection.insertOne).toHaveBeenCalled();
@@ -270,9 +299,13 @@ describe('MonguardAuditLogger', () => {
 
       const invalidId = 'invalid-objectid';
 
-      await expect(logger.logOperation('create', 'users', invalidId as any)).rejects.toThrow(
-        'Invalid reference ID type for audit log. Expected ObjectId, got: string'
-      );
+      await expect(
+        logger.logOperation({
+          action: 'create',
+          collectionName: 'users',
+          documentId: invalidId as any,
+        })
+      ).rejects.toThrow('Invalid reference ID type for audit log. Expected ObjectId, got: string');
 
       // Should not create audit log
       expect(mockCollection.insertOne).not.toHaveBeenCalled();
@@ -286,7 +319,13 @@ describe('MonguardAuditLogger', () => {
 
       const validId = new MongoObjectId();
 
-      await expect(logger.logOperation('create', 'users', validId)).resolves.toBeUndefined();
+      await expect(
+        logger.logOperation({
+          action: 'create',
+          collectionName: 'users',
+          documentId: validId,
+        })
+      ).resolves.toBeUndefined();
 
       expect(mockCollection.insertOne).toHaveBeenCalled();
     });
@@ -307,7 +346,11 @@ describe('MonguardAuditLogger', () => {
 
       const objectId = new MongoObjectId();
 
-      await logger.logOperation('create', 'users', objectId as any);
+      await logger.logOperation({
+        action: 'create',
+        collectionName: 'users',
+        documentId: objectId as any,
+      });
 
       expect(mockCollection.insertOne).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -382,7 +425,13 @@ describe('NoOpAuditLogger', () => {
   });
 
   it('should perform no-op for logOperation', async () => {
-    await expect(logger.logOperation('create', 'users', 'test-id')).resolves.toBeUndefined();
+    await expect(
+      logger.logOperation({
+        action: 'create',
+        collectionName: 'users',
+        documentId: 'test-id',
+      })
+    ).resolves.toBeUndefined();
   });
 
   it('should return empty array for getAuditLogs', async () => {

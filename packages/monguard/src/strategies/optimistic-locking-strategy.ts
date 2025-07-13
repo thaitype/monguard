@@ -338,7 +338,7 @@ export class OptimisticLockingStrategy<T extends BaseDocument, TRefId = DefaultR
 
           // Use the first document's ID as reference, or generate a summary entry
           const referenceId = beforeDocs[0]!._id;
-          
+
           const auditOptions: AuditOperationOptions<TRefId> = {
             action: 'update',
             collectionName: this.context.collectionName,

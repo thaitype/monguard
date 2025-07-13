@@ -40,7 +40,14 @@ import type {
 } from './types';
 import { OperationStrategy, OperationStrategyContext } from './strategies/operation-strategy';
 import { StrategyFactory } from './strategies/strategy-factory';
-import { AuditLogger, NoOpAuditLogger, MonguardAuditLogger, Logger, ConsoleLogger, AuditOperationOptions } from './audit-logger';
+import {
+  AuditLogger,
+  NoOpAuditLogger,
+  MonguardAuditLogger,
+  Logger,
+  ConsoleLogger,
+  AuditOperationOptions,
+} from './audit-logger';
 
 /**
  * Configuration options for MonguardCollection initialization.
