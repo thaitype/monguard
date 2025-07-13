@@ -1,3 +1,4 @@
+[>> Table of Contents](/docs/README.md)
 
 # Introduction
 
@@ -103,3 +104,6 @@ try {
 - Full TypeScript support with strict typing
 - MongoDB-compatible type definitions
 - Zero runtime dependencies on MongoDB driver
+
+---
+[>> Table of Contents](/docs/README.md)
