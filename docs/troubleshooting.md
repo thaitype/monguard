@@ -156,11 +156,11 @@ async function bulkUpdateUsers(userIds: ObjectId[], updateData: any, userContext
 **Problem**: "Document was modified by another operation" errors on existing documents
 
 **Symptoms**:
-- Errors when updating documents that existed before MonGuard implementation
+- Errors when updating documents that existed before Monguard implementation
 - Version conflict errors on documents without `__v` field
 - Unexpected behavior when migrating existing collections
 
-**Solution**: These errors occur when documents don't have the `__v` version field. MonGuard now handles this automatically:
+**Solution**: These errors occur when documents don't have the `__v` version field. Monguard now handles this automatically:
 
 ```typescript
 // ✅ Works automatically - no configuration needed

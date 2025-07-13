@@ -17,7 +17,7 @@ Traditional audit logging stores complete "before" and "after" document states f
 
 ### Operation-Specific Storage Modes
 
-**IMPORTANT**: Not all operations respect the delta mode setting. MonGuard uses different storage strategies based on the logical requirements of each operation type:
+**IMPORTANT**: Not all operations respect the delta mode setting. Monguard uses different storage strategies based on the logical requirements of each operation type:
 
 | Operation | Storage Mode | Rationale | Fields Stored |
 |-----------|--------------|-----------|---------------|
@@ -115,9 +115,9 @@ Delta mode preserves important semantic distinctions between different types of 
 | **Field Set to Null** | Field had value → Field explicitly nulled | `{ old: "value", new: null }` | Explicit `null` means "intentionally empty" |
 | **Field Changed** | Value A → Value B | `{ old: "A", new: "B" }` | Standard value change |
 
-#### Important: MonGuard Undefined Value Handling
+#### Important: Monguard Undefined Value Handling
 
-MonGuard explicitly removes `undefined` `old` and `new` properties from delta changes before storing in MongoDB. This **intentional cleaning** maintains semantic correctness and ensures clear field change meanings:
+Monguard explicitly removes `undefined` `old` and `new` properties from delta changes before storing in MongoDB. This **intentional cleaning** maintains semantic correctness and ensures clear field change meanings:
 
 ```typescript
 // ✅ Field added (before: didn't exist, after: has value)
@@ -154,12 +154,12 @@ MonGuard explicitly removes `undefined` `old` and `new` properties from delta ch
 }
 ```
 
-#### How MonGuard Processes Delta Changes
+#### How Monguard Processes Delta Changes
 
-MonGuard uses a focused approach to handle undefined values in delta changes:
+Monguard uses a focused approach to handle undefined values in delta changes:
 
 ```typescript
-// Internal processing: MonGuard's cleanDeltaChanges method
+// Internal processing: Monguard's cleanDeltaChanges method
 // Input from delta calculator:
 const rawDeltaChanges = {
   'email': { old: undefined, new: 'john@example.com' },
@@ -167,7 +167,7 @@ const rawDeltaChanges = {
   'phone': { old: '123-456', new: undefined }
 };
 
-// After MonGuard cleaning (before MongoDB storage):
+// After Monguard cleaning (before MongoDB storage):
 const cleanedDeltaChanges = {
   'email': { new: 'john@example.com' },        // 'old' removed
   'name': { old: 'John', new: 'Jane' },        // unchanged

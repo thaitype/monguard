@@ -2,14 +2,14 @@
 
 ## Legacy Document Handling & Recent Fixes
 
-MonGuard seamlessly handles documents created outside the MonGuard system or before MonGuard was implemented (legacy documents). Recent improvements ensure robust handling of various edge cases and migration scenarios.
+Monguard seamlessly handles documents created outside the Monguard system or before Monguard was implemented (legacy documents). Recent improvements ensure robust handling of various edge cases and migration scenarios.
 
 ### Legacy Documents Without `__v` Field
 
-Documents created directly in MongoDB (outside MonGuard) don't have the `__v` version field that MonGuard uses for optimistic locking. MonGuard now handles these gracefully:
+Documents created directly in MongoDB (outside Monguard) don't have the `__v` version field that Monguard uses for optimistic locking. Monguard now handles these gracefully:
 
 ```typescript
-// Legacy document in your collection (created outside MonGuard):
+// Legacy document in your collection (created outside Monguard):
 {
   _id: ObjectId("..."),
   name: "John Doe", 
@@ -18,12 +18,12 @@ Documents created directly in MongoDB (outside MonGuard) don't have the `__v` ve
   // Note: No __v field
 }
 
-// ✅ MonGuard operations now work seamlessly
+// ✅ Monguard operations now work seamlessly
 const users = new MonguardCollection<User>(db, 'users', {
   concurrency: { transactionsEnabled: false } // Optimistic locking
 });
 
-// First MonGuard operation correctly sets version to 1
+// First Monguard operation correctly sets version to 1
 const result = await users.updateById(legacyDocId, { 
   $set: { name: 'John Smith' } 
 }, { userContext });
@@ -54,7 +54,7 @@ await users.updateById(versionedDocId, update); // Document with __v: 5
 ```
 
 #### 2. **Correct Initial Versioning** 
-**Problem**: Legacy documents got version 2 instead of 1 on first MonGuard operation.
+**Problem**: Legacy documents got version 2 instead of 1 on first Monguard operation.
 
 **Solution**: Fixed initial version calculation:
 ```typescript
@@ -92,7 +92,7 @@ await users.updateById(docId, { $set: { name: 'Same Name' } });
 
 ### Migration Compatibility
 
-MonGuard is designed for zero-downtime migration and works with existing MongoDB collections:
+Monguard is designed for zero-downtime migration and works with existing MongoDB collections:
 
 ```typescript
 // ✅ Drop-in replacement for existing MongoDB collections
@@ -103,8 +103,8 @@ const users = new MonguardCollection<User>(db, 'existing_users', {
 // Works immediately with your existing data:
 // - Documents without __v: Start version tracking from 1
 // - Documents with timestamps: Preserve existing timestamps  
-// - Mixed collections: Handle both legacy and MonGuard documents
-// - Audit trail: Start logging from first MonGuard operation
+// - Mixed collections: Handle both legacy and Monguard documents
+// - Audit trail: Start logging from first Monguard operation
 ```
 
 ### Best Practices for Legacy Integration
@@ -117,7 +117,7 @@ const existingUsers = await users.find({});
 // 2. Begin with non-critical update operations
 await users.updateById(testUserId, { $set: { lastLogin: new Date() } });
 
-// 3. Gradually adopt full MonGuard features
+// 3. Gradually adopt full Monguard features
 // - Soft deletes
 // - User tracking  
 // - Audit logging
