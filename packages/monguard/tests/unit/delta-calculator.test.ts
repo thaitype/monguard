@@ -445,50 +445,32 @@ describe('Delta Calculator Unit Tests', () => {
   describe('Semantic Correctness', () => {
     it('should correctly distinguish undefined vs null semantics', () => {
       // Field added (didn't exist before)
-      const added = computeDelta(
-        { name: 'John' },
-        { name: 'John', email: 'john@example.com' }
-      );
+      const added = computeDelta({ name: 'John' }, { name: 'John', email: 'john@example.com' });
       expect(added.changes.email).toEqual({ old: undefined, new: 'john@example.com' });
       expect(added.changes.email.old).toBe(undefined);
 
       // Field removed (was there, now gone)
-      const removed = computeDelta(
-        { name: 'John', email: 'john@example.com' },
-        { name: 'John' }
-      );
+      const removed = computeDelta({ name: 'John', email: 'john@example.com' }, { name: 'John' });
       expect(removed.changes.email).toEqual({ old: 'john@example.com', new: undefined });
       expect(removed.changes.email.new).toBe(undefined);
 
       // Field explicitly set to null
-      const setToNull = computeDelta(
-        { name: 'John', email: 'john@example.com' },
-        { name: 'John', email: null }
-      );
+      const setToNull = computeDelta({ name: 'John', email: 'john@example.com' }, { name: 'John', email: null });
       expect(setToNull.changes.email).toEqual({ old: 'john@example.com', new: null });
 
       // Field changed from null to value
-      const fromNull = computeDelta(
-        { name: 'John', email: null },
-        { name: 'John', email: 'john@example.com' }
-      );
+      const fromNull = computeDelta({ name: 'John', email: null }, { name: 'John', email: 'john@example.com' });
       expect(fromNull.changes.email).toEqual({ old: null, new: 'john@example.com' });
     });
 
     it('should handle array semantic correctness', () => {
       // Array element added
-      const arrayAdded = computeDelta(
-        { tags: ['user', 'editor'] },
-        { tags: ['user', 'editor', 'verified'] }
-      );
+      const arrayAdded = computeDelta({ tags: ['user', 'editor'] }, { tags: ['user', 'editor', 'verified'] });
       expect(arrayAdded.changes['tags.2']).toEqual({ old: undefined, new: 'verified' });
       expect(arrayAdded.changes['tags.2'].old).toBe(undefined);
 
       // Array element removed
-      const arrayRemoved = computeDelta(
-        { tags: ['user', 'editor', 'verified'] },
-        { tags: ['user', 'editor'] }
-      );
+      const arrayRemoved = computeDelta({ tags: ['user', 'editor', 'verified'] }, { tags: ['user', 'editor'] });
       expect(arrayRemoved.changes['tags.2']).toEqual({ old: 'verified', new: undefined });
       expect(arrayRemoved.changes['tags.2'].new).toBe(undefined);
 
@@ -519,10 +501,7 @@ describe('Delta Calculator Unit Tests', () => {
     });
 
     it('should preserve JSON serialization semantics', () => {
-      const result = computeDelta(
-        { existing: 'value', willBeRemoved: 'old' },
-        { existing: 'value', added: 'new' }
-      );
+      const result = computeDelta({ existing: 'value', willBeRemoved: 'old' }, { existing: 'value', added: 'new' });
 
       // Serialize to JSON (simulating MongoDB storage)
       const serialized = JSON.parse(JSON.stringify(result.changes));

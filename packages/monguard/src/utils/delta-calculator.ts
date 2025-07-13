@@ -19,13 +19,13 @@ export interface DeltaOptions {
 
 /**
  * Represents a change in a specific field path.
- * 
+ *
  * Semantic meanings:
  * - Field added: old = undefined, new = value (JSON: {new: value})
  * - Field removed: old = value, new = undefined (JSON: {old: value})
  * - Field set to null: old = value, new = null (JSON: {old: value, new: null})
  * - Field changed: old = oldValue, new = newValue (JSON: {old: oldValue, new: newValue})
- * 
+ *
  * Note: When serialized to JSON, undefined values are omitted. This is intentional
  * and correctly represents the semantic difference between "missing" and "null".
  */
@@ -132,7 +132,7 @@ function computeFieldDifferences(
         new: after,
         ...(depth >= options.maxDepth && (isObject(before) || isObject(after)) ? { fullDocument: true } : {}),
       };
-      
+
       // Note: We preserve undefined values for semantic correctness
       // When serialized to JSON, undefined values will be omitted,
       // which correctly represents "field was added" (no old) or "field was removed" (no new)

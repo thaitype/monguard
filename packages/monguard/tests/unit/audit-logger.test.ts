@@ -408,42 +408,42 @@ describe('cleanDeltaChanges', () => {
   const testCases = [
     {
       description: 'should remove undefined old property (field added)',
-      input: { 'email': { old: undefined, new: 'john@example.com' } },
-      expected: { 'email': { new: 'john@example.com' } }
+      input: { email: { old: undefined, new: 'john@example.com' } },
+      expected: { email: { new: 'john@example.com' } },
     },
     {
       description: 'should remove undefined new property (field removed)',
-      input: { 'email': { old: 'john@example.com', new: undefined } },
-      expected: { 'email': { old: 'john@example.com' } }
+      input: { email: { old: 'john@example.com', new: undefined } },
+      expected: { email: { old: 'john@example.com' } },
     },
     {
       description: 'should preserve null values',
-      input: { 'email': { old: 'john@example.com', new: null } },
-      expected: { 'email': { old: 'john@example.com', new: null } }
+      input: { email: { old: 'john@example.com', new: null } },
+      expected: { email: { old: 'john@example.com', new: null } },
     },
     {
       description: 'should preserve both old and new when neither is undefined',
-      input: { 'name': { old: 'John', new: 'Jane' } },
-      expected: { 'name': { old: 'John', new: 'Jane' } }
+      input: { name: { old: 'John', new: 'Jane' } },
+      expected: { name: { old: 'John', new: 'Jane' } },
     },
     {
       description: 'should preserve fullDocument flag',
-      input: { 'tags': { old: ['a'], new: ['b'], fullDocument: true } },
-      expected: { 'tags': { old: ['a'], new: ['b'], fullDocument: true } }
+      input: { tags: { old: ['a'], new: ['b'], fullDocument: true } },
+      expected: { tags: { old: ['a'], new: ['b'], fullDocument: true } },
     },
     {
       description: 'should handle multiple field changes',
       input: {
-        'name': { old: undefined, new: 'John' },
-        'email': { old: 'old@example.com', new: undefined },
-        'age': { old: 25, new: 26 }
+        name: { old: undefined, new: 'John' },
+        email: { old: 'old@example.com', new: undefined },
+        age: { old: 25, new: 26 },
       },
       expected: {
-        'name': { new: 'John' },
-        'email': { old: 'old@example.com' },
-        'age': { old: 25, new: 26 }
-      }
-    }
+        name: { new: 'John' },
+        email: { old: 'old@example.com' },
+        age: { old: 25, new: 26 },
+      },
+    },
   ];
 
   it.each(testCases)('$description', ({ input, expected }) => {
