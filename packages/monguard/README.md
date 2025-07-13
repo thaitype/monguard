@@ -1119,9 +1119,9 @@ Delta mode preserves important semantic distinctions between different types of 
 | **Field Set to Null** | Field had value → Field explicitly nulled | `{ old: "value", new: null }` | Explicit `null` means "intentionally empty" |
 | **Field Changed** | Value A → Value B | `{ old: "A", new: "B" }` | Standard value change |
 
-#### Important: MongoDB JSON Serialization
+#### Important: MonGuard Undefined Value Handling
 
-When delta changes are stored in MongoDB, `undefined` values are automatically omitted from the JSON structure. This behavior is **intentional** and maintains semantic correctness:
+MonGuard explicitly removes `undefined` `old` and `new` properties from delta changes before storing in MongoDB. This **intentional cleaning** maintains semantic correctness and ensures clear field change meanings:
 
 ```typescript
 // ✅ Field added (before: didn't exist, after: has value)
@@ -1157,6 +1157,35 @@ When delta changes are stored in MongoDB, `undefined` values are automatically o
   }
 }
 ```
+
+#### How MonGuard Processes Delta Changes
+
+MonGuard uses a focused approach to handle undefined values in delta changes:
+
+```typescript
+// Internal processing: MonGuard's cleanDeltaChanges method
+// Input from delta calculator:
+const rawDeltaChanges = {
+  'email': { old: undefined, new: 'john@example.com' },
+  'name': { old: 'John', new: 'Jane' },
+  'phone': { old: '123-456', new: undefined }
+};
+
+// After MonGuard cleaning (before MongoDB storage):
+const cleanedDeltaChanges = {
+  'email': { new: 'john@example.com' },        // 'old' removed
+  'name': { old: 'John', new: 'Jane' },        // unchanged
+  'phone': { old: '123-456' }                  // 'new' removed
+};
+```
+
+**Key Implementation Details:**
+
+- **Scope**: Only cleans top-level `old`/`new` properties in delta changes
+- **Method**: Uses `cleanDeltaChanges()` method in the audit logger
+- **Timing**: Cleaning happens before sending to MongoDB
+- **Nested Objects**: MongoDB handles nested object serialization naturally
+- **Performance**: Simple, non-recursive approach for better performance
 
 #### Restoration Logic Examples
 

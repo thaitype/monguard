@@ -322,9 +322,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           metadata: processedMetadata,
         };
 
-        // Clean undefined values from metadata to preserve semantic correctness
-        const cleanedAuditLog = this.cleanUndefinedValues(auditLog);
-        await this.auditCollection.insertOne(cleanedAuditLog as any);
+        await this.auditCollection.insertOne(auditLog as any);
       }
     } catch (error) {
       // Log the error for debugging
@@ -385,7 +383,7 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
 
         if (deltaResult.hasChanges) {
           return {
-            deltaChanges: deltaResult.changes,
+            deltaChanges: this.cleanDeltaChanges(deltaResult.changes),
             storageMode: 'delta',
             // Only store delta changes in delta mode - exclude before/after/changes for storage optimization
           };
@@ -407,33 +405,41 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
   }
 
   /**
-   * Recursively removes undefined values from an object to maintain
-   * semantic correctness when storing in MongoDB (which converts undefined to null).
+   * Cleans undefined values from delta changes to maintain semantic correctness.
+   * Only processes top-level old/new fields, letting MongoDB handle nested object serialization naturally.
    * 
    * This preserves the distinction between:
-   * - Missing property (field was added/removed)
+   * - Missing property (field was added/removed) 
    * - null property (field was explicitly set to null)
    *
    * @private
-   * @param obj - Object to clean
-   * @returns Cleaned object without undefined values
+   * @param deltaChanges - Record of field paths to their changes
+   * @returns Cleaned delta changes without undefined old/new properties
    */
-  private cleanUndefinedValues(obj: any): any {
-    if (obj === null || typeof obj !== 'object') {
-      return obj;
-    }
-
-    if (Array.isArray(obj)) {
-      return obj.map(item => this.cleanUndefinedValues(item));
-    }
-
-    const cleaned: any = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== undefined) {
-        cleaned[key] = this.cleanUndefinedValues(value);
+  private cleanDeltaChanges(deltaChanges: Record<string, any>): Record<string, any> {
+    const cleaned: Record<string, any> = {};
+    
+    for (const [fieldPath, change] of Object.entries(deltaChanges)) {
+      const cleanedChange: any = {};
+      
+      // Only include old property if it's not undefined
+      if (change.old !== undefined) {
+        cleanedChange.old = change.old;
       }
-      // Skip undefined values - they will be omitted from the object
+      
+      // Only include new property if it's not undefined
+      if (change.new !== undefined) {
+        cleanedChange.new = change.new;
+      }
+      
+      // Preserve fullDocument flag if present
+      if (change.fullDocument) {
+        cleanedChange.fullDocument = true;
+      }
+      
+      cleaned[fieldPath] = cleanedChange;
     }
+    
     return cleaned;
   }
 
