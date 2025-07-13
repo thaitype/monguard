@@ -277,8 +277,8 @@ describe('Delta Audit Logging Integration Tests', () => {
       expect(updateLog!.metadata?.storageMode).toBe('delta');
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges!['tags.2']).toEqual({
-        old: null,
         new: 'verified',
+        // Note: 'old' property is omitted when field was added (undefined serializes to omitted)
       });
     });
 
@@ -491,7 +491,7 @@ describe('Delta Audit Logging Integration Tests', () => {
       expect(updateLogs).toHaveLength(0);
     });
 
-    it('should handle null and undefined values correctly', async () => {
+    it('should handle field removal (undefined) correctly', async () => {
       const userData = TestDataFactory.createUser({
         name: 'John Doe',
         email: 'john@example.com',
@@ -500,7 +500,7 @@ describe('Delta Audit Logging Integration Tests', () => {
 
       const doc = await collection.create(userData, { userContext });
 
-      // Set field to null
+      // Remove field (using $unset)
       await collection.update({ _id: doc._id }, { $unset: { email: '' } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
@@ -510,7 +510,30 @@ describe('Delta Audit Logging Integration Tests', () => {
       expect(updateLog!.metadata?.deltaChanges).toBeDefined();
       expect(updateLog!.metadata?.deltaChanges!['email']).toEqual({
         old: 'john@example.com',
-        new: null,
+        // Note: 'new' property is omitted when field is removed (undefined)
+      });
+    });
+
+    it('should handle explicit null values correctly', async () => {
+      const userData = TestDataFactory.createUser({
+        name: 'John Doe',
+        email: 'john@example.com',
+      });
+      const userContext = TestDataFactory.createUserContext();
+
+      const doc = await collection.create(userData, { userContext });
+
+      // Set field to null explicitly
+      await collection.update({ _id: doc._id }, { $set: { email: null } }, { userContext });
+
+      const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
+      const updateLog = auditLogs.find(log => log.action === 'update');
+
+      expect(updateLog).toBeDefined();
+      expect(updateLog!.metadata?.deltaChanges).toBeDefined();
+      expect(updateLog!.metadata?.deltaChanges!['email']).toEqual({
+        old: 'john@example.com',
+        new: null, // null is preserved when explicitly set
       });
     });
   });
