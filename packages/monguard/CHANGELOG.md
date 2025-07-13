@@ -1,5 +1,11 @@
 # monguard
 
+## 0.13.0
+
+### Minor Changes
+
+- 91f51af: Add traceId, and allow CRUD operation to add audit log metadata, refactor manual audit log api
+
 ## 0.12.0
 
 ### Minor Changes
