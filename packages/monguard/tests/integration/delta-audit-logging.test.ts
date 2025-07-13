@@ -524,7 +524,7 @@ describe('Delta Audit Logging Integration Tests', () => {
       const doc = await collection.create(userData, { userContext });
 
       // Set field to null explicitly
-      await collection.update({ _id: doc._id }, { $set: { email: null } }, { userContext });
+      await collection.update({ _id: doc._id }, { $set: { email: null as any } }, { userContext });
 
       const auditLogs = await collection.getAuditCollection()!.find({}).toArray();
       const updateLog = auditLogs.find(log => log.action === 'update');

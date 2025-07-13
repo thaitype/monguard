@@ -447,12 +447,12 @@ describe('Delta Calculator Unit Tests', () => {
       // Field added (didn't exist before)
       const added = computeDelta({ name: 'John' }, { name: 'John', email: 'john@example.com' });
       expect(added.changes.email).toEqual({ old: undefined, new: 'john@example.com' });
-      expect(added.changes.email.old).toBe(undefined);
+      expect(added.changes.email?.old).toBe(undefined);
 
       // Field removed (was there, now gone)
       const removed = computeDelta({ name: 'John', email: 'john@example.com' }, { name: 'John' });
       expect(removed.changes.email).toEqual({ old: 'john@example.com', new: undefined });
-      expect(removed.changes.email.new).toBe(undefined);
+      expect(removed.changes.email?.new).toBe(undefined);
 
       // Field explicitly set to null
       const setToNull = computeDelta({ name: 'John', email: 'john@example.com' }, { name: 'John', email: null });
@@ -467,12 +467,12 @@ describe('Delta Calculator Unit Tests', () => {
       // Array element added
       const arrayAdded = computeDelta({ tags: ['user', 'editor'] }, { tags: ['user', 'editor', 'verified'] });
       expect(arrayAdded.changes['tags.2']).toEqual({ old: undefined, new: 'verified' });
-      expect(arrayAdded.changes['tags.2'].old).toBe(undefined);
+      expect(arrayAdded.changes['tags.2']?.old).toBe(undefined);
 
       // Array element removed
       const arrayRemoved = computeDelta({ tags: ['user', 'editor', 'verified'] }, { tags: ['user', 'editor'] });
       expect(arrayRemoved.changes['tags.2']).toEqual({ old: 'verified', new: undefined });
-      expect(arrayRemoved.changes['tags.2'].new).toBe(undefined);
+      expect(arrayRemoved.changes['tags.2']?.new).toBe(undefined);
 
       // Array element changed
       const arrayChanged = computeDelta(
@@ -489,7 +489,7 @@ describe('Delta Calculator Unit Tests', () => {
         { profile: { name: 'John', email: 'john@example.com' } }
       );
       expect(nestedAdded.changes['profile.email']).toEqual({ old: undefined, new: 'john@example.com' });
-      expect(nestedAdded.changes['profile.email'].old).toBe(undefined);
+      expect(nestedAdded.changes['profile.email']?.old).toBe(undefined);
 
       // Nested field removed
       const nestedRemoved = computeDelta(
@@ -497,7 +497,7 @@ describe('Delta Calculator Unit Tests', () => {
         { profile: { name: 'John' } }
       );
       expect(nestedRemoved.changes['profile.email']).toEqual({ old: 'john@example.com', new: undefined });
-      expect(nestedRemoved.changes['profile.email'].new).toBe(undefined);
+      expect(nestedRemoved.changes['profile.email']?.new).toBe(undefined);
     });
 
     it('should preserve JSON serialization semantics', () => {
