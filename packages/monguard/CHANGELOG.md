@@ -1,5 +1,11 @@
 # monguard
 
+## 0.12.0
+
+### Minor Changes
+
+- f3db012: improve delta audit semantics and simplify audit log timestamps
+
 ## 0.11.3
 
 ### Patch Changes
