@@ -322,7 +322,9 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           metadata: processedMetadata,
         };
 
-        await this.auditCollection.insertOne(auditLog as any);
+        // Clean undefined values from metadata to preserve semantic correctness
+        const cleanedAuditLog = this.cleanUndefinedValues(auditLog);
+        await this.auditCollection.insertOne(cleanedAuditLog as any);
       }
     } catch (error) {
       // Log the error for debugging
@@ -402,6 +404,37 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
       ...workingMetadata,
       storageMode: 'full',
     };
+  }
+
+  /**
+   * Recursively removes undefined values from an object to maintain
+   * semantic correctness when storing in MongoDB (which converts undefined to null).
+   * 
+   * This preserves the distinction between:
+   * - Missing property (field was added/removed)
+   * - null property (field was explicitly set to null)
+   *
+   * @private
+   * @param obj - Object to clean
+   * @returns Cleaned object without undefined values
+   */
+  private cleanUndefinedValues(obj: any): any {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanUndefinedValues(item));
+    }
+
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = this.cleanUndefinedValues(value);
+      }
+      // Skip undefined values - they will be omitted from the object
+    }
+    return cleaned;
   }
 
   /**
