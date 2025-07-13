@@ -74,10 +74,23 @@ export interface AuditableDocument<TId = DefaultReferenceId> extends BaseDocumen
 export type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'custom';
 
 /**
- * Document structure for audit log entries that track all changes to documents.
+ * Base interface for audit log documents that only includes essential audit-specific fields.
+ * Unlike BaseDocument, this doesn't include redundant timestamp fields since audit logs are immutable.
  * @template TId - The type of the document's ID field and user ID field
  */
-export interface AuditLogDocument<TId = DefaultReferenceId> extends BaseDocument<TId> {
+export interface AuditLogBase<TId = DefaultReferenceId> {
+  /** Document unique identifier */
+  _id: TId;
+  /** Version number for potential audit log versioning (optional for future use) */
+  __v?: number;
+}
+
+/**
+ * Document structure for audit log entries that track all changes to documents.
+ * Uses AuditLogBase instead of BaseDocument to avoid redundant timestamp fields.
+ * @template TId - The type of the document's ID field and user ID field
+ */
+export interface AuditLogDocument<TId = DefaultReferenceId> extends AuditLogBase<TId> {
   /** Reference to the document that was modified */
   ref: {
     /** Name of the collection containing the modified document */

@@ -26,8 +26,7 @@ export class TestAssertions {
     expect(auditLog.action).toBe(expectedAction);
     expect(auditLog.ref.id.toString()).toEqual(documentId.toString());
     expect(auditLog.timestamp).toBeInstanceOf(Date);
-    expect(auditLog.createdAt).toBeInstanceOf(Date);
-    expect(auditLog.updatedAt).toBeInstanceOf(Date);
+    // Note: createdAt and updatedAt are no longer included in audit logs since they're redundant with timestamp
   }
 }
 

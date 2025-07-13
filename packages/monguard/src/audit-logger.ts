@@ -317,8 +317,6 @@ export class MonguardAuditLogger<TRefId = any> extends AuditLogger<TRefId> {
           action,
           userId: userContext?.userId,
           timestamp: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
           metadata: processedMetadata,
         };
 

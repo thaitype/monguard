@@ -360,8 +360,7 @@ describe('Concurrent Operations Integration Tests', () => {
         expect(log.ref.collection).toBe('test_users');
         expect(log.ref.id).toBeInstanceOf(MongoObjectId);
         expect(log.timestamp).toBeInstanceOf(Date);
-        expect(log.createdAt).toBeInstanceOf(Date);
-        expect(log.updatedAt).toBeInstanceOf(Date);
+        // Note: createdAt and updatedAt are no longer included in audit logs since they're redundant with timestamp
       });
     });
   });
