@@ -112,13 +112,17 @@ const users = new MonguardCollection<User>(db, 'users', {
   }
 });
 
-// Create a user with audit logging
+// Create a user with audit logging and traceId
 try {
   const user = await users.create({
     name: 'John Doe',
     email: 'john@example.com'
   }, {
-    userContext: { userId: 'admin-123' }
+    userContext: { userId: 'admin-123' },
+    auditMetadata: {
+      traceId: 'req-abc-123',
+      customData: { source: 'admin_panel', version: '2.1' }
+    }
   });
   
   console.log('User created:', user);
@@ -131,10 +135,12 @@ try {
 
 ### 🔍 **Audit Logging**
 - Automatic tracking of all create, update, and delete operations
+- **Request tracing support** with `traceId` for distributed systems
 - **Transaction-aware audit control** with in-transaction and outbox modes
 - **Flexible error handling** with fail-fast or resilient strategies
 - Customizable audit collection names and logger interfaces
 - Rich metadata including before/after states and field changes
+- **Custom data attachment** for application-specific audit context
 - Reference ID validation with configurable error handling
 - Support for custom logging services (Winston, Pino, etc.)
 
@@ -635,10 +641,7 @@ clearDeletedFields(
 ```typescript
 // Create single audit log entry
 async createAuditLog(
-  action: AuditAction,
-  documentId: ObjectId,
-  userContext?: UserContext,
-  metadata?: ManualAuditOptions
+  options: CreateAuditLogOptions
 ): Promise<void>
 
 // Create multiple audit log entries
@@ -646,11 +649,24 @@ async createAuditLogs(
   entries: BatchAuditEntry[]
 ): Promise<void>
 
+interface CreateAuditLogOptions {
+  action: AuditAction;
+  documentId: any;
+  userContext?: UserContext;
+  metadata?: ManualAuditOptions;
+}
+
 interface ManualAuditOptions {
   beforeDocument?: any;
   afterDocument?: any;
   customData?: Record<string, any>;
+  traceId?: string;
   skipAutoFields?: boolean;
+}
+
+interface AuditMetadataOptions {
+  traceId?: string;
+  customData?: Record<string, any>;
 }
 
 interface BatchAuditEntry {
@@ -661,6 +677,120 @@ interface BatchAuditEntry {
 }
 
 type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'custom';
+```
+
+## Request Tracing and Audit Metadata
+
+Monguard supports request tracing and custom audit metadata for CRUD operations, enabling you to track operations across distributed systems and add application-specific context to audit logs.
+
+### CRUD Operations with Audit Metadata
+
+All CRUD operations accept an `auditMetadata` option that includes `traceId` and `customData`:
+
+```typescript
+// Create with traceId and custom data
+const user = await collection.create({
+  name: 'Alice Johnson',
+  email: 'alice@example.com'
+}, {
+  userContext: { userId: 'api-user-123' },
+  auditMetadata: {
+    traceId: 'req-abc-123',
+    customData: {
+      source: 'mobile_app',
+      version: '2.1.0',
+      feature: 'user_registration'
+    }
+  }
+});
+
+// Update with traceId
+await collection.updateById(userId, {
+  lastLogin: new Date(),
+  status: 'active'
+}, {
+  userContext: { userId: 'system' },
+  auditMetadata: {
+    traceId: 'req-def-456',
+    customData: {
+      trigger: 'login_event',
+      ipAddress: '192.168.1.100',
+      userAgent: 'Mozilla/5.0...'
+    }
+  }
+});
+
+// Delete with traceId
+await collection.deleteById(userId, {
+  userContext: { userId: 'admin-789' },
+  auditMetadata: {
+    traceId: 'req-ghi-789',
+    customData: {
+      reason: 'gdpr_request',
+      ticketId: 'GDPR-2023-001',
+      approvedBy: 'legal-team'
+    }
+  }
+});
+```
+
+### Audit Log Structure with TraceId
+
+When using `auditMetadata`, your audit logs will include the traceId at the top level and custom data in the metadata:
+
+```typescript
+// Example audit log document
+{
+  _id: ObjectId('...'),
+  ref: {
+    collection: 'users',
+    id: ObjectId('...')
+  },
+  action: 'update',
+  userId: 'api-user-123',
+  timestamp: ISODate('2023-10-15T10:30:00Z'),
+  traceId: 'req-def-456',  // 🎯 Top-level traceId for easy indexing
+  metadata: {
+    before: { name: 'Alice', status: 'pending' },
+    after: { name: 'Alice', status: 'active' },
+    changes: ['status'],
+    customData: {             // 📝 Application-specific context
+      trigger: 'login_event',
+      ipAddress: '192.168.1.100',
+      userAgent: 'Mozilla/5.0...'
+    }
+  }
+}
+```
+
+### Request Tracing Best Practices
+
+1. **Consistent TraceId Format**: Use a consistent format like `req-{service}-{timestamp}-{random}`
+2. **Distributed Tracing**: Pass the same `traceId` across microservices 
+3. **Indexing**: Create database indexes on `traceId` for fast query performance
+4. **Custom Data**: Include relevant context like IP addresses, user agents, feature flags
+
+```typescript
+// Example: Consistent tracing across operations
+const traceId = `req-userapi-${Date.now()}-${Math.random().toString(36)}`;
+
+// Create user
+const user = await userCollection.create(userData, {
+  userContext: { userId: 'system' },
+  auditMetadata: { traceId, customData: { operation: 'registration' } }
+});
+
+// Create profile  
+await profileCollection.create(profileData, {
+  userContext: { userId: user._id },
+  auditMetadata: { traceId, customData: { operation: 'profile_setup' } }
+});
+
+// Update preferences
+await preferenceCollection.create(preferences, {
+  userContext: { userId: user._id },
+  auditMetadata: { traceId, customData: { operation: 'preferences_init' } }
+});
 ```
 
 ### Error Handling
@@ -2247,35 +2377,41 @@ The `createAuditLog()` method creates individual audit log entries:
 import { ObjectId } from 'mongodb';
 
 // Create custom audit log entry
-await collection.createAuditLog(
-  'custom',                                    // Action type
-  new ObjectId('60f1e2b3c4d5e6f7a8b9c0d1'), // Document ID
-  { userId: 'user123' },                      // User context
-  {
+await collection.createAuditLog({
+  action: 'custom',
+  documentId: new ObjectId('60f1e2b3c4d5e6f7a8b9c0d1'),
+  userContext: { userId: 'user123' },
+  metadata: {
     beforeDocument: { name: 'Old Name', status: 'pending' },
     afterDocument: { name: 'New Name', status: 'approved' },
     customData: { 
       reason: 'bulk_approval',
       batchId: 'batch-001',
       externalSystemId: 'ext-12345'
-    }
+    },
+    traceId: 'trace-abc-123'
   }
-);
+});
 
 // Create audit log for manual restore operation
-await collection.createAuditLog(
-  'restore',
+await collection.createAuditLog({
+  action: 'restore',
   documentId,
-  { userId: 'admin456' },
-  {
+  userContext: { userId: 'admin456' },
+  metadata: {
     beforeDocument: { name: 'John', deletedAt: new Date(), deletedBy: 'old-admin' },
     afterDocument: { name: 'John', deletedAt: undefined, deletedBy: undefined },
-    customData: { reason: 'data_recovery', ticket: 'SUPPORT-123' }
+    customData: { reason: 'data_recovery', ticket: 'SUPPORT-123' },
+    traceId: 'restore-def-456'
   }
-);
+});
 
 // Simple audit log without metadata
-await collection.createAuditLog('create', documentId, { userId: 'system' });
+await collection.createAuditLog({
+  action: 'create',
+  documentId,
+  userContext: { userId: 'system' }
+});
 ```
 
 ### Manual Batch Audit Logs
